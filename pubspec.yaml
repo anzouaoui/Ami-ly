@@ -1,0 +1,76 @@
+name: amily
+description: "Ami-ly : mise en relation Parents / Assistantes Maternelles."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.4 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # --- Firebase (Auth / Firestore / Storage) ---
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
+  firebase_storage: ^11.6.0
+  firebase_messaging: ^14.7.10        # pour les notifications push (matching, messages)
+
+  # --- State management & routing ---
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  go_router: ^13.1.0
+
+  # --- Monétisation ---
+  purchases_flutter: ^6.15.0          # RevenueCat - Abonnement Ami-ly Pro (Ass Mats)
+  flutter_stripe: ^10.1.1             # Stripe - Paiements ponctuels / factures
+
+  # --- Clean architecture helpers ---
+  dartz: ^0.10.1                      # Either<Failure, Success> pour les use cases
+  equatable: ^2.0.5                   # Égalité par valeur pour entities/states
+  freezed_annotation: ^2.4.1          # Modèles immuables + union types
+  json_annotation: ^4.8.1             # Sérialisation JSON/Firestore
+
+  # --- Utilitaires courants ---
+  intl: ^0.19.0                       # Dates FR, pluralisation, formats
+  shared_preferences: ^2.2.2          # Cache local léger (onboarding, tokens...)
+  cached_network_image: ^3.3.1        # Photos de profil optimisées
+  image_picker: ^1.0.7                # Upload photos (profil, documents)
+  image_cropper: ^5.0.1                # Recadrage photos de profil
+  permission_handler: ^11.2.0         # Permissions caméra / localisation
+  geolocator: ^11.0.0                  # Géolocalisation pour le matching
+  url_launcher: ^6.2.4                # Liens externes, mailto, tel
+  google_fonts: ^6.1.0                # Typographies customisées
+
+  # --- UI helpers ---
+  flutter_svg: ^2.0.9
+  lottie: ^3.0.0                      # Animations (onboarding, empty states)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.1
+
+  # --- Code generation ---
+  build_runner: ^2.4.8
+  freezed: ^2.4.6
+  json_serializable: ^6.7.1
+  riverpod_generator: ^2.3.9
+
+  # --- Lints Riverpod ---
+  custom_lint: ^0.5.8
+  riverpod_lint: ^2.3.7
+
+flutter:
+  uses-material-design: true
+
+  # Décommente et ajoute tes assets quand ils existeront
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+  #   - assets/lottie/
