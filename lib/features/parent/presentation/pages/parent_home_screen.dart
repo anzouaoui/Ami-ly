@@ -1,371 +1,257 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../widgets/assmat_card.dart';
+import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../widgets/dashboard_app_bar.dart';
+import '../widgets/mes_enfants_card.dart';
+import '../widgets/stat_card.dart';
 
-/// Écran d'accueil du Parent : header de bienvenue, barre de recherche,
-/// liste des "Nouveaux profils" d'assistantes maternelles et bottom nav.
+/// Dashboard du parent connecté.
 ///
-/// Pour l'instant tout est **mocké** (données statiques + `print` pour
-/// les interactions). Branchement Firestore + providers Riverpod dans
-/// une prochaine itération.
-class ParentHomeScreen extends StatelessWidget {
+/// Correspond à la frame "Dashboard Parent" du design system :
+///   - Header custom (menu + logo AMiLY)
+///   - Welcome "Bonjour, {displayName} 👋"
+///   - Grille 2x2 de stats (contrats, enfants, RDV, paiement)
+///   - Carte "Mes enfants" avec empty state + CTA "Trouver une assmat"
+///
+/// Toutes les stats sont pour l'instant à 0 / "—" — elles seront branchées
+/// sur Firestore quand la couche data Contrats/Enfants sera prête.
+class ParentHomeScreen extends ConsumerWidget {
   const ParentHomeScreen({super.key});
 
-  // --- Brand ---------------------------------------------------------------
-  static const _primary = Color(0xFF2AB5A6);      // bleu canard / turquoise
-  static const _primaryDark = Color(0xFF1F9B8E);  // pour dégradé léger
-  static const _bgSoft = Color(0xFFF7F8FA);       // fond très doux
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final displayName = user?.displayName ?? 'là';
 
-  // --- Mock data -----------------------------------------------------------
-  static const String _mockUserName = 'Sophie';
-  static const String _mockUserPhoto =
-      'https://i.pravatar.cc/150?img=47';
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      drawer: const _ParentDrawer(),
+      // Builder nécessaire pour obtenir un context enfant du Scaffold
+      // qui sait ouvrir le drawer.
+      body: Builder(
+        builder: (scaffoldCtx) => SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DashboardAppBar(
+                  onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer(),
+                ),
+                _WelcomeHeader(displayName: displayName),
+                _StatsGrid(),
+                const SizedBox(height: AppSpacing.md),
+                MesEnfantsCard(
+                  onFindAssmatTap: () => _onFindAssmat(context),
+                  onDocumentsTap: () => _onDocuments(context),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-  static const List<_MockAssMat> _mockAssMats = [
-    _MockAssMat(
-      name: 'Marie Dubois',
-      photoUrl: 'https://i.pravatar.cc/150?img=32',
-      rating: 4.9,
-      city: 'Paris 15e',
-      distanceKm: 1.2,
-      hourlyRate: 12,
-      yearsExperience: 8,
-      hasFirstAidTraining: true,
-    ),
-    _MockAssMat(
-      name: 'Fatima Benali',
-      photoUrl: 'https://i.pravatar.cc/150?img=45',
-      rating: 4.8,
-      city: 'Boulogne-Billancourt',
-      distanceKm: 2.5,
-      hourlyRate: 11,
-      yearsExperience: 5,
-      hasFirstAidTraining: true,
-    ),
-    _MockAssMat(
-      name: 'Sylvie Martin',
-      photoUrl: 'https://i.pravatar.cc/150?img=23',
-      rating: 4.7,
-      city: 'Paris 14e',
-      distanceKm: 0.8,
-      hourlyRate: 13,
-      yearsExperience: 12,
-      hasFirstAidTraining: true,
-    ),
-    _MockAssMat(
-      name: 'Céline Moreau',
-      photoUrl: 'https://i.pravatar.cc/150?img=5',
-      rating: 4.6,
-      city: 'Issy-les-Moulineaux',
-      distanceKm: 3.1,
-      hourlyRate: 10,
-      yearsExperience: 3,
-      hasFirstAidTraining: false,
-    ),
-  ];
+  void _onFindAssmat(BuildContext context) {
+    // TODO: naviguer vers l'écran de recherche d'assistantes maternelles.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Recherche d\'assmat — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _onDocuments(BuildContext context) {
+    // TODO: naviguer vers l'écran documents.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Documents — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+/// "Bonjour, {name} 👋" + "Bienvenue sur votre espace parent".
+class _WelcomeHeader extends StatelessWidget {
+  const _WelcomeHeader({required this.displayName});
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgSoft,
-      // CustomScrollView pour un header qui scroll naturellement avec la liste.
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            const _HomeHeader(
-              userName: _mockUserName,
-              userPhoto: _mockUserPhoto,
-              primary: _primary,
-              primaryDark: _primaryDark,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bonjour, $displayName 👋',
+            style: AppTextStyles.headlineMedium.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Bienvenue sur votre espace parent',
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Grille 2x2 de [StatCard] : contrats / enfants / RDV / paiement.
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Column(
+        children: const [
+          Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  icon: Icons.description_rounded,
+                  iconBg: AppColors.secondary,
+                  iconColor: AppColors.primary,
+                  value: '0',
+                  label: 'Contrats actifs',
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: StatCard(
+                  icon: Icons.face_rounded,
+                  iconBg: AppColors.secondary,
+                  iconColor: AppColors.primary,
+                  value: '0',
+                  label: 'Enfants accueillis',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  icon: Icons.calendar_today_rounded,
+                  iconBg: AppColors.statBlueBg,
+                  iconColor: AppColors.statBlueColor,
+                  value: '—',
+                  label: 'Prochain RDV',
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: StatCard(
+                  icon: Icons.credit_card_rounded,
+                  iconBg: AppColors.statYellowBg,
+                  iconColor: AppColors.accent,
+                  value: '—',
+                  label: 'Prochain paiement',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Drawer minimaliste du dashboard (sera enrichi plus tard avec sa propre
+/// spec design). Contient au moins de quoi tester la déconnexion.
+class _ParentDrawer extends ConsumerWidget {
+  const _ParentDrawer();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: AppColors.secondary,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const _SearchField(primary: _primary),
-                  const SizedBox(height: 24),
-                  const _SectionTitle(title: 'Nouveaux profils'),
-                  const SizedBox(height: 12),
-                  ..._mockAssMats.map(
-                    (m) => AssMatCard(
-                      name: m.name,
-                      photoUrl: m.photoUrl,
-                      rating: m.rating,
-                      city: m.city,
-                      distanceKm: m.distanceKm,
-                      hourlyRate: m.hourlyRate,
-                      yearsExperience: m.yearsExperience,
-                      hasFirstAidTraining: m.hasFirstAidTraining,
-                      primaryColor: _primary,
-                      onViewProfile: () =>
-                          // ignore: avoid_print
-                          print('Voir le profil de ${m.name}'),
+                  Text(
+                    user?.displayName ?? 'Utilisateur',
+                    style: AppTextStyles.titleLarge.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    user?.email ?? '',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.secondaryText,
                     ),
                   ),
                 ],
               ),
             ),
+            // TODO: enrichir le menu avec une vraie spec design
+            // (profil, contrats, recherche, facturation...).
+            ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: const Text('Mon profil'),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Mes contrats'),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Paramètres'),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+            const Spacer(),
+            const Divider(height: 1, color: AppColors.divider),
+            ListTile(
+              leading: const Icon(Icons.logout_rounded, color: AppColors.error),
+              title: Text(
+                'Se déconnecter',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+              onTap: () async {
+                await ref.read(authRepositoryProvider).signOut();
+                // L'AuthWrapper va rebasculer sur la WelcomePage via le stream.
+              },
+            ),
           ],
         ),
       ),
-      bottomNavigationBar: const _BottomNavBar(
-        activeIndex: 0,
-        primary: _primary,
-      ),
     );
   }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Composants internes
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// En-tête turquoise arrondi : photo profil + salutation.
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({
-    required this.userName,
-    required this.userPhoto,
-    required this.primary,
-    required this.primaryDark,
-  });
-
-  final String userName;
-  final String userPhoto;
-  final Color primary;
-  final Color primaryDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primary, primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Photo de profil circulaire avec halo blanc
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: CircleAvatar(
-              radius: 28,
-              backgroundImage: NetworkImage(userPhoto),
-              backgroundColor: Colors.white24,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bonjour, $userName 👋',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Trouvez la nounou parfaite pour votre enfant',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded,
-                color: Colors.white),
-            onPressed: () =>
-                // ignore: avoid_print
-                print('Notifications'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Champ de recherche avec icône loupe.
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.primary});
-  final Color primary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        textInputAction: TextInputAction.search,
-        onChanged: (v) =>
-            // ignore: avoid_print
-            print('Recherche : $v'),
-        onSubmitted: (v) =>
-            // ignore: avoid_print
-            print('Recherche validée : $v'),
-        decoration: InputDecoration(
-          hintText: 'Rechercher par nom, ville...',
-          hintStyle: TextStyle(color: Colors.grey.shade500),
-          prefixIcon: Icon(Icons.search, color: primary),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        ),
-      ),
-    );
-  }
-}
-
-/// Titre de section avec lien "Voir tout".
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        TextButton(
-          onPressed: () =>
-              // ignore: avoid_print
-              print('Voir tout'),
-          child: const Text('Voir tout'),
-        ),
-      ],
-    );
-  }
-}
-
-/// Barre de navigation du bas — 4 onglets, Accueil actif.
-class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({
-    required this.activeIndex,
-    required this.primary,
-  });
-
-  final int activeIndex;
-  final Color primary;
-
-  static const _items = [
-    (icon: Icons.home_rounded, label: 'Accueil'),
-    (icon: Icons.chat_bubble_outline_rounded, label: 'Messages'),
-    (icon: Icons.favorite_border_rounded, label: 'Favoris'),
-    (icon: Icons.person_outline_rounded, label: 'Profil'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 16,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final active = i == activeIndex;
-              final color = active ? primary : Colors.grey.shade500;
-              return InkWell(
-                onTap: () =>
-                    // ignore: avoid_print
-                    print('Nav tap: ${_items[i].label}'),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_items[i].icon, color: color, size: 26),
-                      const SizedBox(height: 4),
-                      Text(
-                        _items[i].label,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 11,
-                          fontWeight:
-                              active ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Mock data model (privé au fichier)
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _MockAssMat {
-  const _MockAssMat({
-    required this.name,
-    required this.photoUrl,
-    required this.rating,
-    required this.city,
-    required this.distanceKm,
-    required this.hourlyRate,
-    required this.yearsExperience,
-    required this.hasFirstAidTraining,
-  });
-
-  final String name;
-  final String photoUrl;
-  final double rating;
-  final String city;
-  final double distanceKm;
-  final double hourlyRate;
-  final int yearsExperience;
-  final bool hasFirstAidTraining;
 }

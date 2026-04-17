@@ -33,6 +33,12 @@ class AppColors {
   static const assmatIconBg = Color(0xFFFFF3E0);   // pêche très clair
   static const assmatIconColor = Color(0xFFF57C00); // orange soutenu
 
+  // ---------- Stat cards (dashboard) ----------
+  static const statBlueBg = Color(0xFFE3F2FD);     // bleu ciel très clair
+  static const statBlueColor = Color(0xFF2196F3);  // bleu Material
+  static const statYellowBg = Color(0xFFFFF8E1);   // crème jaunâtre
+  // Le jaune/orange du texte réutilise AppColors.accent (#F5A623).
+
   // ---------- Dark (préparé, pas encore utilisé partout) ----------
   static const darkPrimary = Color(0xFF5DA689);
   static const darkOnPrimary = Color(0xFF000000);
