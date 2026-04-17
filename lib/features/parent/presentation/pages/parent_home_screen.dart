@@ -5,17 +5,22 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../widgets/action_list_button.dart';
 import '../widgets/dashboard_app_bar.dart';
 import '../widgets/mes_enfants_card.dart';
+import '../widgets/notifications_card.dart';
 import '../widgets/stat_card.dart';
 
 /// Dashboard du parent connecté.
 ///
-/// Correspond à la frame "Dashboard Parent" du design system :
-///   - Header custom (menu + logo AMiLY)
+/// Correspond aux frames "Dashboard Parent" + "Dashboard Parent 2" du
+/// design system :
+///   - Header custom (menu + logo AMiLY à gauche, notifications à droite)
 ///   - Welcome "Bonjour, {displayName} 👋"
 ///   - Grille 2x2 de stats (contrats, enfants, RDV, paiement)
 ///   - Carte "Mes enfants" avec empty state + CTA "Trouver une assmat"
+///   - Carte "Informations" (notifications)
+///   - Action list : Envoyer un message / Journal / Paiements / Documents
 ///
 /// Toutes les stats sont pour l'instant à 0 / "—" — elles seront branchées
 /// sur Firestore quand la couche data Contrats/Enfants sera prête.
@@ -41,13 +46,35 @@ class ParentHomeScreen extends ConsumerWidget {
               children: [
                 DashboardAppBar(
                   onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer(),
+                  onNotificationsTap: () => _onNotifications(context),
                 ),
                 _WelcomeHeader(displayName: displayName),
                 _StatsGrid(),
                 const SizedBox(height: AppSpacing.md),
+
+                // Mes enfants (empty state pour l'instant)
                 MesEnfantsCard(
                   onFindAssmatTap: () => _onFindAssmat(context),
                   onDocumentsTap: () => _onDocuments(context),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Informations / notifications
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: NotificationsCard(),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Action list
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: _ActionList(
+                    onMessage: () => _onStub(context, 'Envoyer un message'),
+                    onJournal: () => _onStub(context, 'Voir le journal'),
+                    onPayments: () => _onStub(context, 'Mes paiements'),
+                    onDocuments: () => _onDocuments(context),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
               ],
@@ -70,9 +97,18 @@ class ParentHomeScreen extends ConsumerWidget {
 
   void _onDocuments(BuildContext context) {
     // TODO: naviguer vers l'écran documents.
+    _onStub(context, 'Documents');
+  }
+
+  void _onNotifications(BuildContext context) {
+    // TODO: naviguer vers l'écran / drawer de notifications.
+    _onStub(context, 'Notifications');
+  }
+
+  void _onStub(BuildContext context, String label) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Documents — à venir'),
+      SnackBar(
+        content: Text('$label — à venir'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -174,6 +210,54 @@ class _StatsGrid extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Liste d'actions rapides : Message (primary) + Journal / Paiements /
+/// Documents (outlined).
+class _ActionList extends StatelessWidget {
+  const _ActionList({
+    required this.onMessage,
+    required this.onJournal,
+    required this.onPayments,
+    required this.onDocuments,
+  });
+
+  final VoidCallback onMessage;
+  final VoidCallback onJournal;
+  final VoidCallback onPayments;
+  final VoidCallback onDocuments;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ActionListButton.primary(
+          icon: Icons.chat_bubble_outline_rounded,
+          label: 'Envoyer un message',
+          onTap: onMessage,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        ActionListButton.outlined(
+          icon: Icons.assignment_rounded,
+          label: 'Voir le journal',
+          onTap: onJournal,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        ActionListButton.outlined(
+          icon: Icons.payments_rounded,
+          label: 'Mes paiements',
+          onTap: onPayments,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        ActionListButton.outlined(
+          icon: Icons.description_rounded,
+          label: 'Mes documents',
+          onTap: onDocuments,
+        ),
+      ],
     );
   }
 }

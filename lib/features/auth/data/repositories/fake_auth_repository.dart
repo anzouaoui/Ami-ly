@@ -14,10 +14,15 @@ import '../../domain/repositories/auth_repository.dart';
 /// valide et un mot de passe ≥ 6 caractères pour simuler une connexion.
 /// L'état (connecté / déconnecté) est conservé tant que l'app tourne.
 ///
+/// Passer un [initialUser] au constructeur pour démarrer l'app déjà connectée
+/// (pratique pour itérer sur les écrans post-login sans re-taper un form à
+/// chaque hot restart). Voir aussi [DevUsers] pour des factories prêtes à
+/// l'emploi.
+///
 /// À retirer (ou laisser comme mock pour les tests) le jour où Firebase est
 /// prêt : il suffit d'enlever l'override dans `main.dart`.
 class FakeAuthRepository implements AuthRepository {
-  FakeAuthRepository();
+  FakeAuthRepository({AppUser? initialUser}) : _current = initialUser;
 
   AppUser? _current;
   final _controller = StreamController<AppUser?>.broadcast();
@@ -122,4 +127,30 @@ class FakeAuthRepository implements AuthRepository {
     if (local.isEmpty) return 'Utilisateur';
     return local[0].toUpperCase() + local.substring(1);
   }
+}
+
+/// Factories de users fictifs pour le dev UI.
+///
+/// Usage dans `main.dart` :
+/// ```dart
+/// final fakeAuth = FakeAuthRepository(initialUser: DevUsers.parent());
+/// ```
+class DevUsers {
+  DevUsers._();
+
+  static AppUser parent({String name = 'Anouk'}) => AppUser(
+        uid: 'dev-parent',
+        email: '${name.toLowerCase()}@test.com',
+        role: UserRole.parent,
+        createdAt: DateTime(2024, 1, 1),
+        displayName: name,
+      );
+
+  static AppUser assmat({String name = 'Marie'}) => AppUser(
+        uid: 'dev-assmat',
+        email: '${name.toLowerCase()}@test.com',
+        role: UserRole.assmat,
+        createdAt: DateTime(2024, 1, 1),
+        displayName: name,
+      );
 }

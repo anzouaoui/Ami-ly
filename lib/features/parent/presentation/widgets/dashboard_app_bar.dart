@@ -7,17 +7,21 @@ import '../../../../app/theme/app_text_styles.dart';
 
 /// Header custom du dashboard parent.
 ///
-/// Contenu :
-///   - Icône menu (hamburger) à gauche — ouvre le Drawer du Scaffold parent
-///   - Logo "AMiLY" centré (carré vert + texte)
-///   - SizedBox invisible à droite pour équilibrer optiquement le logo
+/// Disposition (spec "Dashboard Parent 2") :
+///   - À gauche : icône menu + logo AMiLY (carré vert + texte) côte à côte
+///   - À droite : icône notifications
 ///
 /// Contrairement à une `AppBar` Material classique, ce widget vit **dans**
 /// le scroll du body — il défile avec le contenu.
 class DashboardAppBar extends StatelessWidget {
-  const DashboardAppBar({super.key, required this.onMenuTap});
+  const DashboardAppBar({
+    super.key,
+    required this.onMenuTap,
+    required this.onNotificationsTap,
+  });
 
   final VoidCallback onMenuTap;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -36,25 +40,27 @@ class DashboardAppBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.menu_rounded,
-              size: 28,
-              color: AppColors.primaryText,
-            ),
-            onPressed: onMenuTap,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Menu',
-          ),
-
-          // Logo centré (carré vert + texte AMiLY)
+          // --- Bloc gauche : menu + logo ---
           Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.menu_rounded,
+                  size: 28,
+                  color: AppColors.primaryText,
+                ),
+                onPressed: onMenuTap,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Menu',
+              ),
+              const SizedBox(width: AppSpacing.md),
+              // Logo (carré vert + texte AMiLY)
               Container(
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: AppColors.secondary,
                   borderRadius: BorderRadius.circular(AppRadii.sm),
@@ -64,7 +70,7 @@ class DashboardAppBar extends StatelessWidget {
                 child: const Icon(
                   Icons.child_care_rounded,
                   color: AppColors.primary,
-                  size: 20,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -77,8 +83,16 @@ class DashboardAppBar extends StatelessWidget {
             ],
           ),
 
-          // Balance visuelle du menu à gauche (largeur équivalente)
-          const SizedBox(width: 28),
+          // --- Bloc droite : notifications ---
+          IconButton(
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              size: 24,
+              color: AppColors.primaryText,
+            ),
+            onPressed: onNotificationsTap,
+            tooltip: 'Notifications',
+          ),
         ],
       ),
     );
