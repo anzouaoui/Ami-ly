@@ -9,8 +9,8 @@ import '../widgets/action_list_button.dart';
 import '../widgets/dashboard_app_bar.dart';
 import '../widgets/mes_enfants_card.dart';
 import '../widgets/notifications_card.dart';
+import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/stat_card.dart';
-import 'parent_profile_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -35,7 +35,7 @@ class ParentHomeScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      drawer: const _ParentDrawer(),
+      drawer: const ParentNavigationDrawer(),
       // Builder nécessaire pour obtenir un context enfant du Scaffold
       // qui sait ouvrir le drawer.
       body: Builder(
@@ -263,87 +263,3 @@ class _ActionList extends StatelessWidget {
   }
 }
 
-/// Drawer minimaliste du dashboard (sera enrichi plus tard avec sa propre
-/// spec design). Contient au moins de quoi tester la déconnexion.
-class _ParentDrawer extends ConsumerWidget {
-  const _ParentDrawer();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
-
-    return Drawer(
-      backgroundColor: AppColors.surface,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: AppColors.secondary,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    user?.displayName ?? 'Utilisateur',
-                    style: AppTextStyles.titleLarge.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    user?.email ?? '',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // TODO: enrichir le menu avec une vraie spec design
-            // (profil, contrats, recherche, facturation...).
-            ListTile(
-              leading: const Icon(Icons.person_outline_rounded),
-              title: const Text('Mon profil'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ParentProfilePage(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: const Text('Mes contrats'),
-              onTap: () => Navigator.of(context).pop(),
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Paramètres'),
-              onTap: () => Navigator.of(context).pop(),
-            ),
-            const Spacer(),
-            const Divider(height: 1, color: AppColors.divider),
-            ListTile(
-              leading: const Icon(Icons.logout_rounded, color: AppColors.error),
-              title: Text(
-                'Se déconnecter',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: AppColors.error,
-                ),
-              ),
-              onTap: () async {
-                await ref.read(authRepositoryProvider).signOut();
-                // L'AuthWrapper va rebasculer sur la WelcomePage via le stream.
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
