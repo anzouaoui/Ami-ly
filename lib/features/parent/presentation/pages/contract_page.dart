@@ -338,6 +338,15 @@ class _ContractTabContent extends StatelessWidget {
             children: _EnfantEngagementForm(),
             initiallyExpanded: false,
           ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Carte Durée et horaires d'accueil
+          const _ExpandableCard(
+            icon: Icons.schedule_rounded,
+            title: 'Durée et horaires d\'accueil',
+            children: _HorairesForm(),
+            initiallyExpanded: false,
+          ),
           const SizedBox(height: AppSpacing.lg),
 
           // CTAs empilés : Enregistrer brouillon (primary) + Étape suivante (outlined)
@@ -745,6 +754,278 @@ class _SubSectionHeader extends StatelessWidget {
         const SizedBox(width: AppSpacing.sm),
         Text(title, style: AppTextStyles.labelLarge),
       ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Carte "Durée et horaires d'accueil"
+// -----------------------------------------------------------------
+
+/// Modèle d'un créneau journalier (mock UI).
+class _DaySchedule {
+  const _DaySchedule({
+    required this.active,
+    required this.start,
+    required this.end,
+  });
+
+  final bool active;
+  final TimeOfDay start;
+  final TimeOfDay end;
+
+  _DaySchedule copyWith({
+    bool? active,
+    TimeOfDay? start,
+    TimeOfDay? end,
+  }) => _DaySchedule(
+        active: active ?? this.active,
+        start: start ?? this.start,
+        end: end ?? this.end,
+      );
+}
+
+class _HorairesForm extends StatefulWidget {
+  const _HorairesForm();
+
+  @override
+  State<_HorairesForm> createState() => _HorairesFormState();
+}
+
+class _HorairesFormState extends State<_HorairesForm> {
+  static const _contractOptions = [
+    'Cas n°1 — 52 semaines (congés payés inclus)',
+    'Cas n°2 — 46 semaines ou moins',
+  ];
+  String _selectedContract = _contractOptions[0];
+
+  static const _dayNames = [
+    'Lundi',
+    'Mardi',
+    'Mercredi',
+    'Jeudi',
+    'Vendredi',
+    'Samedi',
+    'Dimanche',
+  ];
+
+  // Défaut : lundi-vendredi 08:00-18:00 actifs, weekend inactif.
+  late final Map<String, _DaySchedule> _schedule = {
+    for (final d in _dayNames)
+      d: _DaySchedule(
+        active: !(d == 'Samedi' || d == 'Dimanche'),
+        start: const TimeOfDay(hour: 8, minute: 0),
+        end: const TimeOfDay(hour: 18, minute: 0),
+      ),
+  };
+
+  void _toggleDay(String day) {
+    setState(() {
+      final current = _schedule[day]!;
+      _schedule[day] = current.copyWith(active: !current.active);
+    });
+  }
+
+  Future<void> _pickTime(String day, {required bool isStart}) async {
+    final current = _schedule[day]!;
+    final initial = isStart ? current.start : current.end;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+    );
+    if (picked == null) return;
+    setState(() {
+      _schedule[day] = isStart
+          ? current.copyWith(start: picked)
+          : current.copyWith(end: picked);
+    });
+  }
+
+  void _onSave() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Planning enregistré'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Type de contrat
+        Text('Type de contrat', style: AppTextStyles.labelMedium),
+        const SizedBox(height: AppSpacing.sm),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedContract,
+          items: [
+            for (final opt in _contractOptions)
+              DropdownMenuItem(
+                value: opt,
+                child: Text(opt, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: (v) => setState(() => _selectedContract = v!),
+          isExpanded: true,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Planning hebdomadaire
+        Text(
+          'Planning hebdomadaire',
+          style: AppTextStyles.labelLarge.copyWith(
+            color: AppColors.primaryText,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        for (final day in _dayNames) ...[
+          _DayRow(
+            day: day,
+            schedule: _schedule[day]!,
+            onToggle: () => _toggleDay(day),
+            onPickStart: () => _pickTime(day, isStart: true),
+            onPickEnd: () => _pickTime(day, isStart: false),
+          ),
+          if (day != _dayNames.last)
+            const Divider(height: AppSpacing.md, color: AppColors.divider),
+        ],
+
+        const SizedBox(height: AppSpacing.lg),
+
+        // CTA "Enregistrer le planning"
+        FilledButton.icon(
+          onPressed: _onSave,
+          icon: const Icon(Icons.save_outlined, size: 20),
+          label: const Text('Enregistrer le planning'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Ligne d'un jour : icône d'état (✓ actif / ○ inactif) + nom + 2 time pickers.
+class _DayRow extends StatelessWidget {
+  const _DayRow({
+    required this.day,
+    required this.schedule,
+    required this.onToggle,
+    required this.onPickStart,
+    required this.onPickEnd,
+  });
+
+  final String day;
+  final _DaySchedule schedule;
+  final VoidCallback onToggle;
+  final VoidCallback onPickStart;
+  final VoidCallback onPickEnd;
+
+  String _format(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Toggle icône
+        InkWell(
+          onTap: onToggle,
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            child: Icon(
+              schedule.active
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: schedule.active
+                  ? AppColors.success
+                  : AppColors.secondaryText,
+              size: 22,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+
+        // Nom du jour
+        SizedBox(
+          width: 72,
+          child: Text(
+            day,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: schedule.active
+                  ? AppColors.primaryText
+                  : AppColors.secondaryText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+
+        // Time pickers (uniquement si actif)
+        if (schedule.active) ...[
+          Expanded(
+            child: _TimeField(
+              label: _format(schedule.start),
+              onTap: onPickStart,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _TimeField(
+              label: _format(schedule.end),
+              onTap: onPickEnd,
+            ),
+          ),
+        ] else
+          const Expanded(child: SizedBox()),
+      ],
+    );
+  }
+}
+
+/// Champ time picker : pastille cliquable avec texte + chevron bas.
+class _TimeField extends StatelessWidget {
+  const _TimeField({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xs,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                style: AppTextStyles.labelMedium,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: AppColors.secondaryText,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
