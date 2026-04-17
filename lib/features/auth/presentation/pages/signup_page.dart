@@ -5,7 +5,11 @@ import '../../../../shared/models/user_role.dart';
 import '../providers/auth_providers.dart';
 
 class SignUpPage extends ConsumerStatefulWidget {
-  const SignUpPage({super.key});
+  const SignUpPage({super.key, this.initialRole});
+
+  /// Rôle pré-sélectionné quand on arrive depuis la [WelcomePage].
+  /// Laisse `null` pour conserver l'ancien comportement (parent par défaut).
+  final UserRole? initialRole;
 
   @override
   ConsumerState<SignUpPage> createState() => _SignUpPageState();
@@ -16,7 +20,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  UserRole _role = UserRole.parent;
+  late UserRole _role = widget.initialRole ?? UserRole.parent;
   bool _loading = false;
   String? _errorMessage;
 

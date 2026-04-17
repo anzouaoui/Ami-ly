@@ -6,7 +6,20 @@
       "Bash(flutter create:*)",
       "Bash(flutter pub:*)",
       "Bash(flutter analyze:*)",
-      "Bash(dart pub:*)"
+      "Bash(dart pub:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(flutter devices:*)",
+      "Bash(wmic logicaldisk:*)",
+      "Bash(powershell -Command \"Get-PSDrive C | Select-Object Used,Free | Format-List\")",
+      "Bash(powershell -Command 'Get-ChildItem -Path $env:USERPROFILE -Directory -Force -ErrorAction SilentlyContinue | ForEach-Object { $size = \\(Get-ChildItem -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum\\).Sum; [PSCustomObject]@{ Name = $_.Name; SizeGB = [math]::Round\\($size / 1GB, 2\\) } } | Sort-Object SizeGB -Descending | Select-Object -First 15 | Format-Table -AutoSize')",
+      "Bash(where.exe flutter:*)",
+      "Bash(powershell -Command 'Get-PSDrive C | Select-Object @{Name='\\\\''FreeGB'\\\\'';Expression={[math]::Round\\($_.Free/1GB,2\\)}},@{Name='\\\\''UsedGB'\\\\'';Expression={[math]::Round\\($_.Used/1GB,2\\)}}')",
+      "Bash(powershell -Command 'Get-MpThreatDetection -ErrorAction SilentlyContinue | Where-Object { $_.Resources -like '\\\\''*flutter*'\\\\'' -or $_.Resources -like '\\\\''*dart*'\\\\'' } | Select-Object DomainUser,InitialDetectionTime,Resources | Format-List')",
+      "Bash(\"C:/dev/flutter/ff_flutter_sdk/flutter/bin/flutter.bat\" --version)",
+      "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\('Path', 'User'\\)\")",
+      "Bash(xargs cat *)",
+      "Bash(xargs grep *)",
+      "Bash(xargs ls *)"
     ]
   }
 }

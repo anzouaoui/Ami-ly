@@ -5,8 +5,8 @@ import '../../../../core/widgets/app_error_screen.dart';
 import '../../../../core/widgets/app_splash_screen.dart';
 import '../../../../shared/models/user_role.dart';
 import '../../../assmat/presentation/pages/assmat_home_page.dart';
-import '../../../parent/presentation/pages/parent_home_page.dart';
-import '../pages/login_page.dart';
+import '../../../onboarding/presentation/pages/welcome_page.dart';
+import '../../../parent/presentation/pages/parent_home_screen.dart';
 import '../providers/auth_providers.dart';
 
 /// Widget racine qui décide quoi afficher selon l'état d'authentification
@@ -14,7 +14,7 @@ import '../providers/auth_providers.dart';
 ///
 /// Flow :
 ///   1. Au boot, [currentUserProvider] émet `AsyncLoading` → [AppSplashScreen].
-///   2. Pas d'utilisateur Firebase     → [LoginPage].
+///   2. Pas d'utilisateur Firebase     → [WelcomePage] (choix du rôle).
 ///   3. Utilisateur + rôle `parent`    → [ParentHomePage].
 ///   4. Utilisateur + rôle `assmat`    → [AssMatHomePage].
 ///   5. Erreur (profil corrompu, etc.) → [AppErrorScreen] avec retry.
@@ -37,11 +37,11 @@ class AuthWrapper extends ConsumerWidget {
       ),
       data: (user) {
         if (user == null) {
-          return const LoginPage();
+          return const WelcomePage();
         }
         switch (user.role) {
           case UserRole.parent:
-            return const ParentHomePage();
+            return const ParentHomeScreen();
           case UserRole.assmat:
             return const AssMatHomePage();
         }

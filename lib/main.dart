@@ -2,33 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
-import 'core/services/firebase_service.dart';
+import 'features/auth/data/repositories/fake_auth_repository.dart';
+import 'features/auth/presentation/providers/auth_providers.dart';
+
+// --- Mode dev UI : Firebase désactivé ---
+// Tout passe par [FakeAuthRepository] (en mémoire). Pour rebrancher Firebase :
+//   1. Restaurer les imports `firebase_options.dart` + `firebase_service.dart`
+//   2. `await FirebaseService.initialize(options: DefaultFirebaseOptions.currentPlatform);`
+//   3. Retirer l'override de `authRepositoryProvider` ci-dessous.
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialise Firebase avant tout accès aux services (Auth / Firestore / Storage).
-  //
-  // ÉTAPE SUIVANTE À FAIRE :
-  //   1. Installer la CLI FlutterFire : `dart pub global activate flutterfire_cli`
-  //   2. Lancer `flutterfire configure` à la racine du projet.
-  //   3. Ça génère `lib/firebase_options.dart` — importe-le puis passe
-  //      `options: DefaultFirebaseOptions.currentPlatform` à `initialize()`.
-  //
-  // Exemple une fois configuré :
-  //   import 'firebase_options.dart';
-  //   await FirebaseService.initialize(
-  //     options: DefaultFirebaseOptions.currentPlatform,
-  //   );
-  await FirebaseService.initialize();
-
-  // Décommente pour brancher les émulateurs locaux en dev :
-  //   final service = FirebaseService();
-  //   await service.useEmulators();
-
   runApp(
-    const ProviderScope(
-      child: AmilyApp(),
+    ProviderScope(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
+      ],
+      child: const AmilyApp(),
     ),
   );
 }
