@@ -8,6 +8,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../pages/child_diary_page.dart';
 import '../pages/find_childminder_page.dart';
+import '../pages/messages_page.dart';
 import '../pages/parent_profile_page.dart';
 
 /// Drawer de navigation latéral de l'espace Parent.
@@ -95,10 +96,13 @@ class ParentNavigationDrawer extends ConsumerWidget {
                     icon: Icons.chat_bubble_outline_rounded,
                     label: 'Messages',
                     badgeCount: 1,
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Messages'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MessagesPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.account_balance_wallet_outlined,

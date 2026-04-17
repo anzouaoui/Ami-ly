@@ -12,6 +12,7 @@ import '../widgets/notifications_card.dart';
 import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/stat_card.dart';
 import 'find_childminder_page.dart';
+import 'messages_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -72,7 +73,7 @@ class ParentHomeScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                   child: _ActionList(
-                    onMessage: () => _onStub(context, 'Envoyer un message'),
+                    onMessage: () => _goToMessages(context),
                     onJournal: () => _onStub(context, 'Voir le journal'),
                     onPayments: () => _onStub(context, 'Mes paiements'),
                     onDocuments: () => _onDocuments(context),
@@ -90,6 +91,12 @@ class ParentHomeScreen extends ConsumerWidget {
   void _onFindAssmat(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const FindChildminderPage()),
+    );
+  }
+
+  void _goToMessages(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MessagesPage()),
     );
   }
 
