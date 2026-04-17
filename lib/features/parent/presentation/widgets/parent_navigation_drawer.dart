@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../pages/child_diary_page.dart';
 import '../pages/find_childminder_page.dart';
 import '../pages/parent_profile_page.dart';
 
@@ -82,10 +83,13 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   _NavItem(
                     icon: Icons.menu_book_rounded,
                     label: 'Journal de mon enfant',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Journal'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ChildDiaryPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.chat_bubble_outline_rounded,
