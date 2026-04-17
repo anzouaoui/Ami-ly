@@ -11,6 +11,7 @@ import '../widgets/mes_enfants_card.dart';
 import '../widgets/notifications_card.dart';
 import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/stat_card.dart';
+import 'find_childminder_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -87,12 +88,8 @@ class ParentHomeScreen extends ConsumerWidget {
   }
 
   void _onFindAssmat(BuildContext context) {
-    // TODO: naviguer vers l'écran de recherche d'assistantes maternelles.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recherche d\'assmat — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FindChildminderPage()),
     );
   }
 

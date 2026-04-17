@@ -1,0 +1,229 @@
+import 'package:flutter/material.dart';
+
+import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_radii.dart';
+import '../../../../app/theme/app_shadows.dart';
+import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_text_styles.dart';
+
+/// Résumé d'une assistante maternelle affichée dans la liste de résultats.
+class ChildminderSummary {
+  const ChildminderSummary({
+    required this.initials,
+    required this.name,
+    required this.location,
+    required this.distance,
+    required this.experience,
+    required this.places,
+    required this.date,
+    required this.cert,
+  });
+
+  final String initials;
+  final String name;
+  final String location;
+  final String distance;
+  final String experience;
+  final String places;
+  final String date;
+  final String cert;
+}
+
+/// Carte compacte listée dans la page "Trouver une assistante maternelle".
+///
+/// Layout :
+///   - Avatar initiales pêche en haut à gauche
+///   - Nom + localisation + distance
+///   - Grille 2x2 de pastilles : cert / expérience / places / date
+///   - "Voir le profil →" en bas (primary, CTA)
+class ChildminderCard extends StatelessWidget {
+  const ChildminderCard({
+    super.key,
+    required this.data,
+    required this.onTap,
+  });
+
+  final ChildminderSummary data;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+            border: Border.all(color: AppColors.divider),
+            boxShadow: AppShadows.sm,
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header : avatar + nom + loc
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Avatar(initials: data.initials),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(data.name, style: AppTextStyles.titleMedium),
+                        const SizedBox(height: AppSpacing.xs),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.place_outlined,
+                              size: 14,
+                              color: AppColors.secondaryText,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            Expanded(
+                              child: Text(
+                                '${data.location} • ${data.distance}',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.secondaryText,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // Grid 2x2 d'infos
+              Row(
+                children: [
+                  Expanded(
+                    child: _InfoPill(
+                      icon: Icons.workspace_premium_rounded,
+                      label: data.cert,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _InfoPill(
+                      icon: Icons.history_rounded,
+                      label: data.experience,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: _InfoPill(
+                      icon: Icons.group_rounded,
+                      label: data.places,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _InfoPill(
+                      icon: Icons.event_rounded,
+                      label: data.date,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // CTA
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Voir le profil',
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: AppColors.primary,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.initials});
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: const BoxDecoration(
+        color: AppColors.assmatIconBg,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: AppTextStyles.labelLarge.copyWith(
+          color: AppColors.primaryText,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.secondaryText),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.primaryText,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
