@@ -10,6 +10,7 @@ import '../widgets/dashboard_app_bar.dart';
 import '../widgets/mes_enfants_card.dart';
 import '../widgets/notifications_card.dart';
 import '../widgets/stat_card.dart';
+import 'parent_profile_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -306,7 +307,14 @@ class _ParentDrawer extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.person_outline_rounded),
               title: const Text('Mon profil'),
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ParentProfilePage(),
+                  ),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.description_outlined),
