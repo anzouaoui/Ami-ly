@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_radii.dart';
+import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/ghost_button.dart';
 import '../providers/auth_providers.dart';
-import 'signup_page.dart';
+import '../widgets/auth_divider.dart';
+import '../widgets/auth_method_button.dart';
 
+/// Écran de connexion email/password + Google.
+///
+/// Correspond à la frame "Login Screen" du design system :
+///   - Hero : "Bon retour !" + "Connectez-vous à votre compte AMiLY"
+///   - Bouton Google (placeholder tant que Firebase n'est pas branché)
+///   - Divider "OU PAR EMAIL"
+///   - Form : email + mot de passe (toggle visibilité) + "Mot de passe oublié ?"
+///     + bouton primary "Se connecter"
+///   - Footer : "Pas encore de compte ? S'inscrire"
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -16,6 +31,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
+  bool _obscurePassword = true;
   String? _errorMessage;
 
   @override
@@ -43,95 +59,262 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         _errorMessage = failure.message;
         _loading = false;
       }),
-      // Succès : l'AuthWrapper va automatiquement rediriger via le stream.
+      // Succès : l'AuthWrapper prendra le relai automatiquement via le stream.
       (_) => setState(() => _loading = false),
     );
+  }
+
+  void _onGoogleTap() {
+    // TODO: brancher Google Sign-In.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Connexion Google — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _onForgotPassword() {
+    // TODO: écran / flow mot de passe oublié (envoi d'un mail via Firebase).
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Mot de passe oublié — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _onSignUp() {
+    // Retour à la racine (WelcomePage via AuthWrapper) pour choisir un rôle
+    // avant de s'inscrire.
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
+      // AppBar transparente juste pour le back button automatique.
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 24),
-                  Text(
-                    'Ami-ly',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Connectez-vous à votre compte',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      labelText: 'E-mail',
-                      prefixIcon: Icon(Icons.mail_outline),
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ---- Hero ----
+              const _Hero(),
+              const SizedBox(height: AppSpacing.xl),
+
+              // ---- Google ----
+              AuthMethodButton(
+                icon: const _GoogleIcon(),
+                label: 'Continuer avec Google',
+                onTap: _onGoogleTap,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const AuthDivider(label: 'OU PAR EMAIL'),
+              const SizedBox(height: AppSpacing.md),
+
+              // ---- Form email/password ----
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Email
+                    _FieldLabel('Email'),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextFormField(
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(
+                        hintText: 'marie@exemple.fr',
+                      ),
+                      validator: (v) => (v == null || !v.contains('@'))
+                          ? 'E-mail invalide'
+                          : null,
                     ),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'E-mail invalide' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordCtrl,
-                    obscureText: true,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(
-                      labelText: 'Mot de passe',
-                      prefixIcon: Icon(Icons.lock_outline),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Password
+                    _FieldLabel('Mot de passe'),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextFormField(
+                      controller: _passwordCtrl,
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: InputDecoration(
+                        hintText: '••••••••',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                            color: AppColors.secondaryText,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.length < 6)
+                          ? 'Min. 6 caractères'
+                          : null,
                     ),
-                    validator: (v) =>
-                        (v == null || v.length < 6) ? 'Min. 6 caractères' : null,
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center,
+                    const SizedBox(height: AppSpacing.sm),
+
+                    // "Mot de passe oublié ?"
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: InkWell(
+                        onTap: _onForgotPassword,
+                        borderRadius: BorderRadius.circular(AppRadii.sm),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: AppSpacing.xs,
+                          ),
+                          child: Text(
+                            'Mot de passe oublié ?',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Erreur éventuelle
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Bouton primary "Se connecter"
+                    FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Se connecter'),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Se connecter'),
+                ),
+              ),
+
+              const SizedBox(height: AppSpacing.xl),
+
+              // ---- Bottom : disclaimer + footer "Pas encore de compte" ----
+              Text(
+                // NOTE: le DSL reproduit ici le disclaimer signup ; conservé
+                // à l'identique. Adapter si besoin ("En vous connectant...").
+                'En créant un compte, vous acceptez nos Conditions d\'utilisation et notre Politique de confidentialité.',
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.secondaryText,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Pas encore de compte ?',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.secondaryText,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _loading
-                        ? null
-                        : () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const SignUpPage(),
-                              ),
-                            );
-                          },
-                    child: const Text('Pas encore de compte ? S\'inscrire'),
-                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  GhostButton(label: 'S\'inscrire', onTap: _onSignUp),
                 ],
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Bon retour !" + "Connectez-vous à votre compte AMiLY".
+class _Hero extends StatelessWidget {
+  const _Hero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Bon retour !',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.headlineMedium,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Connectez-vous à votre compte AMiLY',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyLarge.copyWith(
+            color: AppColors.secondaryText,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Label au-dessus d'un champ (ex: "Email").
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: AppTextStyles.labelMedium);
+  }
+}
+
+/// Placeholder logo Google — un "G" stylisé.
+/// TODO: remplacer par l'asset officiel Google (SVG multicolore).
+class _GoogleIcon extends StatelessWidget {
+  const _GoogleIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: Center(
+        child: Text(
+          'G',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF4285F4), // bleu Google
           ),
         ),
       ),

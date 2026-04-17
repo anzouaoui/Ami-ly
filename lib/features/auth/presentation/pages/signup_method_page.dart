@@ -6,6 +6,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
 import '../../../../shared/models/user_role.dart';
+import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
 import 'login_page.dart';
 import 'signup_page.dart';
@@ -74,7 +75,7 @@ class SignUpMethodPage extends StatelessWidget {
                 onTap: () => _onGoogleTap(context),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _OrDivider(),
+              const AuthDivider(label: 'OU'),
               const SizedBox(height: AppSpacing.md),
               AuthMethodButton(
                 icon: const Icon(
@@ -186,32 +187,6 @@ class _RolePillBadge extends StatelessWidget {
         label,
         style: AppTextStyles.labelLarge.copyWith(color: fg),
       ),
-    );
-  }
-}
-
-/// Séparateur "─── OU ───".
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Expanded(
-          child: Divider(color: AppColors.divider, height: 1, thickness: 1),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Text(
-          'OU',
-          style: AppTextStyles.bodySmall.copyWith(color: AppColors.hint),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        const Expanded(
-          child: Divider(color: AppColors.divider, height: 1, thickness: 1),
-        ),
-      ],
     );
   }
 }
