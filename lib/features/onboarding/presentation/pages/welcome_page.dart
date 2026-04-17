@@ -4,9 +4,10 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/ghost_button.dart';
 import '../../../../shared/models/user_role.dart';
 import '../../../auth/presentation/pages/login_page.dart';
-import '../../../auth/presentation/pages/signup_page.dart';
+import '../../../auth/presentation/pages/signup_method_page.dart';
 import '../widgets/role_selection_card.dart';
 
 /// Premier écran vu par un utilisateur non-connecté.
@@ -18,7 +19,7 @@ import '../widgets/role_selection_card.dart';
 ///   - Footer fixe : "Besoin d'aide ? Contactez-nous"
 ///
 /// Layout : contenu scrollable + footer ancré en bas de l'écran (hors scroll).
-/// Les cartes naviguent vers [SignUpPage] avec le rôle pré-sélectionné.
+/// Les cartes naviguent vers [SignUpMethodPage] avec le rôle pré-sélectionné.
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
 
@@ -30,7 +31,7 @@ class WelcomePage extends StatelessWidget {
 
   void _goToSignUp(BuildContext context, UserRole role) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SignUpPage(initialRole: role)),
+      MaterialPageRoute(builder: (_) => SignUpMethodPage(role: role)),
     );
   }
 
@@ -153,36 +154,11 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              _GhostButton(label: 'Se connecter', onTap: onLoginTap),
+              GhostButton(label: 'Se connecter', onTap: onLoginTap),
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Petit bouton texte discret (ghost) en vert primary.
-class _GhostButton extends StatelessWidget {
-  const _GhostButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.sm),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
-        ),
-      ),
     );
   }
 }
