@@ -7,6 +7,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../pages/child_diary_page.dart';
+import '../pages/contract_page.dart';
 import '../pages/documents_page.dart';
 import '../pages/find_childminder_page.dart';
 import '../pages/messages_page.dart';
@@ -143,10 +144,13 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   _NavItem(
                     icon: Icons.assignment_outlined,
                     label: 'Contrat & Pajemploi',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Contrat & Pajemploi'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ContractPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.auto_stories_outlined,

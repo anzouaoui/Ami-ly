@@ -19,6 +19,8 @@ class ProfileFormField extends StatelessWidget {
     this.keyboardType,
     this.enabled = true,
     this.onChanged,
+    this.prefixIcon,
+    this.required = false,
   });
 
   final String label;
@@ -29,15 +31,34 @@ class ProfileFormField extends StatelessWidget {
   final bool enabled;
   final ValueChanged<String>? onChanged;
 
+  /// Icône optionnelle affichée à gauche dans le champ.
+  final IconData? prefixIcon;
+
+  /// Ajoute un astérisque `*` rouge à côté du label pour signaler un
+  /// champ requis (cosmétique uniquement — pas de validation attachée).
+  final bool required;
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTextStyles.labelMedium.copyWith(
-            color: AppColors.primaryText,
+        RichText(
+          text: TextSpan(
+            text: label,
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.primaryText,
+            ),
+            children: required
+                ? [
+                    TextSpan(
+                      text: ' *',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ]
+                : const [],
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -47,7 +68,12 @@ class ProfileFormField extends StatelessWidget {
           keyboardType: keyboardType,
           enabled: enabled,
           onChanged: onChanged,
-          decoration: InputDecoration(hintText: hintText),
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixIcon: prefixIcon != null
+                ? Icon(prefixIcon, size: 20, color: AppColors.secondaryText)
+                : null,
+          ),
         ),
       ],
     );
