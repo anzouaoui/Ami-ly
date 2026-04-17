@@ -13,6 +13,7 @@ import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/stat_card.dart';
 import 'find_childminder_page.dart';
 import 'messages_page.dart';
+import 'payments_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -75,7 +76,7 @@ class ParentHomeScreen extends ConsumerWidget {
                   child: _ActionList(
                     onMessage: () => _goToMessages(context),
                     onJournal: () => _onStub(context, 'Voir le journal'),
-                    onPayments: () => _onStub(context, 'Mes paiements'),
+                    onPayments: () => _goToPayments(context),
                     onDocuments: () => _onDocuments(context),
                   ),
                 ),
@@ -97,6 +98,12 @@ class ParentHomeScreen extends ConsumerWidget {
   void _goToMessages(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const MessagesPage()),
+    );
+  }
+
+  void _goToPayments(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PaymentsPage()),
     );
   }
 

@@ -10,6 +10,7 @@ import '../pages/child_diary_page.dart';
 import '../pages/find_childminder_page.dart';
 import '../pages/messages_page.dart';
 import '../pages/parent_profile_page.dart';
+import '../pages/payments_page.dart';
 
 /// Drawer de navigation latéral de l'espace Parent.
 ///
@@ -107,10 +108,13 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   _NavItem(
                     icon: Icons.account_balance_wallet_outlined,
                     label: 'Paiements',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Paiements'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PaymentsPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.description_outlined,
