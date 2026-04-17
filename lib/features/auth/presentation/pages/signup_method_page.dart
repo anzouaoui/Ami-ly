@@ -151,16 +151,31 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// Badge pilule (fond vert très clair, texte vert primary).
+/// Badge pilule aux couleurs du rôle :
+///   - Parent : fond vert secondary (#E8F2EE), texte vert primary (#479073)
+///   - Assmat : fond pêche (#FFF3E0), texte orange (#F57C00)
 class _RolePillBadge extends StatelessWidget {
   const _RolePillBadge({required this.role});
   final UserRole role;
 
   @override
   Widget build(BuildContext context) {
+    final (bg, fg, label) = switch (role) {
+      UserRole.parent => (
+          AppColors.secondary,
+          AppColors.primary,
+          'Parent',
+        ),
+      UserRole.assmat => (
+          AppColors.assmatIconBg,
+          AppColors.assmatIconColor,
+          'Assistante maternelle',
+        ),
+    };
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.secondary,
+        color: bg,
         borderRadius: BorderRadius.circular(AppRadii.full),
       ),
       padding: const EdgeInsets.symmetric(
@@ -168,8 +183,8 @@ class _RolePillBadge extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       child: Text(
-        role.label,
-        style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary),
+        label,
+        style: AppTextStyles.labelLarge.copyWith(color: fg),
       ),
     );
   }
