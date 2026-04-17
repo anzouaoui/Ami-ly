@@ -11,6 +11,8 @@ import '../widgets/mes_enfants_card.dart';
 import '../widgets/notifications_card.dart';
 import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/stat_card.dart';
+import 'child_diary_page.dart';
+import 'documents_page.dart';
 import 'find_childminder_page.dart';
 import 'messages_page.dart';
 import 'payments_page.dart';
@@ -75,7 +77,7 @@ class ParentHomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                   child: _ActionList(
                     onMessage: () => _goToMessages(context),
-                    onJournal: () => _onStub(context, 'Voir le journal'),
+                    onJournal: () => _goToJournal(context),
                     onPayments: () => _goToPayments(context),
                     onDocuments: () => _onDocuments(context),
                   ),
@@ -107,9 +109,16 @@ class ParentHomeScreen extends ConsumerWidget {
     );
   }
 
+  void _goToJournal(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ChildDiaryPage()),
+    );
+  }
+
   void _onDocuments(BuildContext context) {
-    // TODO: naviguer vers l'écran documents.
-    _onStub(context, 'Documents');
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const DocumentsPage()),
+    );
   }
 
   void _onNotifications(BuildContext context) {

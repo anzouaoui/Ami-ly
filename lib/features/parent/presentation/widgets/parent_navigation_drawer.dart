@@ -7,10 +7,12 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../pages/child_diary_page.dart';
+import '../pages/documents_page.dart';
 import '../pages/find_childminder_page.dart';
 import '../pages/messages_page.dart';
 import '../pages/parent_profile_page.dart';
 import '../pages/payments_page.dart';
+import '../pages/planning_page.dart';
 
 /// Drawer de navigation latéral de l'espace Parent.
 ///
@@ -119,18 +121,24 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   _NavItem(
                     icon: Icons.description_outlined,
                     label: 'Documents',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Documents'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const DocumentsPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.calendar_today_rounded,
                     label: 'Planning annuel',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Planning'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PlanningPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.assignment_outlined,
