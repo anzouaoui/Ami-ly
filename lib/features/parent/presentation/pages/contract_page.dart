@@ -347,6 +347,34 @@ class _ContractTabContent extends StatelessWidget {
             children: _HorairesForm(),
             initiallyExpanded: false,
           ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Summary heures / semaine
+          const _WeekHoursSummary(
+            totalHours: '50h/semaine',
+            maxHours: '48h/semaine',
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Délai de prévenance
+          const ProfileFormField(
+            label: 'Délai de prévenance (semaines)',
+            initialValue: '2',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Carte Rémunération
+          const _ExpandableCard(
+            icon: Icons.euro_rounded,
+            title: 'Rémunération',
+            children: _RemunerationForm(),
+            initiallyExpanded: false,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Récapitulatif Salaire
+          const _SalaryRecapSection(),
           const SizedBox(height: AppSpacing.lg),
 
           // CTAs empilés : Enregistrer brouillon (primary) + Étape suivante (outlined)
@@ -981,6 +1009,632 @@ class _DayRow extends StatelessWidget {
         ] else
           const Expanded(child: SizedBox()),
       ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Section Rémunération
+// -----------------------------------------------------------------
+
+/// Carte récap heures semaine : "Total : 50h/semaine" + "Max : 48h/semaine"
+/// en rouge si dépassement.
+class _WeekHoursSummary extends StatelessWidget {
+  const _WeekHoursSummary({
+    required this.totalHours,
+    required this.maxHours,
+  });
+
+  final String totalHours;
+  final String maxHours;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.divider.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: RichText(
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.primaryText,
+                ),
+                children: [
+                  const TextSpan(text: 'Total : '),
+                  TextSpan(
+                    text: totalHours,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.error,
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'Max : $maxHours',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RemunerationForm extends StatefulWidget {
+  const _RemunerationForm();
+
+  @override
+  State<_RemunerationForm> createState() => _RemunerationFormState();
+}
+
+class _RemunerationFormState extends State<_RemunerationForm> {
+  bool _alsaceMoselle = false;
+  bool _isBrut = true;
+
+  static const _majAdditionnellesOptions = ['0 %', '5 %', '10 %'];
+  String _majAdditionnelles = _majAdditionnellesOptions[0];
+
+  static const _majSupplementairesOptions = ['25 %', '50 %'];
+  String _majSupplementaires = _majSupplementairesOptions[0];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Alsace-Moselle toggle
+        Row(
+          children: [
+            Expanded(
+              child: Text('Alsace-Moselle ?', style: AppTextStyles.labelLarge),
+            ),
+            Switch(
+              value: _alsaceMoselle,
+              onChanged: (v) => setState(() => _alsaceMoselle = v),
+              activeColor: AppColors.primary,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Taux horaire
+        Text('Taux horaire', style: AppTextStyles.labelMedium),
+        const SizedBox(height: AppSpacing.sm),
+        _BrutNetSegmented(
+          isBrut: _isBrut,
+          onChanged: (b) => setState(() => _isBrut = b),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextFormField(
+                initialValue: '4',
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Text(
+              '€/h (${_isBrut ? 'brut' : 'net'})',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.secondaryText,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Majorations — 2 dropdowns
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _DropdownField(
+                label: 'Maj. heures additionnelles',
+                value: _majAdditionnelles,
+                options: _majAdditionnellesOptions,
+                onChanged: (v) =>
+                    setState(() => _majAdditionnelles = v ?? '0 %'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _DropdownField(
+                label: 'Maj. heures supplémentaires',
+                value: _majSupplementaires,
+                options: _majSupplementairesOptions,
+                onChanged: (v) =>
+                    setState(() => _majSupplementaires = v ?? '25 %'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Résultats
+        Text(
+          'RÉSULTATS',
+          style: AppTextStyles.labelSmall.copyWith(
+            color: AppColors.secondaryText,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        const _ResultCard(
+          title: 'Heure classique',
+          brut: '4,00',
+          net: '3,12',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        const _ResultCard(
+          title: 'Heure complémentaire (0% de majoration sur le brut)',
+          brut: '4,00',
+          net: '3,58',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        const _ResultCard(
+          title: 'Heure supplémentaire incluse dans la mensualisation (non majorée)',
+          brut: '4,00',
+          net: '3,58',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // Min légal
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.error,
+              size: 16,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              'Min légal : 3,18 € net/h',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Titre "Salaire mensuel de base"
+        Text(
+          'Salaire mensuel de base',
+          style: AppTextStyles.titleMedium,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+
+        // Carte calcul mensuel
+        const _MonthlyCalculationCard(
+          formula: '4 € × 50h × 52 / 12',
+          brutMensuel: '866,68 €',
+          netMensuel: '676,00 €',
+        ),
+      ],
+    );
+  }
+}
+
+/// Segmented control Brut / Net (pattern repris des autres tabs).
+class _BrutNetSegmented extends StatelessWidget {
+  const _BrutNetSegmented({required this.isBrut, required this.onChanged});
+  final bool isBrut;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: AppColors.divider.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+      ),
+      child: Row(
+        children: [
+          _SegItem(label: 'Brut', isActive: isBrut, onTap: () => onChanged(true)),
+          _SegItem(label: 'Net', isActive: !isBrut, onTap: () => onChanged(false)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegItem extends StatelessWidget {
+  const _SegItem({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: isActive ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(
+                color: isActive
+                    ? AppColors.onPrimary
+                    : AppColors.secondaryText,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dropdown field : label au-dessus + DropdownButtonFormField.
+class _DropdownField extends StatelessWidget {
+  const _DropdownField({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTextStyles.labelMedium),
+        const SizedBox(height: AppSpacing.sm),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          items: [
+            for (final opt in options)
+              DropdownMenuItem(value: opt, child: Text(opt)),
+          ],
+          onChanged: onChanged,
+          isExpanded: true,
+        ),
+      ],
+    );
+  }
+}
+
+/// Carte résultat : titre + Brut + Net sur la même ligne.
+class _ResultCard extends StatelessWidget {
+  const _ResultCard({
+    required this.title,
+    required this.brut,
+    required this.net,
+  });
+
+  final String title;
+  final String brut;
+  final String net;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.primaryText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(child: _BrutNetValue(label: 'Brut', value: brut)),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: _BrutNetValue(label: 'Net', value: net)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BrutNetValue extends StatelessWidget {
+  const _BrutNetValue({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: AppColors.secondaryText,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '$value €',
+          style: AppTextStyles.titleMedium.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Récapitulatif Salaire
+// -----------------------------------------------------------------
+
+/// Section "Récapitulatif Salaire" : 3 cartes détaillées + min légal +
+/// calcul mensuel + 4 accordéons (indemnités, fériés, congés, conditions).
+class _SalaryRecapSection extends StatelessWidget {
+  const _SalaryRecapSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+
+        // Accordéons (stubs)
+        _PaySubItem(
+          icon: Icons.account_balance_wallet_rounded,
+          label: 'Indemnités et frais',
+          onTap: () => _stub(context, 'Indemnités et frais'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _PaySubItem(
+          icon: Icons.calendar_today_rounded,
+          label: 'Repos & jours fériés',
+          onTap: () => _stub(context, 'Repos & jours fériés'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _PaySubItem(
+          icon: Icons.beach_access_rounded,
+          label: 'Congés annuels',
+          onTap: () => _stub(context, 'Congés annuels'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _PaySubItem(
+          icon: Icons.playlist_add_check_rounded,
+          label: 'Conditions particulières',
+          onTap: () => _stub(context, 'Conditions particulières'),
+        ),
+      ],
+    );
+  }
+
+  void _stub(BuildContext context, String label) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+/// Carte résultat du récap : titre (body bold) + 2 rows Brut / Net
+/// (label à gauche, valeur à droite en primary bold).
+class _SalaryResultCard extends StatelessWidget {
+  const _SalaryResultCard({
+    required this.title,
+    required this.brut,
+    required this.net,
+  });
+
+  final String title;
+  final String brut;
+  final String net;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.primaryText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _SalaryRow(label: 'Brut', value: brut),
+          const SizedBox(height: AppSpacing.xs),
+          _SalaryRow(label: 'Net', value: net),
+        ],
+      ),
+    );
+  }
+}
+
+class _SalaryRow extends StatelessWidget {
+  const _SalaryRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.secondaryText,
+          ),
+        ),
+        Text(
+          value,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.primaryText,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Carte "Salaire mensuel de base" : formule + brut/net mensuels.
+class _MonthlyCalculationCard extends StatelessWidget {
+  const _MonthlyCalculationCard({
+    required this.formula,
+    required this.brutMensuel,
+    required this.netMensuel,
+  });
+
+  final String formula;
+  final String brutMensuel;
+  final String netMensuel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            formula,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _SalaryRow(label: 'Brut mensuel :', value: brutMensuel),
+          const SizedBox(height: AppSpacing.xs),
+          _SalaryRow(label: 'Net mensuel :', value: netMensuel),
+        ],
+      ),
+    );
+  }
+}
+
+/// Item d'accordéon stub : carte avec icône tintée + label + chevron bas.
+class _PaySubItem extends StatelessWidget {
+  const _PaySubItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Icon(
+                Icons.expand_more_rounded,
+                color: AppColors.secondaryText,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
