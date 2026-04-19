@@ -85,6 +85,8 @@ class _ContractPageState extends State<ContractPage> {
               // Contenu selon le tab
               if (_tab == _ContractTab.contract)
                 const _ContractTabContent()
+              else if (_tab == _ContractTab.caf)
+                const _CafTabContent()
               else
                 const _OtherTabPlaceholder(),
 
@@ -377,6 +379,43 @@ class _ContractTabContent extends StatelessWidget {
           const _SalaryRecapSection(),
           const SizedBox(height: AppSpacing.lg),
 
+          // Calcul automatique (résumé du contrat à signer)
+          Row(
+            children: [
+              const Icon(
+                Icons.bar_chart_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Calcul automatique',
+                style: AppTextStyles.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const _SalarySummaryCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Simulation CMG (version compacte — détail complet dispo en CAF tab)
+          const _ContractCmgCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Génération & Signature
+          FilledButton.icon(
+            onPressed: () => _onGenerateSign(context),
+            icon: const Icon(Icons.edit_rounded, size: 20),
+            label: const Text(
+              'Générer et envoyer pour signature',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const _DocuSignInfoCard(),
+          const SizedBox(height: AppSpacing.lg),
+
           // CTAs empilés : Enregistrer brouillon (primary) + Étape suivante (outlined)
           FilledButton.icon(
             onPressed: () => _onSaveDraft(context),
@@ -408,6 +447,396 @@ class _ContractTabContent extends StatelessWidget {
       const SnackBar(
         content: Text('Étape suivante — à venir'),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _onGenerateSign(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Génération DocuSign — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+/// Contenu de l'onglet "CAF" : simulation CMG détaillée.
+class _CafTabContent extends StatelessWidget {
+  const _CafTabContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SalarySummaryCard(),
+          SizedBox(height: AppSpacing.md),
+          _CmgInputsCard(),
+          SizedBox(height: AppSpacing.md),
+          _CmgResultsCard(),
+          SizedBox(height: AppSpacing.md),
+          _CafDisclaimer(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Carte récap salaire avec badge "Incomplet", liste de lignes,
+/// total mensuel highlight, salaire annuel et formule.
+class _SalarySummaryCard extends StatelessWidget {
+  const _SalarySummaryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Badge
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: _StatusBadge(
+              icon: Icons.info_outline_rounded,
+              label: 'Incomplet',
+              color: AppColors.accent,
+              bgColor: AppColors.statYellowBg,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Lignes
+          const _KeyValueRow(
+            label: 'Heures mensualisées',
+            value: '216.67h',
+            valueBold: true,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _KeyValueRow(
+            label: 'Salaire net mensuel',
+            value: '676,00 €',
+            valueBold: true,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _KeyValueRow(
+            label: 'Salaire brut mensuel',
+            value: '866,68 €',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _KeyValueRow(
+            label: 'Ind. entretien',
+            value: '75,83 €',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _KeyValueRow(
+            label: 'Ind. repas',
+            value: '86,67 €',
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Total mensuel highlight
+          const _HighlightRow(
+            label: 'Total mensuel',
+            value: '838,50 €',
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Salaire annuel
+          const _KeyValueRow(
+            label: 'Salaire annuel net',
+            value: '8 112,00 €',
+            valueBold: true,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Formule
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.divider.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '50h × 52 / 12',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.secondaryText,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Carte inputs de simulation CMG.
+class _CmgInputsCard extends StatefulWidget {
+  const _CmgInputsCard();
+
+  @override
+  State<_CmgInputsCard> createState() => _CmgInputsCardState();
+}
+
+class _CmgInputsCardState extends State<_CmgInputsCard> {
+  bool _parentIsole = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ProfileFormField(
+            label: 'Revenus annuels (N-2)',
+            initialValue: '30000',
+            keyboardType: TextInputType.number,
+            hintText: 'Revenus du foyer en €',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ProfileFormField(
+                  label: 'Enfants à charge',
+                  initialValue: '1',
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: ProfileFormField(
+                  label: 'Âge enfant (mois)',
+                  initialValue: '12',
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _HolidayCheckbox(
+            label: 'Parent isolé (+40 %)',
+            value: _parentIsole,
+            onChanged: (v) => setState(() => _parentIsole = v),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Carte résultats simulation CMG avec badge "Éligible".
+class _CmgResultsCard extends StatelessWidget {
+  const _CmgResultsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: _StatusBadge(
+              icon: Icons.check_circle_rounded,
+              label: 'Éligible au CMG',
+              color: AppColors.success,
+              bgColor: AppColors.secondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          const _KeyValueRow(
+            label: 'Aide CMG/mois',
+            value: '684,21 €',
+            valueColor: AppColors.success,
+            valueBold: true,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _KeyValueRow(
+            label: 'Cotisations prises en charge',
+            value: '153,11 €',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _KeyValueRow(
+            label: 'Total aide/mois',
+            value: '837,32 €',
+            valueColor: AppColors.success,
+            valueBold: true,
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Reste à charge highlight
+          const _HighlightRow(
+            label: 'Reste à charge',
+            value: '15,00 €',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pill de statut : icône + label, bg teinté.
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.bgColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color bgColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppRadii.full),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: AppTextStyles.labelMedium.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ligne label (gauche) → valeur (droite), avec options de mise en forme.
+class _KeyValueRow extends StatelessWidget {
+  const _KeyValueRow({
+    required this.label,
+    required this.value,
+    this.valueBold = false,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final bool valueBold;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          value,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: valueColor ?? AppColors.primaryText,
+            fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Ligne highlight (fond vert clair) : label + valeur large verte en bold.
+class _HighlightRow extends StatelessWidget {
+  const _HighlightRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.titleMedium.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            value,
+            style: AppTextStyles.titleLarge.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Disclaimer bas de page CAF : barèmes indicatifs.
+class _CafDisclaimer extends StatelessWidget {
+  const _CafDisclaimer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Text(
+        'Simulation indicative — barèmes CAF au 1er avril 2026. Source : caf.fr',
+        textAlign: TextAlign.center,
+        style: AppTextStyles.bodySmall.copyWith(
+          color: AppColors.secondaryText,
+        ),
       ),
     );
   }
@@ -1433,28 +1862,28 @@ class _SalaryRecapSection extends StatelessWidget {
       children: [
 
         // Accordéons (stubs)
-        _PaySubItem(
+        const _PaySubItem(
           icon: Icons.account_balance_wallet_rounded,
           label: 'Indemnités et frais',
-          onTap: () => _stub(context, 'Indemnités et frais'),
+          children: _IndemnitesFraisForm(),
         ),
         const SizedBox(height: AppSpacing.sm),
-        _PaySubItem(
+        const _PaySubItem(
           icon: Icons.calendar_today_rounded,
           label: 'Repos & jours fériés',
-          onTap: () => _stub(context, 'Repos & jours fériés'),
+          children: _ReposFeriesForm(),
         ),
         const SizedBox(height: AppSpacing.sm),
-        _PaySubItem(
+        const _PaySubItem(
           icon: Icons.beach_access_rounded,
           label: 'Congés annuels',
-          onTap: () => _stub(context, 'Congés annuels'),
+          children: _CongesAnnuelsForm(),
         ),
         const SizedBox(height: AppSpacing.sm),
-        _PaySubItem(
+        const _PaySubItem(
           icon: Icons.playlist_add_check_rounded,
           label: 'Conditions particulières',
-          onTap: () => _stub(context, 'Conditions particulières'),
+          children: _ConditionsParticulieresForm(),
         ),
       ],
     );
@@ -1580,60 +2009,664 @@ class _MonthlyCalculationCard extends StatelessWidget {
   }
 }
 
-/// Item d'accordéon stub : carte avec icône tintée + label + chevron bas.
-class _PaySubItem extends StatelessWidget {
+/// Item d'accordéon du récap salaire : carte avec icône tintée + label +
+/// chevron bas. Deux modes :
+///   - [onTap] fourni + [children] null → se comporte comme un stub (tap =
+///     callback, chevron statique)
+///   - [children] fourni → se déplie avec animation (chevron rotatif)
+class _PaySubItem extends StatefulWidget {
   const _PaySubItem({
     required this.icon,
     required this.label,
-    required this.onTap,
-  });
+    this.onTap,
+    this.children,
+    this.initiallyExpanded = false,
+  }) : assert(
+          onTap != null || children != null,
+          'Fournir onTap (stub) ou children (expandable).',
+        );
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final Widget? children;
+  final bool initiallyExpanded;
+
+  @override
+  State<_PaySubItem> createState() => _PaySubItemState();
+}
+
+class _PaySubItemState extends State<_PaySubItem> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  bool get _isExpandable => widget.children != null;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.md),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: AppColors.divider),
-          ),
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(AppRadii.sm),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _isExpandable
+                  ? () => setState(() => _expanded = !_expanded)
+                  : widget.onTap,
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary,
+                        borderRadius: BorderRadius.circular(AppRadii.sm),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        widget.icon,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        widget.label,
+                        style: AppTextStyles.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _isExpandable && _expanded ? 0 : -0.5,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.expand_more_rounded,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                  ],
                 ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: AppColors.primary, size: 20),
               ),
-              const SizedBox(width: AppSpacing.md),
+            ),
+          ),
+
+          // Body (si expandable)
+          if (_isExpandable)
+            AnimatedCrossFade(
+              crossFadeState: _expanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 200),
+              sizeCurve: Curves.easeInOut,
+              firstChild: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                child: widget.children!,
+              ),
+              secondChild: const SizedBox(width: double.infinity),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Repos & jours fériés
+// -----------------------------------------------------------------
+
+class _ReposFeriesForm extends StatefulWidget {
+  const _ReposFeriesForm();
+
+  @override
+  State<_ReposFeriesForm> createState() => _ReposFeriesFormState();
+}
+
+class _ReposFeriesFormState extends State<_ReposFeriesForm> {
+  static const _restDayOptions = [
+    'Lundi',
+    'Mardi',
+    'Mercredi',
+    'Jeudi',
+    'Vendredi',
+    'Samedi',
+    'Dimanche',
+  ];
+  String _restDay = 'Dimanche';
+
+  static const _exceptionalWorkOptions = [
+    'Rémunéré',
+    'Récupéré',
+    'Rémunéré + récupéré',
+  ];
+  String _exceptionalWork = 'Rémunéré';
+
+  static const _firstMayOptions = [
+    'Chômé',
+    'Travaillé (majoré 100 %)',
+  ];
+  String _firstMay = 'Chômé';
+
+  static const _holidays = [
+    '1er janvier',
+    'Vendredi Saint (Alsace-Moselle)',
+    'Lundi de Pâques',
+    '8 mai',
+    'Jeudi de l\'Ascension',
+    'Lundi de Pentecôte',
+    'Abolition de l\'esclavage (DROM)',
+    '14 juillet',
+    '15 août',
+    '1er novembre',
+    '11 novembre',
+    '25 décembre',
+    '26 décembre (Alsace-Moselle)',
+  ];
+  final Map<String, bool> _selectedHolidays = {
+    for (final h in _holidays) h: false,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Row : Jour de repos + Travail exceptionnel
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _DropdownField(
+                label: 'Jour de repos',
+                value: _restDay,
+                options: _restDayOptions,
+                onChanged: (v) => setState(() => _restDay = v ?? 'Dimanche'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _DropdownField(
+                label: 'Travail exceptionnel',
+                value: _exceptionalWork,
+                options: _exceptionalWorkOptions,
+                onChanged: (v) =>
+                    setState(() => _exceptionalWork = v ?? 'Rémunéré'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // 1er Mai (full width)
+        _DropdownField(
+          label: '1er Mai',
+          value: _firstMay,
+          options: _firstMayOptions,
+          onChanged: (v) => setState(() => _firstMay = v ?? 'Chômé'),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Jours fériés travaillés
+        Text(
+          'Jours fériés travaillés',
+          style: AppTextStyles.labelMedium,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        for (final h in _holidays)
+          _HolidayCheckbox(
+            label: h,
+            value: _selectedHolidays[h] ?? false,
+            onChanged: (v) => setState(() => _selectedHolidays[h] = v),
+          ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Majoration numérique
+        const ProfileFormField(
+          label: 'Majoration jours fériés (% — min 10%)',
+          initialValue: '10',
+          keyboardType: TextInputType.number,
+        ),
+      ],
+    );
+  }
+}
+
+/// Checkbox compacte pour la liste des jours fériés — même ergonomie
+/// que [FilterCheckboxTile] mais inline ici pour éviter l'import
+/// cross-feature.
+class _HolidayCheckbox extends StatelessWidget {
+  const _HolidayCheckbox({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: Checkbox(
+                value: value,
+                onChanged: (v) => onChanged(v ?? false),
+                activeColor: AppColors.primary,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                shape: const CircleBorder(),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.primaryText,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Indemnités et frais
+// -----------------------------------------------------------------
+
+class _IndemnitesFraisForm extends StatefulWidget {
+  const _IndemnitesFraisForm();
+
+  @override
+  State<_IndemnitesFraisForm> createState() => _IndemnitesFraisFormState();
+}
+
+class _IndemnitesFraisFormState extends State<_IndemnitesFraisForm> {
+  bool _amFournitRepas = false;
+  bool _amFournitCouches = true;
+  bool _amFournitHygiene = true;
+  bool _vehiculeFourni = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Row : Indemnité d'entretien + Indemnité repas
+        const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ProfileFormField(
+                label: 'Entretien (€/jour)',
+                initialValue: '3,00',
+                keyboardType: TextInputType.number,
+                required: true,
+              ),
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: ProfileFormField(
+                label: 'Repas (€/jour)',
+                initialValue: '4,50',
+                keyboardType: TextInputType.number,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.secondaryText,
+              size: 14,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                'Entretien : min légal 2,65 € / jour travaillé',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Fournitures
+        Text(
+          'Fournitures',
+          style: AppTextStyles.labelMedium,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        _HolidayCheckbox(
+          label: 'L\'assistante maternelle fournit les repas',
+          value: _amFournitRepas,
+          onChanged: (v) => setState(() => _amFournitRepas = v),
+        ),
+        _HolidayCheckbox(
+          label: 'L\'assistante maternelle fournit les couches',
+          value: _amFournitCouches,
+          onChanged: (v) => setState(() => _amFournitCouches = v),
+        ),
+        _HolidayCheckbox(
+          label: 'L\'assistante maternelle fournit les produits d\'hygiène',
+          value: _amFournitHygiene,
+          onChanged: (v) => setState(() => _amFournitHygiene = v),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Déplacements
+        Text(
+          'Déplacements',
+          style: AppTextStyles.labelMedium,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _HolidayCheckbox(
+          label: 'Véhicule fourni par l\'assistante maternelle',
+          value: _vehiculeFourni,
+          onChanged: (v) => setState(() => _vehiculeFourni = v),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ProfileFormField(
+                label: 'Indemnité km (€/km)',
+                initialValue: '0,00',
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: ProfileFormField(
+                label: 'Distance moy. (km/j)',
+                initialValue: '0',
+                keyboardType: TextInputType.number,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Autres frais
+        const ProfileFormField(
+          label: 'Autres frais / notes',
+          hintText: 'Précisez tout autre frais convenu…',
+          maxLines: 3,
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Congés annuels
+// -----------------------------------------------------------------
+
+class _CongesAnnuelsForm extends StatelessWidget {
+  const _CongesAnnuelsForm();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ProfileFormField(
+          label: 'Semaines de congés payés',
+          initialValue: '5',
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: 18,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                'Inclus dans la mensualisation',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// DocuSign info card
+// -----------------------------------------------------------------
+
+/// Info card bleue décrivant le flow de signature électronique.
+class _DocuSignInfoCard extends StatelessWidget {
+  const _DocuSignInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.statBlueBg,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(
+          color: AppColors.statBlueColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.shield_rounded,
+            color: AppColors.statBlueColor,
+            size: 22,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Signature DocuSign',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: AppColors.statBlueColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Le contrat sera envoyé aux deux parties pour signature électronique officielle. Téléchargeable en PDF et stocké dans vos documents.',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.primaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Conditions particulières
+// -----------------------------------------------------------------
+
+class _ConditionsParticulieresForm extends StatelessWidget {
+  const _ConditionsParticulieresForm();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Textarea libre
+        TextField(
+          maxLines: 5,
+          decoration: InputDecoration(
+            hintText: 'Activités, cahier de liaison, animaux...',
+          ),
+        ),
+        SizedBox(height: AppSpacing.md),
+
+        // Info tile : Indemnité de fin de contrat
+        _InfoTile(
+          label: 'Indemnité de fin de contrat',
+          value: 'Après 9 mois : 1/80e du total des salaires bruts.',
+        ),
+        SizedBox(height: AppSpacing.sm),
+
+        // Info tile : Retraite & Prévoyance
+        _InfoTile(
+          label: 'Retraite & Prévoyance',
+          value: 'Ircem AGIRC/ARRCO & Ircem Prévoyance',
+        ),
+      ],
+    );
+  }
+}
+
+/// Info tile : label (labelLarge) + valeur (bodySmall secondary) dans une
+/// carte légèrement teintée.
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.primaryText,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            value,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// Simulation CMG (version compacte pour l'onglet Contrat)
+// -----------------------------------------------------------------
+
+/// Carte compacte "Simulation CMG" affichée dans l'onglet Contrat avant
+/// la signature : titre + sous-titre + input Revenus N-2.
+///
+/// La simulation détaillée complète (inputs + résultats + éligibilité)
+/// est dans l'onglet CAF via [_CafTabContent].
+class _ContractCmgCard extends StatelessWidget {
+  const _ContractCmgCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header : icône + titre
+          Row(
+            children: [
+              const Icon(
+                Icons.shield_moon_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  label,
+                  'Simulation CMG',
                   style: AppTextStyles.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const Icon(
-                Icons.expand_more_rounded,
-                color: AppColors.secondaryText,
               ),
             ],
           ),
-        ),
+          const SizedBox(height: AppSpacing.xs),
+
+          // Sous-titre
+          Text(
+            'Complément de libre choix du Mode de Garde',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Champ Revenus N-2
+          const ProfileFormField(
+            label: 'Revenus annuels (N-2)',
+            initialValue: '30000',
+            keyboardType: TextInputType.number,
+            hintText: 'Revenus du foyer en €',
+          ),
+        ],
       ),
     );
   }
