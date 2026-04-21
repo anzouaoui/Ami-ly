@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../pages/book_year_page.dart';
 import '../pages/child_diary_page.dart';
 import '../pages/contract_page.dart';
 import '../pages/documents_page.dart';
@@ -155,10 +156,13 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   _NavItem(
                     icon: Icons.auto_stories_outlined,
                     label: 'Livre de l\'année',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Livre de l\'année'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const BookYearPage(),
+                        ),
+                      );
+                    }),
                   ),
                   _NavItem(
                     icon: Icons.smart_toy_outlined,
