@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../pages/assistant_page.dart';
 import '../pages/book_year_page.dart';
 import '../pages/child_diary_page.dart';
 import '../pages/contract_page.dart';
@@ -167,10 +168,13 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   _NavItem(
                     icon: Icons.smart_toy_outlined,
                     label: 'Assistant AMiLY',
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Assistant AMiLY'),
-                    ),
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AssistantPage(),
+                        ),
+                      );
+                    }),
                   ),
 
                   const Padding(
