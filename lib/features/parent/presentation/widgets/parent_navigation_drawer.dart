@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/repositories/fake_auth_repository.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../pages/assistant_page.dart';
 import '../pages/book_year_page.dart';
@@ -183,13 +184,19 @@ class ParentNavigationDrawer extends ConsumerWidget {
                   ),
 
                   _NavItem(
-                    icon: Icons.settings_outlined,
+                    icon: Icons.swap_horiz_rounded,
                     label: 'Vue Assistante',
                     isSpecial: true,
-                    onTap: () => _closeAnd(
-                      context,
-                      () => _stub(context, 'Vue Assistante'),
-                    ),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      // Bascule instantanée : le FakeAuthRepository pousse
+                      // l'user assmat sur le stream, AuthWrapper re-route
+                      // automatiquement vers AssMatHomePage.
+                      final repo = ref.read(authRepositoryProvider);
+                      if (repo is FakeAuthRepository) {
+                        repo.loginAs(DevUsers.assmat());
+                      }
+                    },
                   ),
                   _NavItem(
                     icon: Icons.logout_rounded,

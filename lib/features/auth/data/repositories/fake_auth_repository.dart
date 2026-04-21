@@ -22,10 +22,27 @@ import '../../domain/repositories/auth_repository.dart';
 /// À retirer (ou laisser comme mock pour les tests) le jour où Firebase est
 /// prêt : il suffit d'enlever l'override dans `main.dart`.
 class FakeAuthRepository implements AuthRepository {
-  FakeAuthRepository({AppUser? initialUser}) : _current = initialUser;
+  FakeAuthRepository({
+    AppUser? initialUser,
+    Map<String, AppUser>? registeredUsers,
+  })  : _current = initialUser,
+        _registeredUsers = {
+          for (final entry
+              in (registeredUsers ?? const <String, AppUser>{}).entries)
+            entry.key.toLowerCase(): entry.value,
+        };
 
   AppUser? _current;
   final _controller = StreamController<AppUser?>.broadcast();
+
+  /// Comptes connus avec un displayName + rôle pré-définis — permet de se
+  /// logger avec des emails canoniques ("anouk@test.com", "marie@test.com"…)
+  /// et d'avoir le bon profil sans passer par le signup. Clés en lowercase.
+  final Map<String, AppUser> _registeredUsers;
+
+  /// Basculer instantanément vers un user donné (dev only). Utilisé par les
+  /// raccourcis "Vue Parent" / "Vue Assistante" dans les drawers.
+  void loginAs(AppUser user) => _emit(user);
 
   @override
   AppUser? get currentUserSnapshot => _current;
@@ -52,11 +69,19 @@ class FakeAuthRepository implements AuthRepository {
       return const Left(AuthFailure('Mot de passe trop court (min. 6).'));
     }
 
+    // 1. Compte canonique pré-enregistré : utilise l'AppUser fourni
+    //    (displayName propre, uid stable, etc.).
+    final registered = _registeredUsers[email.toLowerCase()];
+    if (registered != null) {
+      _emit(registered);
+      return Right(registered);
+    }
+
+    // 2. Fallback : user dérivé de l'email. Rôle déduit par heuristique
+    //    (email contient "assmat" → assmat, sinon parent).
     final user = AppUser(
       uid: 'fake-${email.hashCode}',
       email: email,
-      // Heuristique simple : si l'e-mail contient "assmat" c'est une ass mat,
-      // sinon parent. Pratique pour tester les 2 parcours sans rebuild.
       role: email.toLowerCase().contains('assmat')
           ? UserRole.assmat
           : UserRole.parent,
