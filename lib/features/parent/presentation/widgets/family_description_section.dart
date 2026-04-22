@@ -14,10 +14,19 @@ class FamilyDescriptionSection extends StatefulWidget {
     super.key,
     this.initialValue = '',
     this.maxLength = 500,
+    this.label = 'Description de la famille',
+    this.hintText = 'Parlez-nous de votre famille…',
   });
 
   final String initialValue;
   final int maxLength;
+
+  /// Libellé au-dessus du textarea. Défaut parent : "Description de la famille".
+  /// Pour l'assmat : "Description / Présentation".
+  final String label;
+
+  /// Placeholder du textarea.
+  final String hintText;
 
   @override
   State<FamilyDescriptionSection> createState() =>
@@ -33,7 +42,7 @@ class _FamilyDescriptionSectionState extends State<FamilyDescriptionSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Description de la famille',
+          widget.label,
           style: AppTextStyles.titleMedium.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -47,8 +56,8 @@ class _FamilyDescriptionSectionState extends State<FamilyDescriptionSection> {
           buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
               const SizedBox.shrink(),
           onChanged: (v) => setState(() => _count = v.length),
-          decoration: const InputDecoration(
-            hintText: 'Parlez-nous de votre famille…',
+          decoration: InputDecoration(
+            hintText: widget.hintText,
           ),
         ),
         const SizedBox(height: AppSpacing.xs),

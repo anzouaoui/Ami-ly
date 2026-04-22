@@ -10,6 +10,7 @@ import '../../../auth/data/repositories/fake_auth_repository.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
+import 'assmat_profile_page.dart';
 
 /// Dashboard de l'Assistante Maternelle.
 ///
@@ -1067,6 +1068,21 @@ class _AssMatDrawer extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.person_outline_rounded,
+                color: AppColors.primaryText,
+              ),
+              title: const Text('Mon profil'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AssMatProfilePage(),
+                  ),
+                );
+              },
             ),
             const Spacer(),
             const Divider(height: 1, color: AppColors.divider),

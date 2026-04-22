@@ -5,6 +5,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import 'family_description_section.dart';
 import 'profile_form_field.dart';
 
 /// Carte "Informations personnelles" du profil parent.
@@ -20,6 +21,11 @@ class PersonalInfoCard extends StatelessWidget {
     required this.email,
     required this.address,
     required this.onChangePhoto,
+    this.avatarBg,
+    this.avatarFg,
+    this.descriptionValue,
+    this.descriptionLabel,
+    this.descriptionHint,
   });
 
   final String firstName;
@@ -28,6 +34,17 @@ class PersonalInfoCard extends StatelessWidget {
   final String email;
   final String address;
   final VoidCallback onChangePhoto;
+
+  /// Couleurs optionnelles de l'avatar — défaut : pêche (parent).
+  /// Passer `secondary` / `primary` pour la variante assmat (vert).
+  final Color? avatarBg;
+  final Color? avatarFg;
+
+  /// Si non null, affiche une section textarea "description" après
+  /// le champ Adresse avec compteur de caractères.
+  final String? descriptionValue;
+  final String? descriptionLabel;
+  final String? descriptionHint;
 
   String get _initials {
     final f = firstName.isNotEmpty ? firstName[0] : '';
@@ -69,7 +86,11 @@ class PersonalInfoCard extends StatelessWidget {
           // Avatar + bouton changer photo
           Row(
             children: [
-              _Avatar(initials: _initials),
+              _Avatar(
+                initials: _initials,
+                bg: avatarBg ?? AppColors.assmatIconBg,
+                fg: avatarFg ?? AppColors.primaryText,
+              ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
@@ -118,31 +139,46 @@ class PersonalInfoCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           ProfileFormField(label: 'Adresse', initialValue: address),
+          if (descriptionValue != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            FamilyDescriptionSection(
+              initialValue: descriptionValue!,
+              label: descriptionLabel ?? 'Description',
+              hintText: descriptionHint ?? 'Parlez-nous de vous…',
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// Avatar circulaire pêche avec initiales.
+/// Avatar circulaire avec initiales — bg et fg configurables.
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initials});
+  const _Avatar({
+    required this.initials,
+    required this.bg,
+    required this.fg,
+  });
+
   final String initials;
+  final Color bg;
+  final Color fg;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 64,
       height: 64,
-      decoration: const BoxDecoration(
-        color: AppColors.assmatIconBg,
+      decoration: BoxDecoration(
+        color: bg,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
         style: AppTextStyles.titleLarge.copyWith(
-          color: AppColors.primaryText,
+          color: fg,
           fontWeight: FontWeight.w700,
         ),
       ),
