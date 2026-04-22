@@ -19,7 +19,8 @@
       "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\('Path', 'User'\\)\")",
       "Bash(xargs cat *)",
       "Bash(xargs grep *)",
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "Bash(dart analyze *)"
     ]
   }
 }

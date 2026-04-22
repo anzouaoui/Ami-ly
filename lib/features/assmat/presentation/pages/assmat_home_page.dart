@@ -11,6 +11,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
 import 'assmat_profile_page.dart';
+import 'search_parents_page.dart';
 
 /// Dashboard de l'Assistante Maternelle.
 ///
@@ -1034,99 +1035,328 @@ class _QuickActionsCard extends StatelessWidget {
 class _AssMatDrawer extends ConsumerWidget {
   const _AssMatDrawer();
 
+  static const _logoBg = Color(0xFF4A3B33);
+
+  void _closeAnd(BuildContext context, VoidCallback action) {
+    Navigator.of(context).pop();
+    action();
+  }
+
+  void _stub(BuildContext context, String label) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label — à venir'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
-
     return Drawer(
       backgroundColor: AppColors.background,
+      width: 320,
+      shape: const RoundedRectangleBorder(),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DrawerHeader(
+            // ── Header ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
               decoration: const BoxDecoration(
-                color: AppColors.assmatIconBg,
+                border: Border(
+                  bottom: BorderSide(color: AppColors.divider, width: 1),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+              child: Row(
                 children: [
-                  Text(
-                    user?.displayName ?? 'Utilisateur',
-                    style: AppTextStyles.titleLarge.copyWith(
-                      color: AppColors.assmatIconColor,
-                      fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: _logoBg,
+                            borderRadius:
+                                BorderRadius.circular(AppRadii.lg),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.family_restroom,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'AMiLY',
+                                style: AppTextStyles.titleLarge.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                'Espace Assistante',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    user?.email ?? '',
-                    style: AppTextStyles.bodySmall.copyWith(
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
                       color: AppColors.secondaryText,
+                      size: 24,
                     ),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            ListTile(
-              leading: const Icon(
-                Icons.person_outline_rounded,
-                color: AppColors.primaryText,
-              ),
-              title: const Text('Mon profil'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AssMatProfilePage(),
+
+            // ── Items scrollables ──
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                children: [
+                  _DrawerItem(
+                    icon: Icons.dashboard_rounded,
+                    label: 'Tableau de bord',
+                    isActive: true,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
-                );
-              },
-            ),
-            const Spacer(),
-            const Divider(height: 1, color: AppColors.divider),
+                  _DrawerItem(
+                    icon: Icons.person_outline_rounded,
+                    label: 'Mon profil',
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const AssMatProfilePage(),
+                      ));
+                    }),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.search_rounded,
+                    label: 'Parents en recherche',
+                    onTap: () => _closeAnd(context, () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const SearchParentsPage(),
+                      ));
+                    }),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.article_outlined,
+                    label: 'Contrats',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Contrats')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.request_quote_outlined,
+                    label: 'Facturation',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Facturation')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.calendar_month_outlined,
+                    label: 'Planning',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Planning')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.beach_access_outlined,
+                    label: 'Congés',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Congés')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.assignment_outlined,
+                    label: 'Journal quotidien',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Journal quotidien')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.fact_check_outlined,
+                    label: 'Feuilles de présence',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Feuilles de présence')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: 'Messages',
+                    badgeCount: 3,
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Messages')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.folder_outlined,
+                    label: 'Documents',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Documents')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.people_outline_rounded,
+                    label: 'Entre Ass Mat',
+                    badgeCount: 1,
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Entre Ass Mat')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.domain_outlined,
+                    label: 'Messagerie PMI',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Messagerie PMI')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.star_outline_rounded,
+                    label: 'AMiLY Pro',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'AMiLY Pro')),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.schedule_outlined,
+                    label: "Convertisseur d'heures",
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, "Convertisseur d'heures")),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.smart_toy_outlined,
+                    label: 'Assistant AMiLY',
+                    onTap: () =>
+                        _closeAnd(context, () => _stub(context, 'Assistant AMiLY')),
+                  ),
 
-            // Bascule dev vers la vue parent
-            ListTile(
-              leading: const Icon(
-                Icons.swap_horiz_rounded,
-                color: AppColors.accent,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    child: Divider(color: AppColors.divider, height: 1),
+                  ),
+
+                  _DrawerItem(
+                    icon: Icons.swap_horiz_rounded,
+                    label: 'Vue Parent',
+                    isSpecial: true,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      final repo = ref.read(authRepositoryProvider);
+                      if (repo is FakeAuthRepository) {
+                        repo.loginAs(DevUsers.parent());
+                      }
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.logout_rounded,
+                    label: 'Se déconnecter',
+                    onTap: () async {
+                      Navigator.of(context).pop();
+                      await ref.read(authRepositoryProvider).signOut();
+                    },
+                  ),
+                ],
               ),
-              title: Text(
-                'Vue Parent',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () {
-                Navigator.of(context).pop();
-                final repo = ref.read(authRepositoryProvider);
-                if (repo is FakeAuthRepository) {
-                  repo.loginAs(DevUsers.parent());
-                }
-              },
             ),
 
-            // Déconnexion
-            ListTile(
-              leading: const Icon(
-                Icons.logout_rounded,
-                color: AppColors.error,
-              ),
-              title: Text(
-                'Se déconnecter',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: AppColors.error,
-                ),
-              ),
-              onTap: () async {
-                Navigator.of(context).pop();
-                await ref.read(authRepositoryProvider).signOut();
-              },
-            ),
+            const SizedBox(height: 20),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Item de navigation du drawer assmat — même style que le drawer parent.
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isActive = false,
+    this.isSpecial = false,
+    this.badgeCount,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isActive;
+  final bool isSpecial;
+  final int? badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isActive
+        ? AppColors.primary
+        : isSpecial
+            ? AppColors.accent
+            : AppColors.primaryText;
+    final iconColor = isActive
+        ? AppColors.primary
+        : isSpecial
+            ? AppColors.accent
+            : AppColors.secondaryText;
+    final bg = isActive ? AppColors.secondary : Colors.transparent;
+    final weight = isActive ? FontWeight.w700 : FontWeight.w500;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AppRadii.md),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor, size: 22),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: fg,
+                      fontWeight: weight,
+                    ),
+                  ),
+                ),
+                if (badgeCount != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(AppRadii.full),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 20),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$badgeCount',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
