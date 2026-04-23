@@ -14,6 +14,7 @@ import 'assmat_contract_page.dart';
 import 'assmat_invoice_page.dart';
 import 'assmat_holidays_page.dart';
 import 'assmat_day_journey_page.dart';
+import 'assmat_documents_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
@@ -1207,7 +1208,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.folder_outlined,
                     label: 'Documents',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Documents')),
+                        _closeAnd(context, () => _navigate(context, const AssMatDocumentsPage())),
                   ),
                   _DrawerItem(
                     icon: Icons.people_outline_rounded,
