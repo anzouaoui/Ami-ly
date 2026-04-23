@@ -11,6 +11,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
 import 'assmat_contract_page.dart';
+import 'assmat_invoice_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
 
@@ -1165,7 +1166,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.request_quote_outlined,
                     label: 'Facturation',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Facturation')),
+                        _navigate(context, const AssMatInvoicePage()),
                   ),
                   _DrawerItem(
                     icon: Icons.calendar_month_outlined,

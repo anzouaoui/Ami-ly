@@ -111,36 +111,32 @@ class _AssMatNewContractPageState extends State<AssMatNewContractPage> {
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              // +1 for the intro card
-              itemCount: _sections.length + 1,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, i) {
-                if (i == 0) return const _IntroCard();
-                final idx = i - 1;
-                final expanded = _expanded.contains(idx);
-                final visited = _visited.contains(idx);
-                return _AccordionSection(
-                  meta: _sections[idx],
-                  expanded: expanded,
-                  visited: visited,
-                  onTap: () => _toggle(idx),
-                  child: _SectionBody(index: idx),
-                );
-              },
-            ),
-          ),
-          _BottomBar(
-            visitedCount: _visited.length,
-            total: _sections.length,
-            onPressed: () {},
-          ),
-        ],
+      body: ListView.separated(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        // +1 intro card, +1 bottom bar
+        itemCount: _sections.length + 2,
+        separatorBuilder: (_, i) =>
+            SizedBox(height: i < _sections.length ? AppSpacing.sm : AppSpacing.md),
+        itemBuilder: (context, i) {
+          if (i == 0) return const _IntroCard();
+          if (i == _sections.length + 1) {
+            return _BottomBar(
+              visitedCount: _visited.length,
+              total: _sections.length,
+              onPressed: () {},
+            );
+          }
+          final idx = i - 1;
+          final expanded = _expanded.contains(idx);
+          final visited = _visited.contains(idx);
+          return _AccordionSection(
+            meta: _sections[idx],
+            expanded: expanded,
+            visited: visited,
+            onTap: () => _toggle(idx),
+            child: _SectionBody(index: idx),
+          );
+        },
       ),
     );
   }
@@ -2583,15 +2579,11 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.divider)),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
