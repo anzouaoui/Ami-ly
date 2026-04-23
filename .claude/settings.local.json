@@ -20,7 +20,8 @@
       "Bash(xargs cat *)",
       "Bash(xargs grep *)",
       "Bash(xargs ls *)",
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(flutter build *)"
     ]
   }
 }

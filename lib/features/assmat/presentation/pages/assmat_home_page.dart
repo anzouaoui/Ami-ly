@@ -10,6 +10,7 @@ import '../../../auth/data/repositories/fake_auth_repository.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
+import 'assmat_contract_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
 
@@ -1037,6 +1038,12 @@ class _AssMatDrawer extends ConsumerWidget {
 
   static const _logoBg = Color(0xFF4A3B33);
 
+  void _navigate(BuildContext context, Widget page) {
+    final nav = Navigator.of(context);
+    nav.pop();
+    nav.push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
   void _closeAnd(BuildContext context, VoidCallback action) {
     Navigator.of(context).pop();
     action();
@@ -1139,26 +1146,20 @@ class _AssMatDrawer extends ConsumerWidget {
                   _DrawerItem(
                     icon: Icons.person_outline_rounded,
                     label: 'Mon profil',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const AssMatProfilePage(),
-                      ));
-                    }),
+                    onTap: () =>
+                        _navigate(context, const AssMatProfilePage()),
                   ),
                   _DrawerItem(
                     icon: Icons.search_rounded,
                     label: 'Parents en recherche',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const SearchParentsPage(),
-                      ));
-                    }),
+                    onTap: () =>
+                        _navigate(context, const SearchParentsPage()),
                   ),
                   _DrawerItem(
                     icon: Icons.article_outlined,
                     label: 'Contrats',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Contrats')),
+                        _navigate(context, const AssMatContractPage()),
                   ),
                   _DrawerItem(
                     icon: Icons.request_quote_outlined,
