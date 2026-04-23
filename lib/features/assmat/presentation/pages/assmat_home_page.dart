@@ -13,6 +13,7 @@ import '../../../parent/presentation/widgets/stat_card.dart';
 import 'assmat_contract_page.dart';
 import 'assmat_invoice_page.dart';
 import 'assmat_holidays_page.dart';
+import 'assmat_day_journey_page.dart';
 import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
@@ -1186,7 +1187,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.assignment_outlined,
                     label: 'Journal quotidien',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Journal quotidien')),
+                        _closeAnd(context, () => _navigate(context, const AssMatDayJourneyPage())),
                   ),
                   _DrawerItem(
                     icon: Icons.fact_check_outlined,
