@@ -12,6 +12,7 @@ import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
 import 'assmat_contract_page.dart';
 import 'assmat_invoice_page.dart';
+import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
 
@@ -1172,7 +1173,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.calendar_month_outlined,
                     label: 'Planning',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Planning')),
+                        _navigate(context, const AssMatPlanningPage()),
                   ),
                   _DrawerItem(
                     icon: Icons.beach_access_outlined,
