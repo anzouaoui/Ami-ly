@@ -14,6 +14,7 @@ import 'assmat_contract_page.dart';
 import 'assmat_invoice_page.dart';
 import 'assmat_holidays_page.dart';
 import 'assmat_day_journey_page.dart';
+import 'assmat_messages_page.dart';
 import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
@@ -1200,7 +1201,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     label: 'Messages',
                     badgeCount: 3,
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Messages')),
+                        _closeAnd(context, () => _navigate(context, const AssMatMessagesPage())),
                   ),
                   _DrawerItem(
                     icon: Icons.folder_outlined,
