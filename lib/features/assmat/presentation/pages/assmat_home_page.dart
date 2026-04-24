@@ -97,9 +97,15 @@ class AssMatHomePage extends ConsumerWidget {
                     horizontal: AppSpacing.lg,
                   ),
                   child: _QuickActionsCard(
-                    onNewReport: () => _stub(context, 'Nouveau rapport'),
-                    onContracts: () => _stub(context, 'Mes contrats'),
-                    onMessage: () => _stub(context, 'Envoyer un message'),
+                    onNewReport: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AssMatDayJourneyPage()),
+                    ),
+                    onContracts: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AssMatContractPage()),
+                    ),
+                    onMessage: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AssMatMessagesPage()),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
