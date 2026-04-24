@@ -18,6 +18,7 @@ import 'assmat_between_page.dart';
 import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_messages_page.dart';
+import 'assmat_converter_page.dart';
 import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
@@ -1235,7 +1236,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.schedule_outlined,
                     label: "Convertisseur d'heures",
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, "Convertisseur d'heures")),
+                        _closeAnd(context, () => _navigate(context, const AssMatConverterPage())),
                   ),
                   _DrawerItem(
                     icon: Icons.smart_toy_outlined,
