@@ -8,6 +8,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../widgets/childminder_card.dart';
 import '../widgets/filter_checkbox_tile.dart';
 import '../widgets/filter_section_title.dart';
+import 'childminder_profile_page.dart';
 
 /// Page "Trouver une assistante maternelle" — entrée du flow de recherche.
 ///
@@ -31,6 +32,8 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
   // --- Filtres ---
   double _radiusKm = 5;
   bool _onlyMyCommune = false;
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   /// Sections de filtres avancés (Services + Horaires). Visibles par défaut,
   /// togglées ensemble par l'icône tune.
@@ -93,13 +96,38 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
     return s + h + (_onlyMyCommune ? 1 : 0);
   }
 
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
+  Future<void> _pickDate({required bool isFrom}) async {
+    final now = DateTime.now();
+    final initial = isFrom
+        ? (_dateFrom ?? now)
+        : (_dateTo ?? _dateFrom ?? now);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now,
+      lastDate: DateTime(now.year + 2),
+      helpText: isFrom ? 'Date de début' : 'Date de fin',
+      confirmText: 'Valider',
+      cancelText: 'Annuler',
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(ctx).colorScheme.copyWith(
+                primary: AppColors.primary,
+              ),
+        ),
+        child: child!,
       ),
     );
+    if (picked != null) {
+      setState(() {
+        if (isFrom) {
+          _dateFrom = picked;
+          if (_dateTo != null && _dateTo!.isBefore(picked)) _dateTo = null;
+        } else {
+          _dateTo = picked;
+        }
+      });
+    }
   }
 
   @override
@@ -128,8 +156,10 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
                 onToggleAdvanced: () => setState(
                   () => _showAdvancedFilters = !_showAdvancedFilters,
                 ),
-                onPickFrom: () => _stub('Date de début'),
-                onPickTo: () => _stub('Date de fin'),
+                dateFrom: _dateFrom,
+                dateTo: _dateTo,
+                onPickFrom: () => _pickDate(isFrom: true),
+                onPickTo: () => _pickDate(isFrom: false),
               ),
               _ResultsHeader(
                 count: _results.length,
@@ -144,7 +174,12 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
                     for (final r in _results) ...[
                       ChildminderCard(
                         data: r,
-                        onTap: () => _stub('Profil de ${r.name}'),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ChildminderProfilePage(data: r),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.md),
                     ],
@@ -308,6 +343,8 @@ class _FilterCard extends StatelessWidget {
     required this.onToggleAdvanced,
     required this.onPickFrom,
     required this.onPickTo,
+    this.dateFrom,
+    this.dateTo,
   });
 
   final double radiusKm;
@@ -324,6 +361,8 @@ class _FilterCard extends StatelessWidget {
   final bool showAdvanced;
   final VoidCallback onToggleAdvanced;
 
+  final DateTime? dateFrom;
+  final DateTime? dateTo;
   final VoidCallback onPickFrom;
   final VoidCallback onPickTo;
 
@@ -431,6 +470,7 @@ class _FilterCard extends StatelessWidget {
               Expanded(
                 child: _DateField(
                   hint: 'À partir du...',
+                  date: dateFrom,
                   onTap: onPickFrom,
                 ),
               ),
@@ -438,6 +478,7 @@ class _FilterCard extends StatelessWidget {
               Expanded(
                 child: _DateField(
                   hint: 'Jusqu\'au...',
+                  date: dateTo,
                   onTap: onPickTo,
                 ),
               ),
@@ -544,35 +585,54 @@ class _FilterCard extends StatelessWidget {
 }
 
 class _DateField extends StatelessWidget {
-  const _DateField({required this.hint, required this.onTap});
+  const _DateField({
+    required this.hint,
+    required this.onTap,
+    this.date,
+  });
   final String hint;
   final VoidCallback onTap;
+  final DateTime? date;
+
+  String _format(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
+    final hasDate = date != null;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.divider),
+          color: hasDate
+              ? AppColors.primary.withValues(alpha: 0.06)
+              : Colors.transparent,
+          border: Border.all(
+            color: hasDate ? AppColors.primary : AppColors.divider,
+            width: hasDate ? 1.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.event_available_rounded,
               size: 18,
-              color: AppColors.secondaryText,
+              color: hasDate ? AppColors.primary : AppColors.secondaryText,
             ),
             const SizedBox(width: AppSpacing.sm),
             Flexible(
               child: Text(
-                hint,
+                hasDate ? _format(date!) : hint,
                 style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.secondaryText,
+                  color: hasDate
+                      ? AppColors.primary
+                      : AppColors.secondaryText,
+                  fontWeight: hasDate ? FontWeight.w600 : FontWeight.w400,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
