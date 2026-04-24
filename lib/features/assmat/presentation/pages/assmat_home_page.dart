@@ -19,6 +19,7 @@ import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_converter_page.dart';
+import '../../../parent/presentation/pages/assistant_page.dart';
 import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
 import 'search_parents_page.dart';
@@ -1242,7 +1243,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.smart_toy_outlined,
                     label: 'Assistant AMiLY',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Assistant AMiLY')),
+                        _closeAnd(context, () => _navigate(context, const AssistantPage())),
                   ),
 
                   const Padding(
