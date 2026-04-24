@@ -5,6 +5,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import 'create_book_page.dart';
 
 /// Page "Livre de l'année" — landing commercial pour la fonctionnalité
 /// de création de livre souvenir à partir des photos de l'année chez
@@ -13,11 +14,8 @@ class BookYearPage extends StatelessWidget {
   const BookYearPage({super.key});
 
   void _onCreateBook(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Création du livre — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CreateBookPage()),
     );
   }
 

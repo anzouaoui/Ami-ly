@@ -7,8 +7,8 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../widgets/action_list_button.dart';
 import '../widgets/dashboard_app_bar.dart';
-import '../widgets/mes_enfants_card.dart';
 import '../widgets/notifications_card.dart';
+import '../widgets/mes_enfants_card.dart';
 import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/stat_card.dart';
 import 'child_diary_page.dart';
@@ -16,6 +16,7 @@ import 'documents_page.dart';
 import 'find_childminder_page.dart';
 import 'messages_page.dart';
 import 'payments_page.dart';
+import '../../../assmat/presentation/pages/assmat_legal_consultation_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -80,6 +81,19 @@ class ParentHomeScreen extends ConsumerWidget {
                     onJournal: () => _goToJournal(context),
                     onPayments: () => _goToPayments(context),
                     onDocuments: () => _onDocuments(context),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Consulter un avocat
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: _LegalAdviceCard(
+                    onRequest: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AssMatLegalConsultationPage(),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -279,6 +293,69 @@ class _ActionList extends StatelessWidget {
           onTap: onDocuments,
         ),
       ],
+    );
+  }
+}
+
+// ─── Legal advice card ────────────────────────────────────────────────────────
+
+class _LegalAdviceCard extends StatelessWidget {
+  const _LegalAdviceCard({required this.onRequest});
+  final VoidCallback onRequest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.secondary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.balance_outlined,
+                size: 22, color: AppColors.primary),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Consulter un avocat',
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w700)),
+                Text('30 min au téléphone — …',
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.secondaryText),
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          FilledButton(
+            onPressed: onRequest,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              textStyle: AppTextStyles.bodySmall
+                  .copyWith(fontWeight: FontWeight.w600),
+            ),
+            child: const Text('Demander'),
+          ),
+        ],
+      ),
     );
   }
 }
