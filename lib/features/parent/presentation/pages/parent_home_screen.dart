@@ -17,6 +17,7 @@ import 'find_childminder_page.dart';
 import 'messages_page.dart';
 import 'payments_page.dart';
 import '../../../assmat/presentation/pages/assmat_legal_consultation_page.dart';
+import 'notifications_page.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -136,18 +137,11 @@ class ParentHomeScreen extends ConsumerWidget {
   }
 
   void _onNotifications(BuildContext context) {
-    // TODO: naviguer vers l'écran / drawer de notifications.
-    _onStub(context, 'Notifications');
-  }
-
-  void _onStub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const NotificationsPage()),
     );
   }
+
 }
 
 /// "Bonjour, {name} 👋" + "Bienvenue sur votre espace parent".
