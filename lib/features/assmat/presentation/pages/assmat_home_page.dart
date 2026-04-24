@@ -14,6 +14,8 @@ import 'assmat_contract_page.dart';
 import 'assmat_invoice_page.dart';
 import 'assmat_holidays_page.dart';
 import 'assmat_day_journey_page.dart';
+import 'assmat_between_page.dart';
+import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_planning_page.dart';
@@ -1215,7 +1217,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     label: 'Entre Ass Mat',
                     badgeCount: 1,
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Entre Ass Mat')),
+                        _closeAnd(context, () => _navigate(context, const AssMatBetweenPage())),
                   ),
                   _DrawerItem(
                     icon: Icons.domain_outlined,
@@ -1227,7 +1229,7 @@ class _AssMatDrawer extends ConsumerWidget {
                     icon: Icons.star_outline_rounded,
                     label: 'AMiLY Pro',
                     onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'AMiLY Pro')),
+                        _closeAnd(context, () => _navigate(context, const AssMatProPage())),
                   ),
                   _DrawerItem(
                     icon: Icons.schedule_outlined,
