@@ -19,6 +19,8 @@ import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_converter_page.dart';
+import 'assmat_legal_consultation_page.dart';
+import '../widgets/invite_parent_dialog.dart';
 import '../../../parent/presentation/pages/assistant_page.dart';
 import 'assmat_planning_page.dart';
 import 'assmat_profile_page.dart';
@@ -82,7 +84,11 @@ class AssMatHomePage extends ConsumerWidget {
                     horizontal: AppSpacing.lg,
                   ),
                   child: _LegalAdviceCard(
-                    onRequest: () => _stub(context, 'Consulter un avocat'),
+                    onRequest: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AssMatLegalConsultationPage(),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -324,7 +330,7 @@ class _ChildrenCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               _LinkAction(
                 label: 'Tout voir',
-                onTap: () => _stub(context, 'Voir tous les enfants'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AssMatContractPage())),
               ),
             ],
           ),
@@ -334,9 +340,8 @@ class _ChildrenCard extends StatelessWidget {
           for (var i = 0; i < _children.length; i++) ...[
             _ChildRow(
               child: _children[i],
-              onJournal: () => _stub(
-                context,
-                'Journal de ${_children[i].name}',
+              onJournal: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AssMatDayJourneyPage()),
               ),
             ),
             if (i < _children.length - 1)
@@ -693,7 +698,7 @@ class _InviteParentCard extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               FilledButton.icon(
-                onPressed: () => _stub(context, 'Envoyer une invitation'),
+                onPressed: () => showInviteParentDialog(context),
                 icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
                 label: const Text('Inviter'),
                 style: FilledButton.styleFrom(
