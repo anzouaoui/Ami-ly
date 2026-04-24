@@ -29,6 +29,13 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
   void _prevWeek() => setState(() => _weekStart = _weekStart.subtract(const Duration(days: 7)));
   void _nextWeek() => setState(() => _weekStart = _weekStart.add(const Duration(days: 7)));
 
+  void _stub(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$label — à venir'),
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
   static const _months = [
     'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
@@ -99,7 +106,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () => _stub('Export PDF'),
                     icon: const Icon(Icons.download_outlined, size: 18),
                     label: const Text('Export PDF'),
                     style: OutlinedButton.styleFrom(
@@ -117,7 +124,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () => _stub('Partager'),
                     icon: const Icon(Icons.share_outlined, size: 18),
                     label: const Text('Partager'),
                     style: OutlinedButton.styleFrom(
@@ -200,6 +207,8 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
                   onPrev: _prevWeek,
                   onNext: _nextWeek,
                   weekStart: _weekStart,
+                  onApply: () => _stub('Appliquer à la semaine'),
+                  onExport: () => _stub('Export PDF'),
                 ),
               1 => const _CalendrierContent(),
               2 => const _CongesContent(),
@@ -331,6 +340,8 @@ class _PlanningSemaineContent extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     required this.weekStart,
+    required this.onApply,
+    required this.onExport,
   });
 
   final String weekLabel;
@@ -338,6 +349,8 @@ class _PlanningSemaineContent extends StatelessWidget {
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final DateTime weekStart;
+  final VoidCallback onApply;
+  final VoidCallback onExport;
 
   static const _dayNames = [
     'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'
@@ -413,7 +426,7 @@ class _PlanningSemaineContent extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: onApply,
                 icon: const Icon(Icons.copy_outlined, size: 16),
                 label: const Text('Appliquer à la semaine'),
                 style: OutlinedButton.styleFrom(
@@ -431,7 +444,7 @@ class _PlanningSemaineContent extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: onExport,
                 icon: const Icon(Icons.download_outlined, size: 16),
                 label: const Text('Export PDF'),
                 style: OutlinedButton.styleFrom(
@@ -646,7 +659,11 @@ class _PlanningSemaineContent extends StatelessWidget {
                                     const BoxConstraints(minWidth: 32, minHeight: 32),
                               )),
                               IconButton(
-                                onPressed: () {},
+                                onPressed: () => ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(
+                                  content: Text('Supprimer l\'horaire — à venir'),
+                                  behavior: SnackBarBehavior.floating,
+                                )),
                                 icon: const Icon(Icons.delete_outline_rounded,
                                     size: 18, color: AppColors.error),
                                 padding: EdgeInsets.zero,
