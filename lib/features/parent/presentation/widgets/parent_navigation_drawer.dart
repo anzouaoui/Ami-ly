@@ -18,200 +18,242 @@ import '../pages/parent_profile_page.dart';
 import '../pages/payments_page.dart';
 import '../pages/planning_page.dart';
 
-/// Drawer de navigation latéral de l'espace Parent.
-///
-/// Correspond à la frame "Navigation Menu" du design system :
-///   - Header : logo dark + "AMiLY" / "Espace Parent" + close ×
-///   - Liste scrollable de rubriques avec états (actif, badge, spécial)
-///   - Divider puis 2 items "Vue Assistante" (spécial) + "Déconnexion"
-///
-/// Largeur fixe à 320 px pour matcher la spec.
-class ParentNavigationDrawer extends ConsumerWidget {
+class ParentNavigationDrawer extends ConsumerStatefulWidget {
   const ParentNavigationDrawer({super.key});
 
-  void _closeAnd(BuildContext context, VoidCallback action) {
+  @override
+  ConsumerState<ParentNavigationDrawer> createState() =>
+      _ParentNavigationDrawerState();
+}
+
+class _ParentNavigationDrawerState
+    extends ConsumerState<ParentNavigationDrawer> {
+  static const _logoBg = Color(0xFF4A3B33);
+
+  final _expanded = <String>{'MON ENFANT'};
+
+  void _toggle(String section) =>
+      setState(() => _expanded.contains(section)
+          ? _expanded.remove(section)
+          : _expanded.add(section));
+
+  void _go(Widget page) {
     Navigator.of(context).pop();
-    action();
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  void _stub(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$label — à venir'),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Drawer(
       backgroundColor: AppColors.background,
-      width: 320,
+      width: 300,
       shape: const RoundedRectangleBorder(),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _NavHeader(),
-
-            // --- Liste scrollable ---
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
+            // ── Header ──────────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
+              decoration: const BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(color: AppColors.divider, width: 1)),
+              ),
+              child: Row(
                 children: [
-                  _NavItem(
-                    icon: Icons.dashboard_rounded,
-                    label: 'Tableau de bord',
-                    isActive: true,
-                    onTap: () => Navigator.of(context).pop(),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _logoBg,
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.family_restroom,
+                        color: Colors.white, size: 22),
                   ),
-                  _NavItem(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Mon profil',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ParentProfilePage(),
-                        ),
-                      );
-                    }),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('AMiLY',
+                            style: AppTextStyles.titleMedium
+                                .copyWith(fontWeight: FontWeight.w800)),
+                        Text('Espace Parent',
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.secondaryText)),
+                      ],
+                    ),
                   ),
-                  _NavItem(
-                    icon: Icons.search_rounded,
-                    label: 'Trouver une assmat',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const FindChildminderPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.menu_book_rounded,
-                    label: 'Journal de mon enfant',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ChildDiaryPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    label: 'Messages',
-                    badgeCount: 1,
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const MessagesPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: 'Paiements',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PaymentsPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.description_outlined,
-                    label: 'Documents',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const DocumentsPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.calendar_today_rounded,
-                    label: 'Planning annuel',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PlanningPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.assignment_outlined,
-                    label: 'Contrat & Pajemploi',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ContractPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.auto_stories_outlined,
-                    label: 'Livre de l\'année',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const BookYearPage(),
-                        ),
-                      );
-                    }),
-                  ),
-                  _NavItem(
-                    icon: Icons.smart_toy_outlined,
-                    label: 'Assistant AMiLY',
-                    onTap: () => _closeAnd(context, () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AssistantPage(),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    child: Divider(color: AppColors.divider, height: 1),
-                  ),
-
-                  _NavItem(
-                    icon: Icons.swap_horiz_rounded,
-                    label: 'Vue Assistante',
-                    isSpecial: true,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      // Bascule instantanée : le FakeAuthRepository pousse
-                      // l'user assmat sur le stream, AuthWrapper re-route
-                      // automatiquement vers AssMatHomePage.
-                      final repo = ref.read(authRepositoryProvider);
-                      if (repo is FakeAuthRepository) {
-                        repo.loginAs(DevUsers.assmat());
-                      }
-                    },
-                  ),
-                  _NavItem(
-                    icon: Icons.logout_rounded,
-                    label: 'Déconnexion',
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await ref.read(authRepositoryProvider).signOut();
-                      // L'AuthWrapper rebascule sur la WelcomePage via le stream.
-                    },
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        color: AppColors.secondaryText, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            // ── Sections ────────────────────────────────
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                children: [
+                  // ── MON ENFANT ──
+                  _SectionHeader(
+                    label: 'MON ENFANT',
+                    expanded: _expanded.contains('MON ENFANT'),
+                    onTap: () => _toggle('MON ENFANT'),
+                  ),
+                  if (_expanded.contains('MON ENFANT')) ...[
+                    _DrawerItem(
+                      icon: Icons.grid_view_rounded,
+                      label: 'Tableau de bord',
+                      isActive: true,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.assignment_outlined,
+                      label: 'Journal quotidien',
+                      onTap: () => _go(const ChildDiaryPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.fact_check_outlined,
+                      label: 'Feuilles de présence',
+                      onTap: () => _stub('Feuilles de présence'),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.calendar_month_outlined,
+                      label: 'Planning annuel',
+                      onTap: () => _go(const PlanningPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.menu_book_outlined,
+                      label: "Livre de l'année",
+                      onTap: () => _go(const BookYearPage()),
+                    ),
+                  ],
+
+                  // ── TROUVER UNE ASSISTANTE ──
+                  _SectionHeader(
+                    label: 'TROUVER UNE ASSISTANTE',
+                    expanded: _expanded.contains('TROUVER'),
+                    onTap: () => _toggle('TROUVER'),
+                  ),
+                  if (_expanded.contains('TROUVER')) ...[
+                    _DrawerItem(
+                      icon: Icons.search_rounded,
+                      label: 'Recherche',
+                      badgeCount: 2,
+                      onTap: () => _go(const FindChildminderPage()),
+                    ),
+                  ],
+
+                  // ── GESTION ADMINISTRATIVE ──
+                  _SectionHeader(
+                    label: 'GESTION ADMINISTRATIVE',
+                    expanded: _expanded.contains('GESTION'),
+                    onTap: () => _toggle('GESTION'),
+                  ),
+                  if (_expanded.contains('GESTION')) ...[
+                    _DrawerItem(
+                      icon: Icons.article_outlined,
+                      label: 'Contrat & Pajemploi',
+                      onTap: () => _go(const ContractPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.credit_card_outlined,
+                      label: 'Paiements',
+                      onTap: () => _go(const PaymentsPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.description_outlined,
+                      label: 'Documents signés',
+                      onTap: () => _go(const DocumentsPage()),
+                    ),
+                  ],
+
+                  // ── COMMUNICATION ──
+                  _SectionHeader(
+                    label: 'COMMUNICATION',
+                    expanded: _expanded.contains('COMMUNICATION'),
+                    onTap: () => _toggle('COMMUNICATION'),
+                  ),
+                  if (_expanded.contains('COMMUNICATION')) ...[
+                    _DrawerItem(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: 'Messages',
+                      onTap: () => _go(const MessagesPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.smart_toy_outlined,
+                      label: 'Assistant AMiLY',
+                      onTap: () => _go(const AssistantPage()),
+                    ),
+                  ],
+
+                  // ── COMPTE ──
+                  _SectionHeader(
+                    label: 'COMPTE',
+                    expanded: _expanded.contains('COMPTE'),
+                    onTap: () => _toggle('COMPTE'),
+                  ),
+                  if (_expanded.contains('COMPTE')) ...[
+                    _DrawerItem(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Mon profil',
+                      onTap: () => _go(const ParentProfilePage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.sell_outlined,
+                      label: 'Tarifs & abonnement',
+                      onTap: () => _stub('Tarifs & abonnement'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ── Vue Assistante + Déconnexion — épinglés en bas ─────────
+            const Divider(height: 1, color: AppColors.divider),
+            _DrawerItem(
+              icon: Icons.settings_rounded,
+              label: 'Vue Assistante',
+              isSpecial: true,
+              onTap: () {
+                Navigator.of(context).pop();
+                final repo = ref.read(authRepositoryProvider);
+                if (repo is FakeAuthRepository) {
+                  repo.loginAs(DevUsers.assmat());
+                }
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.logout_rounded,
+              label: 'Déconnexion',
+              isSpecial: true,
+              onTap: () async {
+                Navigator.of(context).pop();
+                await ref.read(authRepositoryProvider).signOut();
+              },
+            ),
+            const Divider(height: 1, color: AppColors.divider),
+            _UserCard(
+              displayName: ref.watch(currentUserProvider).valueOrNull?.displayName ?? 'Utilisateur',
+              role: 'Parent',
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -219,95 +261,55 @@ class ParentNavigationDrawer extends ConsumerWidget {
   }
 }
 
-/// Header : logo carré foncé + "AMiLY" + "Espace Parent" + bouton close.
-class _NavHeader extends StatelessWidget {
-  const _NavHeader();
+// ─── Section header ───────────────────────────────────────────────────────────
 
-  // Couleur brune spécifique à la frame (pas encore dans la palette du design
-  // system). À remplacer par un token AppColors.logoBg quand ce sera défini.
-  static const _logoBg = Color(0xFF4A3B33);
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.label,
+    required this.expanded,
+    required this.onTap,
+  });
+  final String label;
+  final bool expanded;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.divider, width: 1),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: _logoBg,
-                    borderRadius: BorderRadius.circular(AppRadii.lg),
-                  ),
-                  alignment: Alignment.center,
-                  // TODO: remplacer par l'asset du logo "mère + bébé" line-art blanc.
-                  child: const Icon(
-                    Icons.family_restroom,
-                    color: Colors.white,
-                    size: 28,
-                  ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'AMiLY',
-                        style: AppTextStyles.titleLarge.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        'Espace Parent',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.secondaryText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.close_rounded,
+            Icon(
+              expanded
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.keyboard_arrow_right_rounded,
+              size: 18,
               color: AppColors.secondaryText,
-              size: 24,
             ),
-            onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'Fermer',
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Ligne de navigation du drawer.
-///
-/// États :
-///   - Normal : icône + texte secondaires
-///   - [isActive] : fond vert clair (secondary) + icône et texte primary
-///   - [isSpecial] : icône et texte en accent (orange) — pour les actions
-///     distinctives comme "Vue Assistante"
-///   - [badgeCount] : pastille rouge avec un nombre à droite
-class _NavItem extends StatelessWidget {
-  const _NavItem({
+// ─── Drawer item ──────────────────────────────────────────────────────────────
+
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -335,11 +337,12 @@ class _NavItem extends StatelessWidget {
         : isSpecial
             ? AppColors.accent
             : AppColors.secondaryText;
-    final bg = isActive ? AppColors.secondary : Colors.transparent;
-    final weight = isActive ? FontWeight.w700 : FontWeight.w500;
+    final bg = isActive
+        ? AppColors.primary.withValues(alpha: 0.08)
+        : Colors.transparent;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -350,24 +353,39 @@ class _NavItem extends StatelessWidget {
               color: bg,
               borderRadius: BorderRadius.circular(AppRadii.md),
             ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               children: [
-                Icon(icon, color: iconColor, size: 22),
-                const SizedBox(width: AppSpacing.md),
+                Icon(icon, color: iconColor, size: 20),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
-                    style: AppTextStyles.bodyLarge.copyWith(
+                    style: AppTextStyles.bodyMedium.copyWith(
                       color: fg,
-                      fontWeight: weight,
+                      fontWeight:
+                          isActive ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ),
-                if (badgeCount != null) _Badge(count: badgeCount!),
+                if (badgeCount != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(AppRadii.full),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 20),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$badgeCount',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -377,27 +395,63 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// Pastille ronde rouge affichant un compteur (ex: messages non lus).
-class _Badge extends StatelessWidget {
-  const _Badge({required this.count});
-  final int count;
+// ─── User card ────────────────────────────────────────────────────────────────
+
+class _UserCard extends StatelessWidget {
+  const _UserCard({required this.displayName, required this.role});
+  final String displayName;
+  final String role;
+
+  String get _initials {
+    final parts = displayName.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.error,
-        borderRadius: BorderRadius.circular(AppRadii.full),
-      ),
-      constraints: const BoxConstraints(minWidth: 20),
-      alignment: Alignment.center,
-      child: Text(
-        '$count',
-        style: AppTextStyles.labelSmall.copyWith(
-          color: AppColors.onError,
-          fontWeight: FontWeight.w700,
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5C6B8),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              _initials,
+              style: AppTextStyles.labelLarge.copyWith(
+                color: const Color(0xFF8B4A35),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                displayName,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                role,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

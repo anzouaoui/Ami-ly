@@ -6,7 +6,7 @@ import '../../../../core/widgets/app_splash_screen.dart';
 import '../../../../shared/models/user_role.dart';
 import '../../../assmat/presentation/pages/assmat_shell.dart';
 import '../../../onboarding/presentation/pages/welcome_page.dart';
-import '../../../parent/presentation/pages/parent_home_screen.dart';
+import '../../../parent/presentation/pages/parent_shell.dart';
 import '../providers/auth_providers.dart';
 
 /// Widget racine qui décide quoi afficher selon l'état d'authentification
@@ -41,7 +41,7 @@ class AuthWrapper extends ConsumerWidget {
         }
         switch (user.role) {
           case UserRole.parent:
-            return const ParentHomeScreen();
+            return const ParentShell();
           case UserRole.assmat:
             return const AssMatShell();
         }
