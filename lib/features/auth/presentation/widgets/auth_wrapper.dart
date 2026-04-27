@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/widgets/app_error_screen.dart';
 import '../../../../core/widgets/app_splash_screen.dart';
 import '../../../../shared/models/user_role.dart';
-import '../../../assmat/presentation/pages/assmat_home_page.dart';
+import '../../../assmat/presentation/pages/assmat_shell.dart';
 import '../../../onboarding/presentation/pages/welcome_page.dart';
 import '../../../parent/presentation/pages/parent_home_screen.dart';
 import '../providers/auth_providers.dart';
@@ -43,7 +43,7 @@ class AuthWrapper extends ConsumerWidget {
           case UserRole.parent:
             return const ParentHomeScreen();
           case UserRole.assmat:
-            return const AssMatHomePage();
+            return const AssMatShell();
         }
       },
     );
