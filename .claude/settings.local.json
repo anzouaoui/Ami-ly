@@ -21,7 +21,11 @@
       "Bash(xargs grep *)",
       "Bash(xargs ls *)",
       "Bash(dart analyze *)",
-      "Bash(flutter build *)"
+      "Bash(flutter build *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(where flutter *)",
+      "Bash(find /c /d /e -name \"flutter.bat\" -maxdepth 6)",
+      "Bash(python -c ' *)"
     ]
   }
 }

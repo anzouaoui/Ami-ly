@@ -1052,241 +1052,261 @@ class _QuickActionsCard extends StatelessWidget {
   }
 }
 
-/// Drawer minimaliste — sera enrichi avec sa propre spec quand elle
-/// arrivera. Actuellement : user info + déconnexion.
-class _AssMatDrawer extends ConsumerWidget {
+class _AssMatDrawer extends ConsumerStatefulWidget {
   const _AssMatDrawer();
 
+  @override
+  ConsumerState<_AssMatDrawer> createState() => _AssMatDrawerState();
+}
+
+class _AssMatDrawerState extends ConsumerState<_AssMatDrawer> {
   static const _logoBg = Color(0xFF4A3B33);
 
-  void _navigate(BuildContext context, Widget page) {
-    final nav = Navigator.of(context);
-    nav.pop();
-    nav.push(MaterialPageRoute<void>(builder: (_) => page));
-  }
+  final _expanded = <String>{'ACTIVITÉ'};
 
-  void _closeAnd(BuildContext context, VoidCallback action) {
+  void _toggle(String section) =>
+      setState(() => _expanded.contains(section)
+          ? _expanded.remove(section)
+          : _expanded.add(section));
+
+  void _go(Widget page) {
     Navigator.of(context).pop();
-    action();
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  void _stub(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$label — à venir'),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Drawer(
       backgroundColor: AppColors.background,
-      width: 320,
+      width: 300,
       shape: const RoundedRectangleBorder(),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Header ──
+            // ── Header ──────────────────────────────────
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
               decoration: const BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: AppColors.divider, width: 1),
-                ),
+                    bottom: BorderSide(color: AppColors.divider, width: 1)),
               ),
               child: Row(
                 children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _logoBg,
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.family_restroom,
+                        color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: _logoBg,
-                            borderRadius:
-                                BorderRadius.circular(AppRadii.lg),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.family_restroom,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'AMiLY',
-                                style: AppTextStyles.titleLarge.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                'Espace Assistante',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.secondaryText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        Text('AMiLY',
+                            style: AppTextStyles.titleMedium
+                                .copyWith(fontWeight: FontWeight.w800)),
+                        Text('Espace Assistante',
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.secondaryText)),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: AppColors.secondaryText,
-                      size: 24,
-                    ),
+                    icon: const Icon(Icons.close_rounded,
+                        color: AppColors.secondaryText, size: 20),
                     onPressed: () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
 
-            // ── Items scrollables ──
+            // ── Sections ────────────────────────────────
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 children: [
-                  _DrawerItem(
-                    icon: Icons.dashboard_rounded,
-                    label: 'Tableau de bord',
-                    isActive: true,
-                    onTap: () => Navigator.of(context).pop(),
+                  // ── ACTIVITÉ ──
+                  _SectionHeader(
+                    label: 'ACTIVITÉ',
+                    expanded: _expanded.contains('ACTIVITÉ'),
+                    onTap: () => _toggle('ACTIVITÉ'),
                   ),
-                  _DrawerItem(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Mon profil',
-                    onTap: () =>
-                        _navigate(context, const AssMatProfilePage()),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.search_rounded,
-                    label: 'Parents en recherche',
-                    onTap: () =>
-                        _navigate(context, const SearchParentsPage()),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.article_outlined,
-                    label: 'Contrats',
-                    onTap: () =>
-                        _navigate(context, const AssMatContractPage()),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.request_quote_outlined,
-                    label: 'Facturation',
-                    onTap: () =>
-                        _navigate(context, const AssMatInvoicePage()),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.calendar_month_outlined,
-                    label: 'Planning',
-                    onTap: () =>
-                        _navigate(context, const AssMatPlanningPage()),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.beach_access_outlined,
-                    label: 'Congés',
-                    onTap: () =>
-                        _navigate(context, const AssMatHolidaysPage()),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.assignment_outlined,
-                    label: 'Journal quotidien',
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssMatDayJourneyPage())),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.fact_check_outlined,
-                    label: 'Feuilles de présence',
-                    onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Feuilles de présence')),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    label: 'Messages',
-                    badgeCount: 3,
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssMatMessagesPage())),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.folder_outlined,
-                    label: 'Documents',
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssMatDocumentsPage())),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.people_outline_rounded,
-                    label: 'Entre Ass Mat',
-                    badgeCount: 1,
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssMatBetweenPage())),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.domain_outlined,
-                    label: 'Messagerie PMI',
-                    onTap: () =>
-                        _closeAnd(context, () => _stub(context, 'Messagerie PMI')),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.star_outline_rounded,
-                    label: 'AMiLY Pro',
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssMatProPage())),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.schedule_outlined,
-                    label: "Convertisseur d'heures",
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssMatConverterPage())),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.smart_toy_outlined,
-                    label: 'Assistant AMiLY',
-                    onTap: () =>
-                        _closeAnd(context, () => _navigate(context, const AssistantPage())),
-                  ),
+                  if (_expanded.contains('ACTIVITÉ')) ...[
+                    _DrawerItem(
+                      icon: Icons.grid_view_rounded,
+                      label: 'Tableau de bord',
+                      isActive: true,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.assignment_outlined,
+                      label: 'Journal quotidien',
+                      onTap: () => _go(const AssMatDayJourneyPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.fact_check_outlined,
+                      label: 'Feuilles de présence',
+                      onTap: () => _stub('Feuilles de présence'),
+                    ),
+                  ],
 
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    child: Divider(color: AppColors.divider, height: 1),
+                  // ── DÉVELOPPER MON ACTIVITÉ ──
+                  _SectionHeader(
+                    label: 'DÉVELOPPER MON ACTIVITÉ',
+                    expanded: _expanded.contains('DÉVELOPPER'),
+                    onTap: () => _toggle('DÉVELOPPER'),
                   ),
+                  if (_expanded.contains('DÉVELOPPER')) ...[
+                    _DrawerItem(
+                      icon: Icons.search_rounded,
+                      label: 'Parents en recherche',
+                      badgeCount: 2,
+                      onTap: () => _go(const SearchParentsPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.map_outlined,
+                      label: 'Carte des familles',
+                      onTap: () => _stub('Carte des familles'),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.star_outline_rounded,
+                      label: 'AMiLY Pro',
+                      onTap: () => _go(const AssMatProPage()),
+                    ),
+                  ],
 
-                  _DrawerItem(
-                    icon: Icons.swap_horiz_rounded,
-                    label: 'Vue Parent',
-                    isSpecial: true,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      final repo = ref.read(authRepositoryProvider);
-                      if (repo is FakeAuthRepository) {
-                        repo.loginAs(DevUsers.parent());
-                      }
-                    },
+                  // ── GESTION ──
+                  _SectionHeader(
+                    label: 'GESTION',
+                    expanded: _expanded.contains('GESTION'),
+                    onTap: () => _toggle('GESTION'),
                   ),
-                  _DrawerItem(
-                    icon: Icons.logout_rounded,
-                    label: 'Se déconnecter',
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await ref.read(authRepositoryProvider).signOut();
-                    },
+                  if (_expanded.contains('GESTION')) ...[
+                    _DrawerItem(
+                      icon: Icons.article_outlined,
+                      label: 'Contrats',
+                      onTap: () => _go(const AssMatContractPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.request_quote_outlined,
+                      label: 'Facturation',
+                      onTap: () => _go(const AssMatInvoicePage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.calendar_month_outlined,
+                      label: 'Planning',
+                      onTap: () => _go(const AssMatPlanningPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.beach_access_outlined,
+                      label: 'Congés',
+                      onTap: () => _go(const AssMatHolidaysPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.folder_outlined,
+                      label: 'Documents',
+                      onTap: () => _go(const AssMatDocumentsPage()),
+                    ),
+                  ],
+
+                  // ── COMMUNICATION ──
+                  _SectionHeader(
+                    label: 'COMMUNICATION',
+                    expanded: _expanded.contains('COMMUNICATION'),
+                    onTap: () => _toggle('COMMUNICATION'),
                   ),
+                  if (_expanded.contains('COMMUNICATION')) ...[
+                    _DrawerItem(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: 'Messages',
+                      badgeCount: 3,
+                      onTap: () => _go(const AssMatMessagesPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.people_outline_rounded,
+                      label: 'Entre Ass Mat',
+                      badgeCount: 1,
+                      onTap: () => _go(const AssMatBetweenPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.domain_outlined,
+                      label: 'Messagerie PMI',
+                      onTap: () => _stub('Messagerie PMI'),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.smart_toy_outlined,
+                      label: 'Assistant AMiLY',
+                      onTap: () => _go(const AssistantPage()),
+                    ),
+                  ],
+
+                  // ── COMPTE ──
+                  _SectionHeader(
+                    label: 'COMPTE',
+                    expanded: _expanded.contains('COMPTE'),
+                    onTap: () => _toggle('COMPTE'),
+                  ),
+                  if (_expanded.contains('COMPTE')) ...[
+                    _DrawerItem(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Mon profil',
+                      onTap: () => _go(const AssMatProfilePage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.sell_outlined,
+                      label: 'Tarifs & abonnement',
+                      onTap: () => _stub('Tarifs & abonnement'),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.schedule_outlined,
+                      label: "Convertisseur d'heures",
+                      onTap: () => _go(const AssMatConverterPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.logout_rounded,
+                      label: 'Se déconnecter',
+                      onTap: () async {
+                        Navigator.of(context).pop();
+                        await ref.read(authRepositoryProvider).signOut();
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            // ── Vue Parent — épinglé en bas ──────────────
+            const Divider(height: 1, color: AppColors.divider),
+            _DrawerItem(
+              icon: Icons.settings_rounded,
+              label: 'Vue Parent',
+              isSpecial: true,
+              onTap: () {
+                Navigator.of(context).pop();
+                final repo = ref.read(authRepositoryProvider);
+                if (repo is FakeAuthRepository) {
+                  repo.loginAs(DevUsers.parent());
+                }
+              },
+            ),
+            const SizedBox(height: 4),
           ],
         ),
       ),
@@ -1294,7 +1314,53 @@ class _AssMatDrawer extends ConsumerWidget {
   }
 }
 
-/// Item de navigation du drawer assmat — même style que le drawer parent.
+// ─── Section header ───────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.label,
+    required this.expanded,
+    required this.onTap,
+  });
+  final String label;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            Icon(
+              expanded
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.keyboard_arrow_right_rounded,
+              size: 18,
+              color: AppColors.secondaryText,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Drawer item ──────────────────────────────────────────────────────────────
+
 class _DrawerItem extends StatelessWidget {
   const _DrawerItem({
     required this.icon,
@@ -1324,11 +1390,12 @@ class _DrawerItem extends StatelessWidget {
         : isSpecial
             ? AppColors.accent
             : AppColors.secondaryText;
-    final bg = isActive ? AppColors.secondary : Colors.transparent;
-    final weight = isActive ? FontWeight.w700 : FontWeight.w500;
+    final bg = isActive
+        ? AppColors.primary.withValues(alpha: 0.08)
+        : Colors.transparent;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -1339,29 +1406,25 @@ class _DrawerItem extends StatelessWidget {
               color: bg,
               borderRadius: BorderRadius.circular(AppRadii.md),
             ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               children: [
-                Icon(icon, color: iconColor, size: 22),
-                const SizedBox(width: AppSpacing.md),
+                Icon(icon, color: iconColor, size: 20),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
-                    style: AppTextStyles.bodyLarge.copyWith(
+                    style: AppTextStyles.bodyMedium.copyWith(
                       color: fg,
-                      fontWeight: weight,
+                      fontWeight:
+                          isActive ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ),
                 if (badgeCount != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.accent,
                       borderRadius: BorderRadius.circular(AppRadii.full),
