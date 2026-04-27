@@ -25,7 +25,9 @@
       "Bash(grep -v \"^$\")",
       "Bash(where flutter *)",
       "Bash(find /c /d /e -name \"flutter.bat\" -maxdepth 6)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
