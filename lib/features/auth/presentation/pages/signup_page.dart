@@ -99,6 +99,16 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Dès que le stream émet un utilisateur connecté, on remonte à la racine
+    // pour laisser AuthWrapper afficher ParentShell / AssMatShell.
+    ref.listen(currentUserProvider, (_, next) {
+      next.whenData((user) {
+        if (user != null && mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

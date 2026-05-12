@@ -229,7 +229,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Un lien de réinitialisation a été envoyé à\n$email\n\nVérifiez vos spams si vous ne le trouvez pas.',
+          'Si un compte AMiLY est associé à $email, vous recevrez un lien de réinitialisation dans quelques minutes.\n\nVérifiez vos spams si vous ne le trouvez pas.',
           textAlign: TextAlign.center,
           style: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.secondaryText,
