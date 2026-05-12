@@ -70,14 +70,16 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     required UserRole role,
-    String? displayName,
+    String? firstName,
+    String? lastName,
   }) async {
     try {
       final model = await _remote.signUpWithEmail(
         email: email,
         password: password,
         role: role,
-        displayName: displayName,
+        firstName: firstName,
+        lastName: lastName,
       );
       final entity = model.toEntity();
       _cachedUser = entity;

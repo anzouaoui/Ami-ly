@@ -99,7 +99,8 @@ class FakeAuthRepository implements AuthRepository {
     required String email,
     required String password,
     required UserRole role,
-    String? displayName,
+    String? firstName,
+    String? lastName,
   }) async {
     await _simulateLatency();
 
@@ -110,12 +111,16 @@ class FakeAuthRepository implements AuthRepository {
       return const Left(AuthFailure('Mot de passe trop court (min. 6).'));
     }
 
+    final fullName = [firstName ?? '', lastName ?? '']
+        .where((s) => s.isNotEmpty)
+        .join(' ');
+
     final user = AppUser(
       uid: 'fake-${email.hashCode}',
       email: email,
       role: role,
       createdAt: DateTime.now(),
-      displayName: displayName ?? _displayNameFromEmail(email),
+      displayName: fullName.isNotEmpty ? fullName : _displayNameFromEmail(email),
       isProfileComplete: false,
     );
 

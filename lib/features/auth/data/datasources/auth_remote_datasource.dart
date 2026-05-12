@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../shared/models/user_role.dart';
+import '../models/assmat_profile_model.dart';
+import '../models/parent_profile_model.dart';
 import '../models/user_model.dart';
 
 /// Couche la plus basse : tape directement sur Firebase Auth + Firestore.
@@ -62,7 +64,8 @@ class AuthRemoteDataSource {
     required String email,
     required String password,
     required UserRole role,
-    String? displayName,
+    String? firstName,
+    String? lastName,
   }) async {
     try {
       final cred = await _firebase.auth.createUserWithEmailAndPassword(
@@ -74,19 +77,42 @@ class AuthRemoteDataSource {
         throw AuthException('Inscription échouée.');
       }
 
-      if (displayName != null && displayName.isNotEmpty) {
-        await user.updateDisplayName(displayName);
+      final fullName = [firstName ?? '', lastName ?? '']
+          .where((s) => s.isNotEmpty)
+          .join(' ');
+
+      if (fullName.isNotEmpty) {
+        await user.updateDisplayName(fullName);
       }
 
-      // Crée le document Firestore `users/{uid}` — source de vérité du rôle.
+      final now = DateTime.now();
+
+      // 1. Document `users/{uid}` — source de vérité du rôle.
       final model = UserModel(
         uid: user.uid,
         email: email,
         role: role,
-        createdAt: DateTime.now(),
-        displayName: displayName,
+        createdAt: now,
+        displayName: fullName.isNotEmpty ? fullName : null,
       );
       await _firebase.userDoc(user.uid).set(model.toFirestore());
+
+      // 2. Sous-document profil étendu selon le rôle.
+      if (role == UserRole.parent) {
+        final profile = ParentProfileModel.initial(
+          uid: user.uid,
+          firstName: firstName ?? '',
+          lastName: lastName ?? '',
+        );
+        await _firebase.parentDoc(user.uid).set(profile.toFirestore());
+      } else {
+        final profile = AssmatProfileModel.initial(
+          uid: user.uid,
+          firstName: firstName ?? '',
+          lastName: lastName ?? '',
+        );
+        await _firebase.assmatDoc(user.uid).set(profile.toFirestore());
+      }
 
       return model;
     } on FirebaseAuthException catch (e) {
