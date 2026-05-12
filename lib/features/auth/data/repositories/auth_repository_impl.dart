@@ -22,30 +22,54 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<AppUser?> watchCurrentUser() {
-    // On combine authStateChanges + watchUserProfile :
-    // - pas de user Firebase  → null
-    // - user Firebase connecté → on écoute son doc Firestore en temps réel
-    //   (permet au routeur de réagir à `isPro` ou `isProfileComplete`).
-    return _remote.authStateChanges().asyncExpand((firebaseUser) {
-      if (firebaseUser == null) {
-        _cachedUser = null;
-        return Stream<AppUser?>.value(null);
-      }
-      return _remote.watchUserProfile(firebaseUser.uid).map((model) {
-        // model == null : document pas encore écrit (inscription en cours).
-        if (model == null) {
+    // switchMap manuel : on annule le listener Firestore précédent à chaque
+    // changement d'état Firebase Auth.
+    //
+    // asyncExpand() ne convient pas ici : il met en pause le stream externe
+    // tant que le stream interne (snapshots Firestore, infini) est actif.
+    // Résultat : authStateChanges(null) après signOut n'est jamais traité.
+    final controller = StreamController<AppUser?>();
+    StreamSubscription<dynamic>? innerSub;
+
+    final outerSub = _remote.authStateChanges().listen(
+      (firebaseUser) {
+        innerSub?.cancel();
+        innerSub = null;
+
+        if (firebaseUser == null) {
           _cachedUser = null;
-          return null;
+          controller.add(null);
+          return;
         }
-        final entity = model.toEntity();
-        _cachedUser = entity;
-        return entity;
-      }).handleError((Object _) {
-        // Erreur Firestore inattendue (ex : règles, réseau).
-        _cachedUser = null;
-        return null;
-      });
-    });
+
+        innerSub = _remote.watchUserProfile(firebaseUser.uid).listen(
+          (model) {
+            if (model == null) {
+              _cachedUser = null;
+              controller.add(null);
+              return;
+            }
+            final entity = model.toEntity();
+            _cachedUser = entity;
+            controller.add(entity);
+          },
+          onError: (Object _) {
+            // Permission Firestore révoquée (ex : après signOut en cours).
+            _cachedUser = null;
+            controller.add(null);
+          },
+        );
+      },
+      onError: controller.addError,
+      onDone: controller.close,
+    );
+
+    controller.onCancel = () {
+      innerSub?.cancel();
+      outerSub.cancel();
+    };
+
+    return controller.stream;
   }
 
   @override
