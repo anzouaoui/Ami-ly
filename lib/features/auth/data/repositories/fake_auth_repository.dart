@@ -129,6 +129,20 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> completeParentOnboarding({
+    required String uid,
+    required String address,
+    String familyDescription = '',
+  }) async {
+    await _simulateLatency(ms: 300);
+    // Met à jour le user en mémoire avec isProfileComplete = true.
+    if (_current != null && _current!.uid == uid) {
+      _emit(_current!.copyWith(isProfileComplete: true));
+    }
+    return const Right(unit);
+  }
+
+  @override
   Future<Either<Failure, Unit>> sendPasswordResetEmail(String email) async {
     await _simulateLatency();
     // Stub : on fait comme si l'e-mail était envoyé.

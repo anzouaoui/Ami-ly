@@ -123,6 +123,28 @@ class AuthRemoteDataSource {
     }
   }
 
+  Future<void> completeParentOnboarding({
+    required String uid,
+    required String address,
+    String familyDescription = '',
+  }) async {
+    try {
+      final now = DateTime.now();
+      // 1. Mise à jour du profil étendu parent.
+      await _firebase.parentDoc(uid).update({
+        'address': address,
+        'familyDescription': familyDescription,
+        'updatedAt': now,
+      });
+      // 2. Marque le profil comme complété dans le document racine.
+      await _firebase.userDoc(uid).update({
+        'isProfileComplete': true,
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de la sauvegarde du profil.');
+    }
+  }
+
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _firebase.auth.sendPasswordResetEmail(email: email);

@@ -99,6 +99,26 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> completeParentOnboarding({
+    required String uid,
+    required String address,
+    String familyDescription = '',
+  }) async {
+    try {
+      await _remote.completeParentOnboarding(
+        uid: uid,
+        address: address,
+        familyDescription: familyDescription,
+      );
+      return const Right(unit);
+    } on FirestoreException catch (e) {
+      return Left(FirestoreFailure(e.message));
+    } catch (_) {
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> sendPasswordResetEmail(String email) async {
     try {
       await _remote.sendPasswordResetEmail(email);
