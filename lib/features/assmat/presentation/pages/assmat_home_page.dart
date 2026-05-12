@@ -50,7 +50,7 @@ class AssMatHomePage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      drawer: const _AssMatDrawer(),
+      drawer: const AssMatDrawer(),
       body: Builder(
         builder: (scaffoldCtx) => SafeArea(
           bottom: false,
@@ -1052,14 +1052,14 @@ class _QuickActionsCard extends StatelessWidget {
   }
 }
 
-class _AssMatDrawer extends ConsumerStatefulWidget {
-  const _AssMatDrawer();
+class AssMatDrawer extends ConsumerStatefulWidget {
+  const AssMatDrawer();
 
   @override
-  ConsumerState<_AssMatDrawer> createState() => _AssMatDrawerState();
+  ConsumerState<AssMatDrawer> createState() => AssMatDrawerState();
 }
 
-class _AssMatDrawerState extends ConsumerState<_AssMatDrawer> {
+class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
   static const _logoBg = Color(0xFF4A3B33);
 
   final _expanded = <String>{'ACTIVITÉ'};

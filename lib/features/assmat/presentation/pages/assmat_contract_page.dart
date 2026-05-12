@@ -6,6 +6,7 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import 'assmat_contract_detail_page.dart';
+import 'assmat_home_page.dart';
 import 'assmat_contract_models.dart';
 import 'assmat_new_contract_page.dart';
 
@@ -144,14 +145,18 @@ class _AssMatContractPageState extends State<AssMatContractPage> {
     final filtered = _filtered;
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const AssMatDrawer(),
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
         scrolledUnderElevation: 1,
         shadowColor: Colors.black12,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.of(context).pop(),
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, size: 24),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+            tooltip: 'Menu',
+          ),
         ),
         title: Row(
           children: [
