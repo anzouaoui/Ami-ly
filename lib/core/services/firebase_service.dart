@@ -56,6 +56,20 @@ class FirebaseService {
 
   DocumentReference<Map<String, dynamic>> userDoc(String uid) =>
       usersCollection.doc(uid);
+
+  /// Collection `parents/{uid}` — profil étendu du parent.
+  CollectionReference<Map<String, dynamic>> get parentsCollection =>
+      firestore.collection('parents');
+
+  DocumentReference<Map<String, dynamic>> parentDoc(String uid) =>
+      parentsCollection.doc(uid);
+
+  /// Collection `assmats/{uid}` — profil étendu de l'assistante maternelle.
+  CollectionReference<Map<String, dynamic>> get assmatsCollection =>
+      firestore.collection('assmats');
+
+  DocumentReference<Map<String, dynamic>> assmatDoc(String uid) =>
+      assmatsCollection.doc(uid);
 }
 
 /// Provider Riverpod exposant le singleton [FirebaseService] à toute l'app.
