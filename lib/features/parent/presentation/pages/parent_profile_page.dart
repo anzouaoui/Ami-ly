@@ -7,6 +7,7 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../widgets/child_profile_card.dart';
+import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/document_vault_card.dart';
 import '../widgets/family_description_section.dart';
 import '../widgets/personal_data_card.dart';
@@ -128,10 +129,12 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
+      drawer: const ParentNavigationDrawer(),
+      body: Builder(
+        builder: (scaffoldCtx) => SafeArea(
         child: Column(
           children: [
-            const _ProfileAppBar(),
+            _ProfileAppBar(onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer()),
 
             // ---- Scrollable content ----
             Expanded(
@@ -223,8 +226,9 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
               },
             ),
           ],
-        ),
-      ),
+        ),      // Column
+      ),        // SafeArea
+      ),        // Builder
     );
   }
 
@@ -272,7 +276,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
 
 /// Header custom : menu + logo AMiLY centré (pas de notifications ici).
 class _ProfileAppBar extends StatelessWidget {
-  const _ProfileAppBar();
+  const _ProfileAppBar({required this.onMenuTap});
+  final VoidCallback onMenuTap;
 
   @override
   Widget build(BuildContext context) {
@@ -293,14 +298,14 @@ class _ProfileAppBar extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(
-              Icons.arrow_back_rounded,
+              Icons.menu_rounded,
               size: 28,
               color: AppColors.primaryText,
             ),
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: onMenuTap,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Retour',
+            tooltip: 'Menu',
           ),
           // Logo centré
           Row(
