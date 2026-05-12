@@ -244,7 +244,6 @@ class _ParentNavigationDrawerState
               label: 'Déconnexion',
               isSpecial: true,
               onTap: () async {
-                Navigator.of(context).pop();
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (_) => AlertDialog(
@@ -264,6 +263,8 @@ class _ParentNavigationDrawerState
                     ],
                   ),
                 );
+                if (!context.mounted) return;
+                Navigator.of(context).pop(); // ferme le drawer
                 if (confirm == true) {
                   await ref.read(authRepositoryProvider).signOut();
                 }

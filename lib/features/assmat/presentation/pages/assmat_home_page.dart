@@ -1283,7 +1283,6 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                       icon: Icons.logout_rounded,
                       label: 'Se déconnecter',
                       onTap: () async {
-                        Navigator.of(context).pop();
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (_) => AlertDialog(
@@ -1305,6 +1304,8 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                             ],
                           ),
                         );
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop(); // ferme le drawer
                         if (confirm == true) {
                           await ref.read(authRepositoryProvider).signOut();
                         }
