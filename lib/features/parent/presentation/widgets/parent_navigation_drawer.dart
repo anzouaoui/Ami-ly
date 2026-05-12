@@ -245,7 +245,28 @@ class _ParentNavigationDrawerState
               isSpecial: true,
               onTap: () async {
                 Navigator.of(context).pop();
-                await ref.read(authRepositoryProvider).signOut();
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Se déconnecter ?'),
+                    content: const Text(
+                      'Vous devrez vous reconnecter pour accéder à votre compte.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Annuler'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Se déconnecter'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await ref.read(authRepositoryProvider).signOut();
+                }
               },
             ),
             const Divider(height: 1, color: AppColors.divider),
