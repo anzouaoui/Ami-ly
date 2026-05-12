@@ -32,11 +32,12 @@ class AuthRemoteDataSource {
   /// Stream en temps réel du profil utilisateur (utile pour refléter
   /// instantanément un changement de `isPro` depuis RevenueCat ou un
   /// update de profil).
-  Stream<UserModel> watchUserProfile(String uid) {
+  ///
+  /// Émet `null` si le document n'existe pas encore (ex : inscription en cours,
+  /// doc Firestore pas encore écrit). L'appelant filtre le null.
+  Stream<UserModel?> watchUserProfile(String uid) {
     return _firebase.userDoc(uid).snapshots().map((doc) {
-      if (!doc.exists) {
-        throw FirestoreException('Profil $uid introuvable.');
-      }
+      if (!doc.exists) return null;
       return UserModel.fromFirestore(doc);
     });
   }

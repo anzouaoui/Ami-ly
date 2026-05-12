@@ -32,11 +32,16 @@ class AuthRepositoryImpl implements AuthRepository {
         return Stream<AppUser?>.value(null);
       }
       return _remote.watchUserProfile(firebaseUser.uid).map((model) {
+        // model == null : document pas encore écrit (inscription en cours).
+        if (model == null) {
+          _cachedUser = null;
+          return null;
+        }
         final entity = model.toEntity();
         _cachedUser = entity;
         return entity;
       }).handleError((Object _) {
-        // Doc pas encore créé (inscription en cours) ou déconnexion en parallèle.
+        // Erreur Firestore inattendue (ex : règles, réseau).
         _cachedUser = null;
         return null;
       });
