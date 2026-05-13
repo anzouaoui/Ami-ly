@@ -164,10 +164,15 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
           );
 
       // 2. Enfants : add / update
+      // On itère par index pour pouvoir réinjecter l'ID Firestore retourné
+      // par addChild — sans ça, child.id resterait null dans la session en
+      // cours et chaque sauvegarde suivante recréerait un doublon.
       final childDs = ref.read(parentRemoteDataSourceProvider);
-      for (final child in _children) {
+      for (int i = 0; i < _children.length; i++) {
+        final child = _children[i];
         if (child.id == null) {
-          await childDs.addChild(user.uid, child);
+          final newId = await childDs.addChild(user.uid, child);
+          _children[i] = child.copyWith(id: newId);
         } else {
           await childDs.updateChild(user.uid, child);
         }
