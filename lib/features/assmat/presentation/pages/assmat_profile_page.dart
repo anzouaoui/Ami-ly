@@ -1,28 +1,147 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/models/assmat_profile_model.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
-import 'assmat_home_page.dart';
-import '../../../parent/presentation/widgets/personal_info_card.dart';
 import '../../../parent/presentation/widgets/profile_form_field.dart';
+import '../../../parent/presentation/widgets/personal_info_card.dart';
+import 'assmat_home_page.dart';
 
 /// Page "Mon profil" de l'Assistante Maternelle.
 ///
-/// Affiche les informations visibles par les parents et la PMI, avec :
-///   - Header standard (back + logo AMiLY)
-///   - Titre + sous-titre + bouton CTA "Passer à Pro"
-///   - Chips de statut (disponibilité, agrément, identité)
-///   - Sections : Infos perso / Disponibilité / Pratiques / Services /
-///     Horaires / Diplômes / Tarifs
-///   - Barre d'actions fixe : Annuler + Enregistrer le profil
-class AssMatProfilePage extends StatelessWidget {
+/// Les champs présents dans [AssmatProfileModel] (firstName, lastName,
+/// address, bio, isSearchable, maxChildren, availableSlots) sont wirés
+/// à Firestore. Les sections non encore modélisées (tabac, diplômes,
+/// spécialités…) conservent un état local en attendant l'extension du modèle.
+class AssMatProfilePage extends ConsumerStatefulWidget {
   const AssMatProfilePage({super.key});
 
-  void _stub(BuildContext context, String label) {
+  @override
+  ConsumerState<AssMatProfilePage> createState() => _AssMatProfilePageState();
+}
+
+class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
+  // ── Contrôleurs texte ──────────────────────────────────────────────────────
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _bioCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _maxChildrenCtrl = TextEditingController();
+  final _availableSlotsCtrl = TextEditingController();
+
+  // ── État booléen ───────────────────────────────────────────────────────────
+  bool _isSearchable = true;
+
+  // ── Cycle de vie ──────────────────────────────────────────────────────────
+  bool _initialized = false;
+  AssmatProfileModel? _loadedProfile;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _addressCtrl.dispose();
+    _bioCtrl.dispose();
+    _emailCtrl.dispose();
+    _maxChildrenCtrl.dispose();
+    _availableSlotsCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Init helpers ───────────────────────────────────────────────────────────
+
+  void _initFromProfile(AssmatProfileModel profile, String email) {
+    _loadedProfile = profile;
+    _firstNameCtrl.text = profile.firstName;
+    _lastNameCtrl.text = profile.lastName;
+    _addressCtrl.text = profile.address;
+    _bioCtrl.text = profile.bio;
+    _emailCtrl.text = email;
+    _maxChildrenCtrl.text = profile.maxChildren.toString();
+    _availableSlotsCtrl.text = profile.availableSlots.toString();
+    _isSearchable = profile.isSearchable;
+    _initialized = true;
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  void _cancel() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      // Contexte onglet : réinitialise depuis les dernières valeurs Firestore.
+      final email = ref.read(currentUserProvider).valueOrNull?.email ?? '';
+      if (_loadedProfile != null) {
+        setState(() => _initFromProfile(_loadedProfile!, email));
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final savedMaxChildren = int.tryParse(_maxChildrenCtrl.text.trim()) ??
+          (_loadedProfile?.maxChildren ?? 1);
+      final savedAvailableSlots =
+          int.tryParse(_availableSlotsCtrl.text.trim()) ??
+              (_loadedProfile?.availableSlots ?? 0);
+
+      await ref.read(authRemoteDataSourceProvider).updateAssmatProfile(
+            uid: user.uid,
+            firstName: _firstNameCtrl.text.trim(),
+            lastName: _lastNameCtrl.text.trim(),
+            address: _addressCtrl.text.trim(),
+            bio: _bioCtrl.text.trim(),
+            isSearchable: _isSearchable,
+            maxChildren: savedMaxChildren,
+            availableSlots: savedAvailableSlots,
+          );
+
+      // Mettre à jour _loadedProfile pour que "Annuler" revienne aux
+      // dernières valeurs enregistrées (et non à l'état initial du stream).
+      _loadedProfile = _loadedProfile?.copyWith(
+        firstName: _firstNameCtrl.text.trim(),
+        lastName: _lastNameCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        bio: _bioCtrl.text.trim(),
+        isSearchable: _isSearchable,
+        maxChildren: savedMaxChildren,
+        availableSlots: savedAvailableSlots,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil enregistré'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur : $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _stub(String label) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('$label — à venir'),
@@ -31,93 +150,173 @@ class AssMatProfilePage extends StatelessWidget {
     );
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    final profileAsync = ref.watch(assmatProfileProvider);
+    final email = ref.watch(currentUserProvider).valueOrNull?.email ?? '';
+
+    // Initialise les controllers à la première donnée disponible.
+    if (!_initialized) {
+      profileAsync.whenData((profile) {
+        if (profile != null) _initFromProfile(profile, email);
+      });
+    }
+
+    // Écoute les changements futurs si pas encore initialisé.
+    ref.listen<AsyncValue<AssmatProfileModel?>>(
+      assmatProfileProvider,
+      (_, next) {
+        if (_initialized) return;
+        next.whenData((profile) {
+          if (profile != null && mounted) {
+            setState(() => _initFromProfile(profile, email));
+          }
+        });
+      },
+    );
+
+    final isLoading = profileAsync.isLoading && !_initialized;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       drawer: const AssMatDrawer(),
       body: Builder(
         builder: (scaffoldCtx) => SafeArea(
-        child: Column(
-          children: [
-            _ProfileHeader(onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer()),
-
-            // ---- Contenu scrollable ----
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TitleSection(
-                      onPassPro: () => _stub(context, 'Passer à Pro'),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _StatusChips(),
-                    const SizedBox(height: AppSpacing.lg),
-                    PersonalInfoCard(
-                      firstName: 'Marie',
-                      lastName: 'Lefèvre',
-                      phone: '06 12 34 56 78',
-                      email: 'marie.lefevre@email.com',
-                      address: '12 rue des Lilas, 75015 Paris',
-                      onChangePhoto: () => _stub(context, 'Changer la photo'),
-                      // Variante avatar assmat : cercle vert tinté + initiales primary.
-                      avatarBg: AppColors.secondary,
-                      avatarFg: AppColors.primary,
-                      descriptionLabel: 'Description / Présentation',
-                      descriptionHint:
-                          'Parlez-nous de votre expérience et de votre cadre d\'accueil…',
-                      descriptionValue:
-                          'Assistante maternelle agréée depuis 8 ans, j\'accueille les enfants dans un environnement chaleureux et stimulant. Mon appartement dispose d\'un grand espace de jeux sécurisé et d\'un jardin partagé…',
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _AvailabilityCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _PracticalInfoCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _ServicesOfferedCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _FlexibilityCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _DiplomasCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _HomePhotosCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _AccreditationCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _ImportantContactsCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _IdentityVerificationCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _SpecialitiesCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _DigitalVaultCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _PersonalDataCard(),
-                    const SizedBox(height: AppSpacing.lg),
-                  ],
-                ),
+          child: Column(
+            children: [
+              _ProfileHeader(
+                  onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer()),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : profileAsync.hasError
+                        ? Center(
+                            child: Text(
+                              'Impossible de charger le profil.\n'
+                              '${profileAsync.error}',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.bodyMedium
+                                  .copyWith(color: AppColors.error),
+                            ),
+                          )
+                        : _buildContent(),
               ),
-            ),
+              _BottomActionBar(
+                saving: _saving,
+                onCancel: _cancel,
+                onSave: _saving ? null : _save,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // ---- Barre d'actions fixe ----
-            _BottomActionBar(
-              onCancel: () => Navigator.of(context).maybePop(),
-              onSave: () {
-                _stub(context, 'Profil enregistré');
-                Navigator.of(context).maybePop();
-              },
-            ),
-          ],
-        ),      // Column
-      ),        // SafeArea
-      ),        // Builder
+  Widget _buildContent() {
+    final availableSlots =
+        int.tryParse(_availableSlotsCtrl.text) ??
+        (_loadedProfile?.availableSlots ?? 0);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TitleSection(onPassPro: () => _stub('Passer à Pro')),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Chips de statut ────────────────────────────────────────────────
+          _StatusChips(
+            availableSlots: availableSlots,
+            isSearchable: _isSearchable,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Infos personnelles + bio ───────────────────────────────────────
+          PersonalInfoCard(
+            firstName: _firstNameCtrl.text,
+            lastName: _lastNameCtrl.text,
+            phone: '',
+            email: _emailCtrl.text,
+            address: _addressCtrl.text,
+            firstNameController: _firstNameCtrl,
+            lastNameController: _lastNameCtrl,
+            emailController: _emailCtrl,
+            addressController: _addressCtrl,
+            descriptionController: _bioCtrl,
+            descriptionLabel: 'Description / Présentation',
+            descriptionHint:
+                'Parlez-nous de votre expérience et de votre cadre d\'accueil…',
+            onChangePhoto: () => _stub('Changer la photo'),
+            avatarBg: AppColors.secondary,
+            avatarFg: AppColors.primary,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Disponibilité ──────────────────────────────────────────────────
+          _AvailabilityCard(
+            isAvailable: _isSearchable,
+            onAvailabilityChanged: (v) => setState(() => _isSearchable = v),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Informations pratiques ─────────────────────────────────────────
+          _PracticalInfoCard(
+            maxChildrenController: _maxChildrenCtrl,
+            availableSlotsController: _availableSlotsCtrl,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Services proposés ──────────────────────────────────────────────
+          const _ServicesOfferedCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Horaires & Flexibilité ─────────────────────────────────────────
+          const _FlexibilityCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Diplômes & Expérience ──────────────────────────────────────────
+          const _DiplomasCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Photos du domicile ─────────────────────────────────────────────
+          const _HomePhotosCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Numéro d'agrément ──────────────────────────────────────────────
+          const _AccreditationCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Contacts importants ────────────────────────────────────────────
+          const _ImportantContactsCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Vérification d'identité ────────────────────────────────────────
+          const _IdentityVerificationCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Spécialités & compétences ──────────────────────────────────────
+          const _SpecialitiesCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Coffre-fort numérique ──────────────────────────────────────────
+          const _DigitalVaultCard(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── Mes données personnelles ───────────────────────────────────────
+          _PersonalDataCard(onStub: _stub),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+      ),
     );
   }
 }
 
-/// Header : back + carré brun logo + "AMiLY".
+// ─── App bar ─────────────────────────────────────────────────────────────────
+
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.onMenuTap});
   final VoidCallback onMenuTap;
@@ -133,19 +332,14 @@ class _ProfileHeader extends StatelessWidget {
       ),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          bottom: BorderSide(color: AppColors.divider, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.divider, width: 1)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           IconButton(
-            icon: const Icon(
-              Icons.menu_rounded,
-              size: 28,
-              color: AppColors.primaryText,
-            ),
+            icon: const Icon(Icons.menu_rounded,
+                size: 28, color: AppColors.primaryText),
             onPressed: onMenuTap,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -160,26 +354,20 @@ class _ProfileHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
             alignment: Alignment.center,
-            child: const Icon(
-              Icons.face_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
+            child: const Icon(Icons.face_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            'AMiLY',
-            style: AppTextStyles.titleLarge.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+          Text('AMiLY',
+              style:
+                  AppTextStyles.titleLarge.copyWith(fontWeight: FontWeight.w800)),
         ],
       ),
     );
   }
 }
 
-/// Titre "Mon profil" + sous-titre + bouton "Passer à Pro" en accent.
+// ─── Titre + bouton Pro ───────────────────────────────────────────────────────
+
 class _TitleSection extends StatelessWidget {
   const _TitleSection({required this.onPassPro});
   final VoidCallback onPassPro;
@@ -193,18 +381,14 @@ class _TitleSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Mon profil',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              Text('Mon profil',
+                  style: AppTextStyles.headlineMedium
+                      .copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 'Gérez vos informations visibles par les parents et la PMI',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: AppColors.secondaryText,
-                ),
+                style: AppTextStyles.bodyLarge
+                    .copyWith(color: AppColors.secondaryText),
               ),
             ],
           ),
@@ -218,9 +402,8 @@ class _TitleSection extends StatelessWidget {
             backgroundColor: AppColors.accent,
             foregroundColor: AppColors.onPrimary,
             minimumSize: const Size(0, 44),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           ),
         ),
       ],
@@ -228,27 +411,38 @@ class _TitleSection extends StatelessWidget {
   }
 }
 
-/// Rangée de chips de statut (Wrap pour gérer les écrans étroits).
+// ─── Chips de statut ─────────────────────────────────────────────────────────
+
 class _StatusChips extends StatelessWidget {
-  const _StatusChips();
+  const _StatusChips({
+    required this.availableSlots,
+    required this.isSearchable,
+  });
+
+  final int availableSlots;
+  final bool isSearchable;
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
+    return Wrap(
       spacing: AppSpacing.sm,
       runSpacing: AppSpacing.sm,
       children: [
         _StatusChip(
-          icon: Icons.check_circle_rounded,
-          label: '1 place(s) disponible(s)',
-          filled: true,
+          icon: isSearchable
+              ? Icons.check_circle_rounded
+              : Icons.cancel_rounded,
+          label: isSearchable
+              ? '$availableSlots place(s) disponible(s)'
+              : 'Indisponible',
+          filled: isSearchable,
         ),
-        _StatusChip(
+        const _StatusChip(
           icon: Icons.shield_outlined,
           label: 'Agrément valide',
           filled: false,
         ),
-        _StatusChip(
+        const _StatusChip(
           icon: Icons.verified_user_outlined,
           label: 'Identité vérifiée',
           filled: false,
@@ -258,37 +452,35 @@ class _StatusChips extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Carte de disponibilité
-// -----------------------------------------------------------------
+// ─── Carte disponibilité ──────────────────────────────────────────────────────
 
-/// Carte de contrôle de la visibilité du profil dans les recherches des
-/// parents. Toggle on/off + date de disponibilité optionnelle.
 class _AvailabilityCard extends StatefulWidget {
-  const _AvailabilityCard();
+  const _AvailabilityCard({
+    required this.isAvailable,
+    required this.onAvailabilityChanged,
+  });
+
+  final bool isAvailable;
+  final ValueChanged<bool> onAvailabilityChanged;
 
   @override
   State<_AvailabilityCard> createState() => _AvailabilityCardState();
 }
 
 class _AvailabilityCardState extends State<_AvailabilityCard> {
-  bool _isAvailable = true;
-  DateTime _availableFrom = DateTime(2025, 5, 1);
+  // La date reste en état local (pas encore dans AssmatProfileModel).
+  late DateTime _availableFrom;
 
   static const _months = [
-    '01',
-    '02',
-    '03',
-    '04',
-    '05',
-    '06',
-    '07',
-    '08',
-    '09',
-    '10',
-    '11',
-    '12',
+    '01', '02', '03', '04', '05', '06',
+    '07', '08', '09', '10', '11', '12',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _availableFrom = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  }
 
   String _format(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${_months[d.month - 1]}/${d.year}';
@@ -298,7 +490,10 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
       context: context,
       initialDate: _availableFrom,
       firstDate: DateTime(2020),
-      lastDate: DateTime(2030, 12, 31),
+      lastDate: DateTime(2035, 12, 31),
+      locale: const Locale('fr', 'FR'),
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
     );
     if (picked != null) setState(() => _availableFrom = picked);
   }
@@ -312,83 +507,69 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(
-          color: _isAvailable
-              ? AppColors.primary
-              : AppColors.divider,
-          width: _isAvailable ? 1.5 : 1,
+          color: widget.isAvailable ? AppColors.primary : AppColors.divider,
+          width: widget.isAvailable ? 1.5 : 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header : pastille + titre/sous-titre + switch
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Pastille verte
               Container(
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: _isAvailable
+                  color: widget.isAvailable
                       ? AppColors.primary
                       : AppColors.secondaryText,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
-              // Titre + sous-titre
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isAvailable
+                      widget.isAvailable
                           ? 'Disponible — J\'accueille de nouveaux enfants'
                           : 'Indisponible — Je n\'accueille pas',
-                      style: AppTextStyles.titleMedium.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTextStyles.titleMedium
+                          .copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      _isAvailable
+                      widget.isAvailable
                           ? 'Votre profil est visible par les parents en recherche'
                           : 'Votre profil est masqué des recherches',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.secondaryText,
-                      ),
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.secondaryText),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Switch(
-                value: _isAvailable,
-                onChanged: (v) => setState(() => _isAvailable = v),
-                activeColor: AppColors.primary,
+                value: widget.isAvailable,
+                onChanged: widget.onAvailabilityChanged,
+                activeThumbColor: AppColors.primary,
               ),
             ],
           ),
-
-          // Section date — affichée seulement si disponible
-          if (_isAvailable) ...[
+          if (widget.isAvailable) ...[
             const SizedBox(height: AppSpacing.md),
             const Divider(height: 1, color: AppColors.divider),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'Disponible à partir du',
-              style: AppTextStyles.labelMedium,
-            ),
+            Text('Disponible à partir du', style: AppTextStyles.labelMedium),
             const SizedBox(height: AppSpacing.sm),
             InkWell(
               onTap: _pickDate,
               borderRadius: BorderRadius.circular(AppRadii.md),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.md,
-                ),
+                    horizontal: AppSpacing.md, vertical: AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(AppRadii.md),
@@ -397,18 +578,12 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        _format(_availableFrom),
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          color: AppColors.primaryText,
-                        ),
-                      ),
+                      child: Text(_format(_availableFrom),
+                          style: AppTextStyles.bodyLarge
+                              .copyWith(color: AppColors.primaryText)),
                     ),
-                    const Icon(
-                      Icons.calendar_today_rounded,
-                      size: 20,
-                      color: AppColors.secondaryText,
-                    ),
+                    const Icon(Icons.calendar_today_rounded,
+                        size: 20, color: AppColors.secondaryText),
                   ],
                 ),
               ),
@@ -420,36 +595,30 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
   }
 }
 
-// -----------------------------------------------------------------
-// Informations pratiques
-// -----------------------------------------------------------------
+// ─── Informations pratiques ───────────────────────────────────────────────────
 
-/// Carte "Informations pratiques" : tabac, formation 1ers secours,
-/// animal au domicile, nombre de places max (agrément).
 class _PracticalInfoCard extends StatefulWidget {
-  const _PracticalInfoCard();
+  const _PracticalInfoCard({
+    required this.maxChildrenController,
+    required this.availableSlotsController,
+  });
+
+  final TextEditingController maxChildrenController;
+  final TextEditingController availableSlotsController;
 
   @override
   State<_PracticalInfoCard> createState() => _PracticalInfoCardState();
 }
 
 class _PracticalInfoCardState extends State<_PracticalInfoCard> {
+  // Champs non encore dans le modèle → état local.
   String _tobacco = 'Non fumeur';
   String _firstAid = 'PSC1 validé';
   String _pet = 'Pas d\'animal';
 
   static const _tobaccoOptions = ['Non fumeur', 'Fumeur (extérieur)', 'Fumeur'];
-  static const _firstAidOptions = [
-    'PSC1 validé',
-    'SST validé',
-    'Aucune formation',
-  ];
-  static const _petOptions = [
-    'Pas d\'animal',
-    'Chat',
-    'Chien',
-    'Autre animal',
-  ];
+  static const _firstAidOptions = ['PSC1 validé', 'SST validé', 'Aucune formation'];
+  static const _petOptions = ['Pas d\'animal', 'Chat', 'Chien', 'Autre animal'];
 
   @override
   Widget build(BuildContext context) {
@@ -464,38 +633,26 @@ class _PracticalInfoCardState extends State<_PracticalInfoCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.home_outlined,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.home_outlined, color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Informations pratiques',
-                style: AppTextStyles.titleMedium,
-              ),
+              Text('Informations pratiques', style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Ces informations sont visibles par les parents',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
+          Text('Ces informations sont visibles par les parents',
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.secondaryText)),
           const SizedBox(height: AppSpacing.lg),
 
-          // Dropdowns avec icône labélisée
           _IconLabeledDropdown(
             icon: Icons.smoking_rooms_rounded,
             label: 'Tabac au domicile',
             value: _tobacco,
             options: _tobaccoOptions,
-            onChanged: (v) => setState(() => _tobacco = v ?? 'Non fumeur'),
+            onChanged: (v) => setState(() => _tobacco = v ?? _tobacco),
           ),
           const SizedBox(height: AppSpacing.md),
           _IconLabeledDropdown(
@@ -503,7 +660,7 @@ class _PracticalInfoCardState extends State<_PracticalInfoCard> {
             label: 'Formation 1ers secours',
             value: _firstAid,
             options: _firstAidOptions,
-            onChanged: (v) => setState(() => _firstAid = v ?? 'PSC1 validé'),
+            onChanged: (v) => setState(() => _firstAid = v ?? _firstAid),
           ),
           const SizedBox(height: AppSpacing.md),
           _IconLabeledDropdown(
@@ -511,22 +668,20 @@ class _PracticalInfoCardState extends State<_PracticalInfoCard> {
             label: 'Animal au domicile',
             value: _pet,
             options: _petOptions,
-            onChanged: (v) => setState(() => _pet = v ?? 'Pas d\'animal'),
+            onChanged: (v) => setState(() => _pet = v ?? _pet),
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Places max : input numérique simple
-          const ProfileFormField(
+          // Champs wirés Firestore
+          ProfileFormField(
             label: 'Places max (agrément)',
-            initialValue: '4',
+            controller: widget.maxChildrenController,
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // Enfants accueillis actuellement
-          const ProfileFormField(
+          ProfileFormField(
             label: 'Enfants accueillis actuellement',
-            initialValue: '3',
+            controller: widget.availableSlotsController,
             keyboardType: TextInputType.number,
           ),
         ],
@@ -579,13 +734,8 @@ class _IconLabeledDropdown extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Cartes à checkboxes : Services proposés + Horaires & Flexibilité
-// -----------------------------------------------------------------
+// ─── Cartes à checkboxes ──────────────────────────────────────────────────────
 
-/// Carte générique : header icône+titre+sous-titre + liste de checkboxes.
-/// Utilisée pour "Services proposés" et "Horaires & Flexibilité" — chaque
-/// carte gère son propre état via sa Map initiale.
 class _ChecklistCard extends StatefulWidget {
   const _ChecklistCard({
     required this.icon,
@@ -619,7 +769,6 @@ class _ChecklistCardState extends State<_ChecklistCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -629,15 +778,10 @@ class _ChecklistCardState extends State<_ChecklistCard> {
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            widget.subtitle,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
+          Text(widget.subtitle,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.secondaryText)),
           const SizedBox(height: AppSpacing.md),
-
-          // Checkboxes
           for (final entry in _items.entries)
             FilterCheckboxTile(
               label: entry.key,
@@ -650,18 +794,16 @@ class _ChecklistCardState extends State<_ChecklistCard> {
   }
 }
 
-/// Carte "Services proposés" — thin wrapper sur [_ChecklistCard] avec
-/// la spec services.
 class _ServicesOfferedCard extends StatelessWidget {
   const _ServicesOfferedCard();
 
   @override
   Widget build(BuildContext context) {
-    return _ChecklistCard(
+    return const _ChecklistCard(
       icon: Icons.volunteer_activism_rounded,
       title: 'Services proposés',
       subtitle: 'Indiquez les services que vous proposez aux familles',
-      initialItems: const {
+      initialItems: {
         'Exerce en maison d\'assistants maternels': false,
         'Peut accueillir des enfants en situation de handicap': true,
         'Peut véhiculer les enfants': false,
@@ -672,17 +814,16 @@ class _ServicesOfferedCard extends StatelessWidget {
   }
 }
 
-/// Carte "Horaires & Flexibilité" — disponibilités horaires de l'assmat.
 class _FlexibilityCard extends StatelessWidget {
   const _FlexibilityCard();
 
   @override
   Widget build(BuildContext context) {
-    return _ChecklistCard(
+    return const _ChecklistCard(
       icon: Icons.access_time_rounded,
       title: 'Horaires & Flexibilité',
       subtitle: 'Précisez vos disponibilités horaires',
-      initialItems: const {
+      initialItems: {
         'Peut être flexible sur les horaires': true,
         'Peut accueillir les enfants la nuit': false,
         'Peut accueillir les enfants le week-end': false,
@@ -694,12 +835,8 @@ class _FlexibilityCard extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Diplômes & Expérience
-// -----------------------------------------------------------------
+// ─── Diplômes & Expérience ────────────────────────────────────────────────────
 
-/// Carte "Diplômes & Expérience" : liste de diplômes (chips beige avec
-/// close icon + bouton "+ Ajouter") et textarea parcours professionnel.
 class _DiplomasCard extends StatefulWidget {
   const _DiplomasCard();
 
@@ -719,9 +856,7 @@ class _DiplomasCardState extends State<_DiplomasCard> {
     );
   }
 
-  void _removeDiploma(String d) {
-    setState(() => _diplomas.remove(d));
-  }
+  void _removeDiploma(String d) => setState(() => _diplomas.remove(d));
 
   @override
   Widget build(BuildContext context) {
@@ -736,31 +871,18 @@ class _DiplomasCardState extends State<_DiplomasCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.school_rounded,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.school_rounded, color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Diplômes & Expérience',
-                style: AppTextStyles.titleMedium,
-              ),
+              Text('Diplômes & Expérience', style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // Section Diplômes & Formations
-          Text(
-            'Diplômes & Formations',
-            style: AppTextStyles.titleMedium.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text('Diplômes & Formations',
+              style:
+                  AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.sm,
@@ -779,30 +901,20 @@ class _DiplomasCardState extends State<_DiplomasCard> {
               label: const Text('Ajouter'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(0, 40),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // Section Parcours professionnel
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.work_outline_rounded,
-                color: AppColors.primaryText,
-                size: 18,
-              ),
+              const Icon(Icons.work_outline_rounded,
+                  color: AppColors.primaryText, size: 18),
               const SizedBox(width: AppSpacing.xs),
-              Text(
-                'Parcours professionnel',
-                style: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text('Parcours professionnel',
+                  style: AppTextStyles.titleMedium
+                      .copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -820,12 +932,8 @@ class _DiplomasCardState extends State<_DiplomasCard> {
   }
 }
 
-/// Chip diplôme : pill beige avec texte + croix de suppression.
-/// Style différent de [InterestTagChip] (vert) pour distinguer
-/// les diplômes côté assmat.
 class _DiplomaChip extends StatelessWidget {
   const _DiplomaChip({required this.label, required this.onRemove});
-
   final String label;
   final VoidCallback onRemove;
 
@@ -837,31 +945,21 @@ class _DiplomaChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.full),
       ),
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.sm,
-        AppSpacing.sm,
-      ),
+          AppSpacing.md, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.primaryText,
-            ),
-          ),
+          Text(label,
+              style: AppTextStyles.labelMedium
+                  .copyWith(color: AppColors.primaryText)),
           const SizedBox(width: AppSpacing.sm),
           InkWell(
             onTap: onRemove,
             customBorder: const CircleBorder(),
             child: const Padding(
               padding: EdgeInsets.all(2),
-              child: Icon(
-                Icons.close_rounded,
-                color: AppColors.primaryText,
-                size: 14,
-              ),
+              child: Icon(Icons.close_rounded,
+                  color: AppColors.primaryText, size: 14),
             ),
           ),
         ],
@@ -870,19 +968,14 @@ class _DiplomaChip extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Photos du domicile
-// -----------------------------------------------------------------
+// ─── Photos du domicile ───────────────────────────────────────────────────────
 
-/// Données d'une photo mockée (label + couleur de fond).
 class _PhotoData {
   const _PhotoData({required this.label, required this.color});
   final String label;
   final Color color;
 }
 
-/// Carte "Photos du domicile" : grille 2 colonnes, vignettes avec légende
-/// semi-transparente + slot tiretés "Ajouter".
 class _HomePhotosCard extends StatefulWidget {
   const _HomePhotosCard();
 
@@ -892,18 +985,9 @@ class _HomePhotosCard extends StatefulWidget {
 
 class _HomePhotosCardState extends State<_HomePhotosCard> {
   final List<_PhotoData> _photos = const [
-    _PhotoData(
-      label: 'Espace de jeux principal',
-      color: Color(0xFFE0E0E0),
-    ),
-    _PhotoData(
-      label: 'Chambre sieste',
-      color: Color(0xFFE0E0E0),
-    ),
-    _PhotoData(
-      label: 'Jardin partagé',
-      color: Color(0xFFE0E0E0),
-    ),
+    _PhotoData(label: 'Espace de jeux principal', color: Color(0xFFE0E0E0)),
+    _PhotoData(label: 'Chambre sieste', color: Color(0xFFE0E0E0)),
+    _PhotoData(label: 'Jardin partagé', color: Color(0xFFE0E0E0)),
   ];
 
   void _addPhoto() {
@@ -928,79 +1012,49 @@ class _HomePhotosCardState extends State<_HomePhotosCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.home_outlined,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.home_outlined, color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
               Text('Photos du domicile', style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Ajoutez des photos de votre espace d\'accueil',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
+          Text('Ajoutez des photos de votre espace d\'accueil',
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.secondaryText)),
           const SizedBox(height: AppSpacing.lg),
-
-          // Grille 2 colonnes
           LayoutBuilder(
             builder: (context, constraints) {
               const spacing = AppSpacing.md;
               final tileWidth = (constraints.maxWidth - spacing) / 2;
-              // Ratio ~4/3 pour les vignettes.
               final tileHeight = tileWidth * 0.82;
-
-              // On construit les tuiles photos + le slot "Ajouter" à la suite.
               final photoTiles = _photos
-                  .map(
-                    (p) => _PhotoTile(
+                  .map((p) => _PhotoTile(
                       label: p.label,
                       bgColor: p.color,
                       width: tileWidth,
-                      height: tileHeight,
-                    ),
-                  )
+                      height: tileHeight))
                   .toList();
-
               final addTile = _AddPhotoTile(
-                width: tileWidth,
-                height: tileHeight,
-                onTap: _addPhoto,
-              );
-
+                  width: tileWidth, height: tileHeight, onTap: _addPhoto);
               final allTiles = [...photoTiles, addTile];
-
-              // On dispose manuellement en rangées de 2.
               final rows = <Widget>[];
               for (var i = 0; i < allTiles.length; i += 2) {
-                final left = allTiles[i];
-                final right = i + 1 < allTiles.length ? allTiles[i + 1] : null;
-                rows.add(
-                  Row(
-                    children: [
-                      left,
-                      const SizedBox(width: spacing),
-                      right ?? SizedBox(width: tileWidth),
-                    ],
-                  ),
-                );
+                final right =
+                    i + 1 < allTiles.length ? allTiles[i + 1] : null;
+                rows.add(Row(children: [
+                  allTiles[i],
+                  const SizedBox(width: spacing),
+                  right ?? SizedBox(width: tileWidth),
+                ]));
                 if (i + 2 < allTiles.length) {
                   rows.add(const SizedBox(height: spacing));
                 }
               }
-
               return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: rows,
-              );
+                  crossAxisAlignment: CrossAxisAlignment.start, children: rows);
             },
           ),
         ],
@@ -1009,8 +1063,6 @@ class _HomePhotosCardState extends State<_HomePhotosCard> {
   }
 }
 
-/// Vignette photo : fond gris + icône image centrée + overlay sombre
-/// avec le nom de la photo en bas.
 class _PhotoTile extends StatelessWidget {
   const _PhotoTile({
     required this.label,
@@ -1018,7 +1070,6 @@ class _PhotoTile extends StatelessWidget {
     required this.width,
     required this.height,
   });
-
   final String label;
   final Color bgColor;
   final double width;
@@ -1034,47 +1085,32 @@ class _PhotoTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Fond photo (mock gris)
             Container(
               color: bgColor,
               alignment: Alignment.center,
-              child: Icon(
-                Icons.image_outlined,
-                size: width * 0.18,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+              child: Icon(Icons.image_outlined,
+                  size: width * 0.18,
+                  color: Colors.white.withValues(alpha: 0.7)),
             ),
-
-            // Overlay légende en bas
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.sm,
-                ),
+                    horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [
-                      Color(0xCC1A1A1A), // ~80 % opaque noir
-                      Color(0x001A1A1A), // transparent
-                    ],
-                    stops: [0.0, 1.0],
+                    colors: [Color(0xCC1A1A1A), Color(0x001A1A1A)],
                   ),
                 ),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.labelMedium.copyWith(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1084,14 +1120,9 @@ class _PhotoTile extends StatelessWidget {
   }
 }
 
-/// Slot "Ajouter" : bordure tiretée via CustomPaint + icône + texte.
 class _AddPhotoTile extends StatelessWidget {
-  const _AddPhotoTile({
-    required this.width,
-    required this.height,
-    required this.onTap,
-  });
-
+  const _AddPhotoTile(
+      {required this.width, required this.height, required this.onTap});
   final double width;
   final double height;
   final VoidCallback onTap;
@@ -1114,18 +1145,12 @@ class _AddPhotoTile extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.add_rounded,
-                  size: width * 0.22,
-                  color: AppColors.secondaryText,
-                ),
+                Icon(Icons.add_rounded,
+                    size: width * 0.22, color: AppColors.secondaryText),
                 const SizedBox(height: 4),
-                Text(
-                  'Ajouter',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.secondaryText,
-                  ),
-                ),
+                Text('Ajouter',
+                    style: AppTextStyles.labelMedium
+                        .copyWith(color: AppColors.secondaryText)),
               ],
             ),
           ),
@@ -1135,39 +1160,30 @@ class _AddPhotoTile extends StatelessWidget {
   }
 }
 
-/// Peint une bordure tiretée arrondie (rayon = AppRadii.md).
 class _DashedBorderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const radius = AppRadii.md;
     const dashLen = 6.0;
     const gapLen = 5.0;
-
     final paint = Paint()
       ..color = AppColors.divider
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
-
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
       const Radius.circular(radius),
     );
-
     final path = Path()..addRRect(rrect);
     final dashedPath = Path();
-
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
         final end = (distance + dashLen).clamp(0.0, metric.length);
-        dashedPath.addPath(
-          metric.extractPath(distance, end),
-          Offset.zero,
-        );
+        dashedPath.addPath(metric.extractPath(distance, end), Offset.zero);
         distance += dashLen + gapLen;
       }
     }
-
     canvas.drawPath(dashedPath, paint);
   }
 
@@ -1175,15 +1191,8 @@ class _DashedBorderPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// -----------------------------------------------------------------
-// Numéro d'agrément
-// -----------------------------------------------------------------
+// ─── Numéro d'agrément ────────────────────────────────────────────────────────
 
-/// Carte "Numéro d'agrément" :
-///   - Champ numéro d'agrément (texte libre)
-///   - Champ date d'expiration (date picker)
-///   - Section "Photo de l'agrément" : vignette pleine largeur avec badge
-///     "Visible parents & PMI" en overlay bas.
 class _AccreditationCard extends StatefulWidget {
   const _AccreditationCard();
 
@@ -1195,13 +1204,8 @@ class _AccreditationCardState extends State<_AccreditationCard> {
   DateTime _expiresOn = DateTime(2026, 12, 31);
   bool _isCertified = true;
 
-  static const _months = [
-    '01', '02', '03', '04', '05', '06',
-    '07', '08', '09', '10', '11', '12',
-  ];
-
   String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${_months[d.month - 1]}/${d.year}';
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   Future<void> _pickExpiry() async {
     final picked = await showDatePicker(
@@ -1209,6 +1213,9 @@ class _AccreditationCardState extends State<_AccreditationCard> {
       initialDate: _expiresOn,
       firstDate: DateTime(2020),
       lastDate: DateTime(2040, 12, 31),
+      locale: const Locale('fr', 'FR'),
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
     );
     if (picked != null) setState(() => _expiresOn = picked);
   }
@@ -1235,64 +1242,43 @@ class _AccreditationCardState extends State<_AccreditationCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header ──
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.shield_outlined,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.shield_outlined,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
               Text('Numéro d\'agrément', style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // ── Numéro d'agrément ──
           const ProfileFormField(
-            label: 'Numéro d\'agrément',
-            initialValue: 'PMI-2024-75015-0042',
-          ),
+              label: 'Numéro d\'agrément',
+              initialValue: 'PMI-2024-75015-0042'),
           const SizedBox(height: AppSpacing.md),
-
-          // ── Date d'expiration ──
           _DatePickerField(
-            label: 'Date d\'expiration',
-            value: _fmt(_expiresOn),
-            onTap: _pickExpiry,
-          ),
+              label: 'Date d\'expiration',
+              value: _fmt(_expiresOn),
+              onTap: _pickExpiry),
           const SizedBox(height: AppSpacing.lg),
-
-          // ── Section photo de l'agrément ──
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.camera_alt_outlined,
-                color: AppColors.primaryText,
-                size: 18,
-              ),
+              const Icon(Icons.camera_alt_outlined,
+                  color: AppColors.primaryText, size: 18),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Photo de l\'agrément',
-                style: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text('Photo de l\'agrément',
+                  style: AppTextStyles.titleMedium
+                      .copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Cette photo sera visible par les parents et la PMI pour vérification.',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.secondaryText,
-            ),
+            style: AppTextStyles.bodySmall
+                .copyWith(color: AppColors.secondaryText),
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // ── Vignette photo pleine largeur ──
           GestureDetector(
             onTap: _changePhoto,
             child: ClipRRect(
@@ -1302,18 +1288,12 @@ class _AccreditationCardState extends State<_AccreditationCard> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Fond photo mock (gris neutre)
                     Container(
                       color: const Color(0xFFD0CCCA),
                       alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.image_outlined,
-                        size: 48,
-                        color: Color(0xFFAAAAAA),
-                      ),
+                      child: const Icon(Icons.image_outlined,
+                          size: 48, color: Color(0xFFAAAAAA)),
                     ),
-
-                    // Badge "Visible parents & PMI" en bas centré
                     Positioned(
                       bottom: AppSpacing.md,
                       left: 0,
@@ -1321,29 +1301,25 @@ class _AccreditationCardState extends State<_AccreditationCard> {
                       child: Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm),
                           decoration: BoxDecoration(
                             color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(AppRadii.full),
+                            borderRadius:
+                                BorderRadius.circular(AppRadii.full),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
-                                Icons.check_circle_outline_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              const SizedBox(width: AppSpacing.xs),
-                              Text(
-                                'Visible parents & PMI',
-                                style: AppTextStyles.labelMedium.copyWith(
+                                  Icons.check_circle_outline_rounded,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                                  size: 16),
+                              const SizedBox(width: AppSpacing.xs),
+                              Text('Visible parents & PMI',
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ),
@@ -1355,8 +1331,6 @@ class _AccreditationCardState extends State<_AccreditationCard> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // ── Bloc certification ──
           InkWell(
             onTap: () => setState(() => _isCertified = !_isCertified),
             borderRadius: BorderRadius.circular(AppRadii.md),
@@ -1370,7 +1344,6 @@ class _AccreditationCardState extends State<_AccreditationCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Checkbox
                   SizedBox(
                     width: 24,
                     height: 24,
@@ -1379,31 +1352,27 @@ class _AccreditationCardState extends State<_AccreditationCard> {
                       onChanged: (v) =>
                           setState(() => _isCertified = v ?? false),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                          borderRadius: BorderRadius.circular(4)),
                       activeColor: AppColors.primary,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  // Texte
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Je certifie que ce numéro d\'agrément est valide',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: AppTextStyles.bodyLarge
+                              .copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           'Toute fausse déclaration peut entraîner la '
                           'suspension de votre compte',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.secondaryText,
-                          ),
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.secondaryText),
                         ),
                       ],
                     ),
@@ -1413,40 +1382,24 @@ class _AccreditationCardState extends State<_AccreditationCard> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // ── Code PMI ──
-          Text(
-            'Code PMI (fourni par votre PMI)',
-            style: AppTextStyles.titleMedium.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text('Code PMI (fourni par votre PMI)',
+              style: AppTextStyles.titleMedium
+                  .copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSpacing.md),
-          const ProfileFormField(
-            label: '',
-            initialValue: 'PMI-75015',
-          ),
+          const ProfileFormField(label: '', initialValue: 'PMI-75015'),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Ce code vous rattache à votre PMI de secteur',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
+          Text('Ce code vous rattache à votre PMI de secteur',
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.secondaryText)),
         ],
       ),
     );
   }
 }
 
-/// Champ date cliquable : label + conteneur tappable avec icône calendrier.
 class _DatePickerField extends StatelessWidget {
-  const _DatePickerField({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
+  const _DatePickerField(
+      {required this.label, required this.value, required this.onTap});
   final String label;
   final String value;
   final VoidCallback onTap;
@@ -1463,9 +1416,7 @@ class _DatePickerField extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadii.md),
           child: Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 14,
-            ),
+                horizontal: AppSpacing.md, vertical: 14),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppRadii.md),
@@ -1474,18 +1425,12 @@ class _DatePickerField extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    value,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.primaryText,
-                    ),
-                  ),
+                  child: Text(value,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.primaryText)),
                 ),
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  size: 18,
-                  color: AppColors.primaryText,
-                ),
+                const Icon(Icons.calendar_today_outlined,
+                    size: 18, color: AppColors.primaryText),
               ],
             ),
           ),
@@ -1495,15 +1440,18 @@ class _DatePickerField extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Contacts importants
-// -----------------------------------------------------------------
+// ─── Contacts importants ──────────────────────────────────────────────────────
 
-/// Carte "Contacts importants" : contacts professionnels d'urgence
-/// et de référence. Chaque contact est affiché dans une sous-section
-/// avec icône, champs Nom + Téléphone, et un bouton de contact rapide.
 class _ImportantContactsCard extends StatelessWidget {
   const _ImportantContactsCard();
+
+  void _stub(BuildContext context, String label) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text('$label — à venir'),
+          behavior: SnackBarBehavior.floating),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1518,29 +1466,20 @@ class _ImportantContactsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.phone_in_talk_outlined,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.phone_in_talk_outlined,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
               Text('Contacts importants', style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Vos contacts professionnels d\'urgence et de référence',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
+          Text('Vos contacts professionnels d\'urgence et de référence',
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.secondaryText)),
           const SizedBox(height: AppSpacing.lg),
-
-          // PMI
           _ContactSection(
             icon: Icons.domain_outlined,
             iconColor: AppColors.primary,
@@ -1553,14 +1492,11 @@ class _ImportantContactsCard extends StatelessWidget {
             callLabel: 'Contacter la PMI',
             onCall: () => _stub(context, 'Contacter la PMI'),
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-
-          // Relais Petite Enfance (RPE)
-          _ContactSection(
+          const _ContactSection(
             icon: Icons.domain_outlined,
             iconColor: AppColors.accent,
             label: 'Relais Petite Enfance (RPE)',
@@ -1570,14 +1506,11 @@ class _ImportantContactsCard extends StatelessWidget {
             secondFieldMock: '01 45 67 89 10',
             secondKeyboard: TextInputType.phone,
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-
-          // Centre antipoison
-          _ContactSection(
+          const _ContactSection(
             icon: Icons.warning_amber_outlined,
             iconColor: AppColors.accent,
             label: 'Centre antipoison',
@@ -1585,14 +1518,11 @@ class _ImportantContactsCard extends StatelessWidget {
             firstFieldMock: '01 40 05 48 48',
             firstKeyboard: TextInputType.phone,
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-
-          // Tiers à contacter
-          _ContactSection(
+          const _ContactSection(
             icon: Icons.person_outline_rounded,
             iconColor: AppColors.secondaryText,
             label: 'Tiers à contacter',
@@ -1602,37 +1532,21 @@ class _ImportantContactsCard extends StatelessWidget {
             secondFieldMock: '06 98 76 54 32',
             secondKeyboard: TextInputType.phone,
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-
-          // Numéros d'urgence
           const _EmergencyNumbersSection(),
         ],
       ),
     );
   }
-
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 }
 
-/// Section "Numéros d'urgence" : 3 numéros fixes (fond rose pâle, chiffre
-/// rouge) + champ "Autre numéro personnalisé" éditable.
 class _EmergencyNumbersSection extends StatelessWidget {
   const _EmergencyNumbersSection();
 
-  // Fond rose très pâle des cartes urgence.
   static const _rowBg = Color(0xFFFFF0EE);
-
   static const _numbers = [
     (label: 'Urgences européennes', number: '112'),
     (label: 'SAMU', number: '15'),
@@ -1644,64 +1558,37 @@ class _EmergencyNumbersSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // En-tête
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.phone_outlined,
-              color: AppColors.error,
-              size: 18,
-            ),
+            const Icon(Icons.phone_outlined, color: AppColors.error, size: 18),
             const SizedBox(width: AppSpacing.sm),
-            Text(
-              'Numéros d\'urgence',
-              style: AppTextStyles.titleMedium.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text('Numéros d\'urgence',
+                style: AppTextStyles.titleMedium
+                    .copyWith(fontWeight: FontWeight.w700)),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-
-        // Cartes fixes — fond rose pâle, séparées
         for (final item in _numbers) ...[
-          _EmergencyRow(
-            label: item.label,
-            number: item.number,
-            bg: _rowBg,
-          ),
+          _EmergencyRow(label: item.label, number: item.number, bg: _rowBg),
           const SizedBox(height: AppSpacing.sm),
         ],
         const SizedBox(height: AppSpacing.xs),
-
-        // Champ personnalisé
-        Text(
-          'Autre numéro personnalisé',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.secondaryText,
-          ),
-        ),
+        Text('Autre numéro personnalisé',
+            style:
+                AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText)),
         const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          label: '',
-          initialValue: '01 45 67 00 00',
-          keyboardType: TextInputType.phone,
-        ),
+        const ProfileFormField(
+            label: '', initialValue: '01 45 67 00 00',
+            keyboardType: TextInputType.phone),
       ],
     );
   }
 }
 
-/// Carte d'un numéro d'urgence : label à gauche + numéro rouge à droite,
-/// fond coloré configurable.
 class _EmergencyRow extends StatelessWidget {
-  const _EmergencyRow({
-    required this.label,
-    required this.number,
-    required this.bg,
-  });
-
+  const _EmergencyRow(
+      {required this.label, required this.number, required this.bg});
   final String label;
   final String number;
   final Color bg;
@@ -1710,39 +1597,29 @@ class _EmergencyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.md,
-      ),
+          horizontal: AppSpacing.md, vertical: AppSpacing.md),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.15)),
+        border:
+            Border.all(color: AppColors.error.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
+            child: Text(label,
+                style: AppTextStyles.bodyLarge
+                    .copyWith(color: AppColors.primaryText)),
+          ),
+          Text(number,
               style: AppTextStyles.bodyLarge.copyWith(
-                color: AppColors.primaryText,
-              ),
-            ),
-          ),
-          Text(
-            number,
-            style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+                  color: AppColors.error, fontWeight: FontWeight.w700)),
         ],
       ),
     );
   }
 }
 
-/// Sous-section d'un contact : icône + label + 1 ou 2 champs + bouton
-/// optionnel. Générique pour PMI, RPE, Centre antipoison, etc.
 class _ContactSection extends StatelessWidget {
   const _ContactSection({
     required this.icon,
@@ -1761,18 +1638,12 @@ class _ContactSection extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String label;
-
-  // Premier champ (toujours affiché)
   final String firstFieldLabel;
   final String firstFieldMock;
   final TextInputType firstKeyboard;
-
-  // Second champ (optionnel)
   final String? secondFieldLabel;
   final String? secondFieldMock;
   final TextInputType secondKeyboard;
-
-  // Bouton d'action rapide (optionnel)
   final String? callLabel;
   final VoidCallback? onCall;
 
@@ -1781,42 +1652,30 @@ class _ContactSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // En-tête de sous-section
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: iconColor, size: 18),
             const SizedBox(width: AppSpacing.sm),
             Flexible(
-              child: Text(
-                label,
-                style: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              child: Text(label,
+                  style: AppTextStyles.titleMedium
+                      .copyWith(fontWeight: FontWeight.w700)),
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-
-        // Premier champ
         ProfileFormField(
-          label: firstFieldLabel,
-          initialValue: firstFieldMock,
-          keyboardType: firstKeyboard,
-        ),
-
-        // Second champ (si renseigné)
+            label: firstFieldLabel,
+            initialValue: firstFieldMock,
+            keyboardType: firstKeyboard),
         if (secondFieldLabel != null && secondFieldMock != null) ...[
           const SizedBox(height: AppSpacing.md),
           ProfileFormField(
-            label: secondFieldLabel!,
-            initialValue: secondFieldMock!,
-            keyboardType: secondKeyboard,
-          ),
+              label: secondFieldLabel!,
+              initialValue: secondFieldMock!,
+              keyboardType: secondKeyboard),
         ],
-
-        // Bouton de contact rapide (si renseigné)
         if (callLabel != null && onCall != null) ...[
           const SizedBox(height: AppSpacing.md),
           Align(
@@ -1829,9 +1688,7 @@ class _ContactSection extends StatelessWidget {
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
+                    horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               ),
             ),
           ),
@@ -1841,17 +1698,11 @@ class _ContactSection extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Vérification d'identité
-// -----------------------------------------------------------------
+// ─── Vérification d'identité ──────────────────────────────────────────────────
 
-/// Carte "Vérification d'identité" :
-///   - Statut "Identité vérifiée" avec icône checkmark vert + date
-///   - Note RGPD fond amber pâle avec icône cadenas
 class _IdentityVerificationCard extends StatelessWidget {
   const _IdentityVerificationCard();
 
-  // Fond amber très pâle pour la note RGPD.
   static const _rgpdBg = Color(0xFFFFF8E1);
 
   @override
@@ -1867,25 +1718,17 @@ class _IdentityVerificationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header ──
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.credit_card_outlined,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.credit_card_outlined,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Vérification d\'identité',
-                style: AppTextStyles.titleMedium,
-              ),
+              Text('Vérification d\'identité',
+                  style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // ── Statut vérifié ──
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -1895,30 +1738,21 @@ class _IdentityVerificationCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.check_circle_outline_rounded,
-                  color: AppColors.primary,
-                  size: 28,
-                ),
+                const Icon(Icons.check_circle_outline_rounded,
+                    color: AppColors.primary, size: 28),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Identité vérifiée',
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Text('Identité vérifiée',
+                          style: AppTextStyles.bodyLarge.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700)),
                       const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Vérification effectuée le 2024-01-15',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.secondaryText,
-                        ),
-                      ),
+                      Text('Vérification effectuée le 2024-01-15',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.secondaryText)),
                     ],
                   ),
                 ),
@@ -1926,8 +1760,6 @@ class _IdentityVerificationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // ── Note RGPD ──
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -1943,9 +1775,8 @@ class _IdentityVerificationCard extends StatelessWidget {
                   child: Text(
                     'Vos données sont traitées conformément au RGPD. '
                     'La photo n\'est pas conservée après vérification.',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.primaryText,
-                    ),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.primaryText),
                   ),
                 ),
               ],
@@ -1957,12 +1788,8 @@ class _IdentityVerificationCard extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Spécialités & compétences
-// -----------------------------------------------------------------
+// ─── Spécialités & compétences ────────────────────────────────────────────────
 
-/// Carte "Spécialités & compétences" : chips beige supprimables + bouton
-/// "+ Ajouter" inline dans le même Wrap.
 class _SpecialitiesCard extends StatefulWidget {
   const _SpecialitiesCard();
 
@@ -1983,9 +1810,8 @@ class _SpecialitiesCardState extends State<_SpecialitiesCard> {
   void _onAdd() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Ajouter une spécialité — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+          content: Text('Ajouter une spécialité — à venir'),
+          behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -2002,41 +1828,29 @@ class _SpecialitiesCardState extends State<_SpecialitiesCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.star_border_rounded,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.star_border_rounded,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Spécialités & compétences',
-                style: AppTextStyles.titleMedium,
-              ),
+              Text('Spécialités & compétences',
+                  style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // Chips + bouton Ajouter dans le même Wrap
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
               for (final tag in _tags)
                 _DiplomaChip(label: tag, onRemove: () => _remove(tag)),
-
-              // Bouton + Ajouter inline
               InkWell(
                 onTap: _onAdd,
                 borderRadius: BorderRadius.circular(AppRadii.full),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.divider),
                     borderRadius: BorderRadius.circular(AppRadii.full),
@@ -2044,18 +1858,12 @@ class _SpecialitiesCardState extends State<_SpecialitiesCard> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.add_rounded,
-                        size: 16,
-                        color: AppColors.primaryText,
-                      ),
+                      const Icon(Icons.add_rounded,
+                          size: 16, color: AppColors.primaryText),
                       const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        'Ajouter',
-                        style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.primaryText,
-                        ),
-                      ),
+                      Text('Ajouter',
+                          style: AppTextStyles.labelMedium
+                              .copyWith(color: AppColors.primaryText)),
                     ],
                   ),
                 ),
@@ -2068,39 +1876,29 @@ class _SpecialitiesCardState extends State<_SpecialitiesCard> {
   }
 }
 
-// -----------------------------------------------------------------
-// Coffre-fort numérique
-// -----------------------------------------------------------------
+// ─── Coffre-fort numérique ────────────────────────────────────────────────────
 
-/// Un document dans le coffre-fort d'une famille.
 class _VaultDoc {
-  const _VaultDoc({
-    required this.title,
-    required this.signedOn,
-    required this.signers,
-    required this.icon,
-  });
+  const _VaultDoc(
+      {required this.title,
+      required this.signedOn,
+      required this.signers,
+      required this.icon});
   final String title;
   final String signedOn;
   final String signers;
   final IconData icon;
 }
 
-/// Données d'une famille dans le coffre-fort (avec ses documents).
 class _FamilyVaultData {
-  const _FamilyVaultData({
-    required this.name,
-    required this.subtitle,
-    required this.docs,
-  });
+  const _FamilyVaultData(
+      {required this.name, required this.subtitle, required this.docs});
   final String name;
   final String subtitle;
   final List<_VaultDoc> docs;
   int get docCount => docs.length;
 }
 
-/// Carte "Coffre-fort numérique" : barre RGPD + familles expandables.
-/// Tap sur une famille → affiche/masque la liste de documents.
 class _DigitalVaultCard extends StatefulWidget {
   const _DigitalVaultCard();
 
@@ -2109,124 +1907,40 @@ class _DigitalVaultCard extends StatefulWidget {
 }
 
 class _DigitalVaultCardState extends State<_DigitalVaultCard> {
-  // Index de la famille ouverte (null = tout replié).
-  int? _expandedIndex = 0; // Dupont ouvert par défaut.
+  int? _expandedIndex = 0;
 
   static final List<_FamilyVaultData> _families = [
-    _FamilyVaultData(
+    const _FamilyVaultData(
       name: 'Famille Dupont',
       subtitle: 'Lucas & Chloé',
-      docs: const [
-        _VaultDoc(
-          title: 'Contrat de garde',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont, Marie Lefèvre',
-          icon: Icons.description_outlined,
-        ),
-        _VaultDoc(
-          title: 'Engagement qualité',
-          signedOn: '20/08/2025',
-          signers: 'Sophie Dupont, Marie Lefèvre',
-          icon: Icons.task_outlined,
-        ),
-        _VaultDoc(
-          title: 'Droit à l\'image',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont',
-          icon: Icons.visibility_outlined,
-        ),
-        _VaultDoc(
-          title: 'Autorisation de sortie',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont',
-          icon: Icons.shield_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche santé Lucas',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont',
-          icon: Icons.shield_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche santé Chloé',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont',
-          icon: Icons.shield_outlined,
-        ),
-        _VaultDoc(
-          title: 'Carnet de vaccination Lucas',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont',
-          icon: Icons.shield_outlined,
-        ),
-        _VaultDoc(
-          title: 'Carnet de vaccination Chloé',
-          signedOn: '01/09/2025',
-          signers: 'Sophie Dupont',
-          icon: Icons.shield_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche de paie Janvier',
-          signedOn: '05/01/2026',
-          signers: 'Sophie Dupont',
-          icon: Icons.receipt_long_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche de paie Février',
-          signedOn: '05/02/2026',
-          signers: 'Sophie Dupont',
-          icon: Icons.receipt_long_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche de paie Mars',
-          signedOn: '05/03/2026',
-          signers: 'Sophie Dupont',
-          icon: Icons.receipt_long_outlined,
-        ),
+      docs: [
+        _VaultDoc(title: 'Contrat de garde', signedOn: '01/09/2025', signers: 'Sophie Dupont, Marie Lefèvre', icon: Icons.description_outlined),
+        _VaultDoc(title: 'Engagement qualité', signedOn: '20/08/2025', signers: 'Sophie Dupont, Marie Lefèvre', icon: Icons.task_outlined),
+        _VaultDoc(title: 'Droit à l\'image', signedOn: '01/09/2025', signers: 'Sophie Dupont', icon: Icons.visibility_outlined),
+        _VaultDoc(title: 'Fiche de paie Mars', signedOn: '05/03/2026', signers: 'Sophie Dupont', icon: Icons.receipt_long_outlined),
       ],
     ),
-    _FamilyVaultData(
+    const _FamilyVaultData(
       name: 'Famille Martin',
       subtitle: 'Emma',
-      docs: const [
-        _VaultDoc(
-          title: 'Contrat de garde',
-          signedOn: '15/01/2026',
-          signers: 'Julie Martin, Marie Lefèvre',
-          icon: Icons.description_outlined,
-        ),
-        _VaultDoc(
-          title: 'Droit à l\'image',
-          signedOn: '15/01/2026',
-          signers: 'Julie Martin',
-          icon: Icons.visibility_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche santé Emma',
-          signedOn: '15/01/2026',
-          signers: 'Julie Martin',
-          icon: Icons.shield_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche de paie Mars',
-          signedOn: '05/03/2026',
-          signers: 'Julie Martin',
-          icon: Icons.receipt_long_outlined,
-        ),
-        _VaultDoc(
-          title: 'Fiche de paie Avril',
-          signedOn: '05/04/2026',
-          signers: 'Julie Martin',
-          icon: Icons.receipt_long_outlined,
-        ),
+      docs: [
+        _VaultDoc(title: 'Contrat de garde', signedOn: '15/01/2026', signers: 'Julie Martin, Marie Lefèvre', icon: Icons.description_outlined),
+        _VaultDoc(title: 'Fiche de paie Mars', signedOn: '05/03/2026', signers: 'Julie Martin', icon: Icons.receipt_long_outlined),
       ],
     ),
   ];
 
   int get _totalDocs => _families.fold(0, (s, f) => s + f.docCount);
 
-  void _toggle(int index) {
-    setState(() => _expandedIndex = _expandedIndex == index ? null : index);
+  void _toggle(int index) =>
+      setState(() => _expandedIndex = _expandedIndex == index ? null : index);
+
+  void _stub(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text('$label — à venir'),
+          behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -2242,75 +1956,56 @@ class _DigitalVaultCardState extends State<_DigitalVaultCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.lock_outline_rounded,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.lock_outline_rounded,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
               Text('Coffre-fort numérique', style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Dossiers complets par famille — contrats, documents et '
-            'fiches de paie signés',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
+            'Dossiers complets par famille — contrats, documents et fiches de paie signés',
+            style: AppTextStyles.bodyMedium
+                .copyWith(color: AppColors.secondaryText),
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // Barre info RGPD
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
+                horizontal: AppSpacing.md, vertical: AppSpacing.md),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppRadii.md),
-              border: Border.all(
-                color: AppColors.divider,
-                style: BorderStyle.solid,
-              ),
+              border: Border.all(color: AppColors.divider),
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.circle_outlined,
-                  size: 14,
-                  color: AppColors.secondaryText,
-                ),
+                const Icon(Icons.circle_outlined,
+                    size: 14, color: AppColors.secondaryText),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Stockage chiffré • Conforme RGPD • '
                     '$_totalDocs document(s) archivé(s) • '
                     '${_families.length} famille(s)',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.secondaryText,
-                    ),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.secondaryText),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // Familles expandables
           for (var i = 0; i < _families.length; i++) ...[
             _FamilyVaultRow(
               family: _families[i],
               isExpanded: i == _expandedIndex,
               onTap: () => _toggle(i),
+              onDocAction: _stub,
             ),
-            if (i < _families.length - 1)
-              const SizedBox(height: AppSpacing.sm),
+            if (i < _families.length - 1) const SizedBox(height: AppSpacing.sm),
           ],
         ],
       ),
@@ -2318,70 +2013,53 @@ class _DigitalVaultCardState extends State<_DigitalVaultCard> {
   }
 }
 
-/// Ligne famille expandable — StatefulWidget pour tracker le doc sélectionné.
 class _FamilyVaultRow extends StatefulWidget {
   const _FamilyVaultRow({
     required this.family,
     required this.isExpanded,
     required this.onTap,
+    required this.onDocAction,
   });
-
   final _FamilyVaultData family;
   final bool isExpanded;
   final VoidCallback onTap;
+  final void Function(String) onDocAction;
 
   @override
   State<_FamilyVaultRow> createState() => _FamilyVaultRowState();
 }
 
 class _FamilyVaultRowState extends State<_FamilyVaultRow> {
-  int? _selectedDoc; // index du document sélectionné (null = aucun)
-
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  int? _selectedDoc;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── En-tête famille ──
         InkWell(
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(AppRadii.md),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            padding:
+                const EdgeInsets.symmetric(vertical: AppSpacing.sm),
             child: Row(
               children: [
                 AnimatedRotation(
                   turns: widget.isExpanded ? 0.25 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: AppColors.primaryText,
-                  ),
+                  child: const Icon(Icons.chevron_right_rounded,
+                      size: 22, color: AppColors.primaryText),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Container(
                   width: 40,
                   height: 40,
                   decoration: const BoxDecoration(
-                    color: AppColors.assmatIconBg,
-                    shape: BoxShape.circle,
-                  ),
+                      color: AppColors.assmatIconBg, shape: BoxShape.circle),
                   alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.child_care_rounded,
-                    size: 22,
-                    color: AppColors.accent,
-                  ),
+                  child: const Icon(Icons.child_care_rounded,
+                      size: 22, color: AppColors.accent),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
@@ -2390,42 +2068,31 @@ class _FamilyVaultRowState extends State<_FamilyVaultRow> {
                     children: [
                       Text(
                         '${widget.family.name} —\n${widget.family.subtitle}',
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: AppTextStyles.bodyLarge
+                            .copyWith(fontWeight: FontWeight.w700),
                       ),
-                      Text(
-                        '${widget.family.docCount} document(s)',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.secondaryText,
-                        ),
-                      ),
+                      Text('${widget.family.docCount} document(s)',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.secondaryText)),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: 4,
-                  ),
+                      horizontal: AppSpacing.sm, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.circular(AppRadii.full),
                     border: Border.all(color: AppColors.divider),
                   ),
-                  child: Text(
-                    '${widget.family.docCount}',
-                    style: AppTextStyles.labelMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  child: Text('${widget.family.docCount}',
+                      style: AppTextStyles.labelMedium
+                          .copyWith(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
           ),
         ),
-
-        // ── Liste documents animée ──
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 200),
           crossFadeState: widget.isExpanded
@@ -2437,27 +2104,23 @@ class _FamilyVaultRowState extends State<_FamilyVaultRow> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Ligne verticale timeline
                   Container(
-                    width: 2,
-                    margin: const EdgeInsets.only(right: AppSpacing.md),
-                    color: AppColors.divider,
-                  ),
+                      width: 2,
+                      margin: const EdgeInsets.only(right: AppSpacing.md),
+                      color: AppColors.divider),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (var i = 0;
-                            i < widget.family.docs.length;
-                            i++) ...[
+                        for (var i = 0; i < widget.family.docs.length; i++) ...[
                           _VaultDocRow(
                             doc: widget.family.docs[i],
                             isSelected: i == _selectedDoc,
                             onTap: () => setState(() =>
                                 _selectedDoc = _selectedDoc == i ? null : i),
-                            onView: () => _stub(
+                            onView: () => widget.onDocAction(
                                 'Voir ${widget.family.docs[i].title}'),
-                            onDownload: () => _stub(
+                            onDownload: () => widget.onDocAction(
                                 'Télécharger ${widget.family.docs[i].title}'),
                           ),
                           if (i < widget.family.docs.length - 1)
@@ -2477,8 +2140,6 @@ class _FamilyVaultRowState extends State<_FamilyVaultRow> {
   }
 }
 
-/// Ligne d'un document : icône + titre + date/signataires.
-/// Quand [isSelected] : fond gris + boutons Voir + Télécharger (orange).
 class _VaultDocRow extends StatelessWidget {
   const _VaultDocRow({
     required this.doc,
@@ -2487,7 +2148,6 @@ class _VaultDocRow extends StatelessWidget {
     required this.onView,
     required this.onDownload,
   });
-
   final _VaultDoc doc;
   final bool isSelected;
   final VoidCallback onTap;
@@ -2509,7 +2169,6 @@ class _VaultDocRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Icône document
             Container(
               width: 36,
               height: 36,
@@ -2521,46 +2180,32 @@ class _VaultDocRow extends StatelessWidget {
               child: Icon(doc.icon, size: 18, color: AppColors.primary),
             ),
             const SizedBox(width: AppSpacing.md),
-
-            // Texte
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    doc.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  Text(doc.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(
-                    'Signé le ${doc.signedOn} •\n${doc.signers}',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
+                  Text('Signé le ${doc.signedOn} •\n${doc.signers}',
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.secondaryText)),
                 ],
               ),
             ),
-
-            // Boutons d'action (visibles seulement si sélectionné)
             if (isSelected) ...[
               const SizedBox(width: AppSpacing.sm),
               IconButton(
                 onPressed: onView,
-                icon: const Icon(
-                  Icons.visibility_outlined,
-                  color: AppColors.primaryText,
-                  size: 20,
-                ),
+                icon: const Icon(Icons.visibility_outlined,
+                    color: AppColors.primaryText, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: AppSpacing.sm),
-              // Bouton télécharger — carré orange arrondi
               GestureDetector(
                 onTap: onDownload,
                 child: Container(
@@ -2571,11 +2216,8 @@ class _VaultDocRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadii.md),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.file_download_outlined,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.file_download_outlined,
+                      color: Colors.white, size: 20),
                 ),
               ),
             ],
@@ -2586,25 +2228,13 @@ class _VaultDocRow extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Mes données personnelles
-// -----------------------------------------------------------------
+// ─── Mes données personnelles ─────────────────────────────────────────────────
 
-/// Carte "Mes données personnelles" : note RGPD + bouton télécharger +
-/// bouton supprimer compte (rouge) + lien politique de confidentialité.
 class _PersonalDataCard extends StatelessWidget {
-  const _PersonalDataCard();
+  const _PersonalDataCard({required this.onStub});
+  final void Function(String) onStub;
 
   static const _rgpdBg = Color(0xFFF5F5F5);
-
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   Future<void> _confirmDelete(BuildContext context) async {
     final ok = await showDialog<bool>(
@@ -2612,27 +2242,20 @@ class _PersonalDataCard extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Supprimer mon compte'),
         content: const Text(
-          'Cette action est irréversible. Toutes vos données seront '
-          'définitivement supprimées.',
-        ),
+            'Cette action est irréversible. Toutes vos données seront définitivement supprimées.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler'),
-          ),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler')),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Supprimer'),
           ),
         ],
       ),
     );
-    if (ok == true && context.mounted) {
-      _stub(context, 'Compte supprimé');
-    }
+    if (ok == true && context.mounted) onStub('Compte supprimé');
   }
 
   @override
@@ -2648,32 +2271,21 @@ class _PersonalDataCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.shield_outlined,
-                color: AppColors.primary,
-                size: 22,
-              ),
+              const Icon(Icons.shield_outlined,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Mes données personnelles',
-                style: AppTextStyles.titleMedium,
-              ),
+              Text('Mes données personnelles',
+                  style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Gérez vos données conformément au RGPD',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
+          Text('Gérez vos données conformément au RGPD',
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.secondaryText)),
           const SizedBox(height: AppSpacing.lg),
-
-          // Note RGPD hébergement UE
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -2689,28 +2301,22 @@ class _PersonalDataCard extends StatelessWidget {
                   child: Text(
                     'Vos données sont hébergées dans l\'Union européenne '
                     'et protégées conformément au RGPD.',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.primaryText,
-                    ),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.primaryText),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // Bouton Télécharger mes données
           OutlinedButton.icon(
-            onPressed: () => _stub(context, 'Télécharger mes données'),
+            onPressed: () => onStub('Télécharger mes données'),
             icon: const Icon(Icons.file_download_outlined, size: 18),
             label: const Text('Télécharger mes données'),
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
-            ),
+                minimumSize: const Size(double.infinity, 48)),
           ),
           const SizedBox(height: AppSpacing.sm),
-
-          // Bouton Supprimer mon compte (rouge)
           FilledButton.icon(
             onPressed: () => _confirmDelete(context),
             icon: const Icon(Icons.delete_outline_rounded, size: 18),
@@ -2722,19 +2328,15 @@ class _PersonalDataCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-
-          // Lien politique de confidentialité
           GestureDetector(
-            onTap: () => _stub(context, 'Politique de confidentialité'),
+            onTap: () => onStub('Politique de confidentialité'),
             child: RichText(
               text: TextSpan(
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.secondaryText,
-                ),
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.secondaryText),
                 children: const [
                   TextSpan(
-                    text: 'Pour plus d\'informations, consultez notre ',
-                  ),
+                      text: 'Pour plus d\'informations, consultez notre '),
                   TextSpan(
                     text: 'Politique de confidentialité',
                     style: TextStyle(
@@ -2754,32 +2356,26 @@ class _PersonalDataCard extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Barre d'actions fixe
-// -----------------------------------------------------------------
+// ─── Barre d'actions fixe ─────────────────────────────────────────────────────
 
-/// Barre fixe en bas de l'écran : Annuler (outlined) + Enregistrer (filled).
 class _BottomActionBar extends StatelessWidget {
   const _BottomActionBar({
     required this.onCancel,
     required this.onSave,
+    this.saving = false,
   });
-
   final VoidCallback onCancel;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
+          horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: const Border(
-          top: BorderSide(color: AppColors.divider, width: 1),
-        ),
+        border: Border(top: BorderSide(color: AppColors.divider, width: 1)),
         boxShadow: AppShadows.sm,
       ),
       child: SafeArea(
@@ -2788,42 +2384,29 @@ class _BottomActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: onCancel,
+                onPressed: saving ? null : onCancel,
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                  ),
-                ),
-                child: const Text(
-                  'Annuler',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm)),
+                child: const Text('Annuler',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               flex: 2,
-              child: FilledButton(
+              child: FilledButton.icon(
                 onPressed: onSave,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle_outline_rounded, size: 18),
-                    SizedBox(width: AppSpacing.xs),
-                    Text(
-                      'Enregistrer le profil',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                icon: saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check_rounded, size: 20),
+                label: const Text('Enregistrer le profil',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ),
           ],
@@ -2833,19 +2416,14 @@ class _BottomActionBar extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------
-// Statut chips
-// -----------------------------------------------------------------
+// ─── Pill de statut ───────────────────────────────────────────────────────────
 
-/// Pill de statut : variante `filled` (primary vert plein) ou outlined
-/// (fond blanc avec border).
 class _StatusChip extends StatelessWidget {
   const _StatusChip({
     required this.icon,
     required this.label,
     required this.filled,
   });
-
   final IconData icon;
   final String label;
   final bool filled;
@@ -2854,31 +2432,24 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: filled ? AppColors.primary : AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.full),
         border: Border.all(
-          color: filled ? AppColors.primary : AppColors.divider,
-        ),
+            color: filled ? AppColors.primary : AppColors.divider),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: filled ? AppColors.onPrimary : AppColors.primaryText,
-            size: 16,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTextStyles.labelMedium.copyWith(
+          Icon(icon,
               color: filled ? AppColors.onPrimary : AppColors.primaryText,
-            ),
-          ),
+              size: 16),
+          const SizedBox(width: AppSpacing.xs),
+          Text(label,
+              style: AppTextStyles.labelMedium.copyWith(
+                  color:
+                      filled ? AppColors.onPrimary : AppColors.primaryText)),
         ],
       ),
     );

@@ -154,6 +154,40 @@ class AuthRemoteDataSource {
     }
   }
 
+  Stream<AssmatProfileModel?> watchAssmatProfile(String uid) {
+    return _firebase.assmatDoc(uid).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return AssmatProfileModel.fromFirestore(doc);
+    });
+  }
+
+  Future<void> updateAssmatProfile({
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String address,
+    required String bio,
+    required bool isSearchable,
+    required int maxChildren,
+    required int availableSlots,
+  }) async {
+    try {
+      await _firebase.assmatDoc(uid).update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'address': address,
+        'bio': bio,
+        'isSearchable': isSearchable,
+        'maxChildren': maxChildren,
+        'availableSlots': availableSlots,
+        'updatedAt': DateTime.now(),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de la mise à jour du profil.');
+    }
+  }
+
   Future<void> completeParentOnboarding({
     required String uid,
     required String address,
