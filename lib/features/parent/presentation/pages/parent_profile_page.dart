@@ -204,31 +204,42 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     final nameCtrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ajouter un enfant'),
-        content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration:
-              const InputDecoration(hintText: "Prénom de l'enfant"),
-          onSubmitted: (_) =>
-              Navigator.of(ctx).pop(nameCtrl.text.trim()),
+      // StatefulBuilder pour rebuilder uniquement l'intérieur du dialog
+      // quand le texte change (bouton "Ajouter" activé/désactivé).
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Ajouter un enfant'),
+          content: TextField(
+            controller: nameCtrl,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration:
+                const InputDecoration(hintText: "Prénom de l'enfant"),
+            onChanged: (_) => setDialogState(() {}),
+            onSubmitted: (v) {
+              if (v.trim().isNotEmpty) Navigator.of(ctx).pop(v.trim());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              // Désactivé tant que le champ est vide.
+              onPressed: nameCtrl.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(ctx).pop(nameCtrl.text.trim()),
+              child: const Text('Ajouter'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(ctx).pop(nameCtrl.text.trim()),
-            child: const Text('Ajouter'),
-          ),
-        ],
       ),
     );
-    nameCtrl.dispose();
+    // ⚠️ Ne pas appeler nameCtrl.dispose() ici : le dialog est encore en
+    // cours d'animation de fermeture, le TextField écoute toujours le
+    // contrôleur → ChangeNotifier.dispose() lèverait '_dependents.isEmpty'.
+    // Le contrôleur sera libéré par le GC une fois toutes références perdues.
     if (name != null && name.isNotEmpty) {
       setState(() => _children.add(ChildModel.create(firstName: name)));
     }

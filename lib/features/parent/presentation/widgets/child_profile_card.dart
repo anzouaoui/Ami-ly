@@ -86,28 +86,37 @@ class _ChildProfileCardState extends State<ChildProfileCard> {
     final ctrl = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Centre d'intérêt"),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'Ex : Peinture, Parc…'),
-          onSubmitted: (_) => Navigator.of(ctx).pop(ctrl.text.trim()),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text("Centre d'intérêt"),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            decoration:
+                const InputDecoration(hintText: 'Ex : Peinture, Parc…'),
+            onChanged: (_) => setDialogState(() {}),
+            onSubmitted: (v) {
+              if (v.trim().isNotEmpty) Navigator.of(ctx).pop(v.trim());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: ctrl.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(ctx).pop(ctrl.text.trim()),
+              child: const Text('Ajouter'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
-            child: const Text('Ajouter'),
-          ),
-        ],
       ),
     );
-    ctrl.dispose();
+    // ⚠️ Pas de ctrl.dispose() ici — même raison que dans _addChildDialog :
+    // animation de fermeture encore active → '_dependents.isEmpty' crash.
     if (result != null && result.isNotEmpty && !_interests.contains(result)) {
       setState(() => _interests.add(result));
       _notify();
