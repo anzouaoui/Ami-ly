@@ -16,16 +16,12 @@ import '../widgets/filter_checkbox_tile.dart';
 import '../widgets/filter_section_title.dart';
 import 'childminder_profile_page.dart';
 
+enum _SortOrder { pertinence, distance, places, date }
+
 /// Page "Trouver une assistante maternelle" — branchée sur Firestore.
 ///
 /// Source : [searchableAssmatsProvider] (assmats avec `isSearchable == true`).
-/// Filtres appliqués côté client :
-///   - Texte (prénom, nom, adresse)
-///   - Places disponibles (`availableSlots > 0`)
-///
-/// Filtres non encore fonctionnels (champs absents du modèle Firestore) :
-///   - Rayon km (pas de GeoPoint dans AssmatProfileModel)
-///   - Services / horaires (pas encore stockés en Firestore)
+/// Filtres + tri appliqués côté client.
 class FindChildminderPage extends ConsumerStatefulWidget {
   const FindChildminderPage({super.key});
 
@@ -46,6 +42,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   DateTime? _dateTo;
 
   bool _showAdvancedFilters = true;
+
+  // ── Tri ────────────────────────────────────────────────────────────────────
+  _SortOrder _sortOrder = _SortOrder.pertinence;
 
   // ── GPS ────────────────────────────────────────────────────────────────────
   Position? _gpsPosition;
@@ -143,6 +142,44 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
 
       return true;
     }).toList();
+  }
+
+  /// Trie [filtered] selon [_sortOrder].
+  List<AssmatProfileModel> _sortResults(
+    List<AssmatProfileModel> filtered,
+    double? parentLat,
+    double? parentLon,
+  ) {
+    final list = List<AssmatProfileModel>.from(filtered);
+    switch (_sortOrder) {
+      case _SortOrder.pertinence:
+        return list;
+      case _SortOrder.distance:
+        if (parentLat == null || parentLon == null) return list;
+        list.sort((a, b) {
+          final da = a.location != null
+              ? _haversine(parentLat, parentLon,
+                  a.location!.latitude, a.location!.longitude)
+              : double.infinity;
+          final db = b.location != null
+              ? _haversine(parentLat, parentLon,
+                  b.location!.latitude, b.location!.longitude)
+              : double.infinity;
+          return da.compareTo(db);
+        });
+        return list;
+      case _SortOrder.places:
+        list.sort((a, b) => b.availableSlots.compareTo(a.availableSlots));
+        return list;
+      case _SortOrder.date:
+        list.sort((a, b) {
+          if (a.availableFrom == null && b.availableFrom == null) return 0;
+          if (a.availableFrom == null) return 1;
+          if (b.availableFrom == null) return -1;
+          return a.availableFrom!.compareTo(b.availableFrom!);
+        });
+        return list;
+    }
   }
 
   /// Convertit un [AssmatProfileModel] en [ChildminderSummary] pour la carte.
@@ -352,9 +389,13 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                   ),
                 ),
                 data: (all) {
-                  final results = _applyFilters(all, parentLat, parentLon)
+                  final filtered = _applyFilters(all, parentLat, parentLon);
+                  final sorted = _sortResults(filtered, parentLat, parentLon);
+                  final results = sorted
                       .map((a) => _toSummary(a, parentLat, parentLon))
                       .toList();
+                  final hasLocation =
+                      parentLat != null && parentLon != null;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -362,6 +403,11 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                       _ResultsHeader(
                         count: results.length,
                         radiusKm: _radiusKm.round(),
+                      ),
+                      _SortBar(
+                        current: _sortOrder,
+                        locationAvailable: hasLocation,
+                        onChanged: (o) => setState(() => _sortOrder = o),
                       ),
                       if (results.isEmpty)
                         _EmptyState(hasQuery: _searchQuery.isNotEmpty)
@@ -819,6 +865,112 @@ class _FilterCard extends StatelessWidget {
             secondChild: const SizedBox(width: double.infinity),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Sort bar ─────────────────────────────────────────────────────────────────
+
+class _SortBar extends StatelessWidget {
+  const _SortBar({
+    required this.current,
+    required this.locationAvailable,
+    required this.onChanged,
+  });
+
+  final _SortOrder current;
+  final bool locationAvailable;
+  final ValueChanged<_SortOrder> onChanged;
+
+  static const _options = [
+    (order: _SortOrder.pertinence, label: 'Pertinence', icon: Icons.sort_rounded),
+    (order: _SortOrder.distance,   label: 'Distance',   icon: Icons.near_me_rounded),
+    (order: _SortOrder.places,     label: 'Places dispo', icon: Icons.group_rounded),
+    (order: _SortOrder.date,       label: 'Disponible le', icon: Icons.event_available_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final opt in _options) ...[
+              _SortChip(
+                label: opt.label,
+                icon: opt.icon,
+                selected: current == opt.order,
+                enabled: opt.order != _SortOrder.distance || locationAvailable,
+                onTap: () {
+                  if (opt.order == _SortOrder.distance && !locationAvailable) {
+                    return;
+                  }
+                  onChanged(opt.order);
+                },
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SortChip extends StatelessWidget {
+  const _SortChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled
+        ? (selected ? AppColors.primary : AppColors.secondaryText)
+        : AppColors.divider;
+    final bg = selected
+        ? AppColors.primary.withValues(alpha: 0.1)
+        : Colors.transparent;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(AppRadii.full),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppRadii.full),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.divider,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
