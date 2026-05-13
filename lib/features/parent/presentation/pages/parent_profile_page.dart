@@ -163,6 +163,17 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
             searchPaused: _isPaused,
           );
 
+      // Mettre à jour _loadedProfile pour que "Annuler" revienne aux
+      // dernières valeurs enregistrées (et non à l'état initial du stream).
+      _loadedProfile = _loadedProfile?.copyWith(
+        firstName: _firstNameCtrl.text.trim(),
+        lastName: _lastNameCtrl.text.trim(),
+        phoneNumber: _phoneCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        familyDescription: _descriptionCtrl.text.trim(),
+        searchPaused: _isPaused,
+      );
+
       // 2. Enfants : add / update
       // On itère par index pour pouvoir réinjecter l'ID Firestore retourné
       // par addChild — sans ça, child.id resterait null dans la session en

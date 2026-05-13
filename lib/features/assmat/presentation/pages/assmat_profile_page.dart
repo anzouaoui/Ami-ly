@@ -91,6 +91,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
 
     setState(() => _saving = true);
     try {
+      final savedMaxChildren = int.tryParse(_maxChildrenCtrl.text.trim()) ??
+          (_loadedProfile?.maxChildren ?? 1);
+      final savedAvailableSlots =
+          int.tryParse(_availableSlotsCtrl.text.trim()) ??
+              (_loadedProfile?.availableSlots ?? 0);
+
       await ref.read(authRemoteDataSourceProvider).updateAssmatProfile(
             uid: user.uid,
             firstName: _firstNameCtrl.text.trim(),
@@ -98,11 +104,21 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             address: _addressCtrl.text.trim(),
             bio: _bioCtrl.text.trim(),
             isSearchable: _isSearchable,
-            maxChildren: int.tryParse(_maxChildrenCtrl.text.trim()) ??
-                (_loadedProfile?.maxChildren ?? 1),
-            availableSlots: int.tryParse(_availableSlotsCtrl.text.trim()) ??
-                (_loadedProfile?.availableSlots ?? 0),
+            maxChildren: savedMaxChildren,
+            availableSlots: savedAvailableSlots,
           );
+
+      // Mettre à jour _loadedProfile pour que "Annuler" revienne aux
+      // dernières valeurs enregistrées (et non à l'état initial du stream).
+      _loadedProfile = _loadedProfile?.copyWith(
+        firstName: _firstNameCtrl.text.trim(),
+        lastName: _lastNameCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        bio: _bioCtrl.text.trim(),
+        isSearchable: _isSearchable,
+        maxChildren: savedMaxChildren,
+        availableSlots: savedAvailableSlots,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
