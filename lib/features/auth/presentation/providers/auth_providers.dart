@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/firebase_service.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
+import '../../data/models/assmat_profile_model.dart';
 import '../../data/models/parent_profile_model.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/app_user.dart';
@@ -38,4 +39,15 @@ final parentProfileProvider = StreamProvider.autoDispose<ParentProfileModel?>((r
   final uid = ref.watch(currentUserProvider).valueOrNull?.uid;
   if (uid == null) return const Stream.empty();
   return ref.read(authRemoteDataSourceProvider).watchParentProfile(uid);
+});
+
+/// Stream du profil étendu assmat (`assmats/{uid}`).
+///
+/// Émet `null` quand l'utilisateur n'est pas connecté ou que le doc
+/// n'existe pas encore. Utilisé par [AssMatProfilePage].
+final assmatProfileProvider =
+    StreamProvider.autoDispose<AssmatProfileModel?>((ref) {
+  final uid = ref.watch(currentUserProvider).valueOrNull?.uid;
+  if (uid == null) return const Stream.empty();
+  return ref.read(authRemoteDataSourceProvider).watchAssmatProfile(uid);
 });
