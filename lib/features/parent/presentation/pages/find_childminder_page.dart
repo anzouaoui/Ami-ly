@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -45,6 +46,10 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   DateTime? _dateTo;
 
   bool _showAdvancedFilters = true;
+
+  // ── GPS ────────────────────────────────────────────────────────────────────
+  Position? _gpsPosition;
+  bool _gpsLoading = false;
 
   final Map<String, bool> _services = {
     'Exerce en maison d\'assistants maternels': false,
@@ -193,6 +198,67 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     );
   }
 
+  Future<void> _requestGpsLocation() async {
+    setState(() => _gpsLoading = true);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Les services de localisation sont désactivés.'),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              permission == LocationPermission.deniedForever
+                  ? 'Accès à la localisation définitivement refusé. Activez-le dans les paramètres.'
+                  : 'Permission de localisation refusée.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+        return;
+      }
+
+      // Timeout 15 s — évite un blocage indéfini sur emulateur ou signal faible.
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception(
+          'Délai de localisation dépassé. Vérifiez votre signal GPS.',
+        ),
+      );
+      if (mounted) setState(() => _gpsPosition = position);
+    } catch (e) {
+      debugPrint('[GPS] _requestGpsLocation error: $e');
+      if (mounted) {
+        final msg = e.toString().contains('Délai')
+            ? 'Délai de localisation dépassé. Vérifiez votre signal GPS.'
+            : 'Impossible d\'obtenir votre position.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _gpsLoading = false);
+    }
+  }
+
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
     final initial =
@@ -230,8 +296,10 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   Widget build(BuildContext context) {
     final asyncAssmats = ref.watch(searchableAssmatsProvider);
     final parentProfile = ref.watch(parentProfileProvider).valueOrNull;
-    final parentLat = parentProfile?.location?.latitude;
-    final parentLon = parentProfile?.location?.longitude;
+    // Coordonnées : profil sauvegardé en priorité, GPS en fallback.
+    final parentLat = parentProfile?.location?.latitude ?? _gpsPosition?.latitude;
+    final parentLon = parentProfile?.location?.longitude ?? _gpsPosition?.longitude;
+    final hasParentLocation = parentProfile?.location != null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -258,6 +326,11 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                 showAdvanced: _showAdvancedFilters,
                 onToggleAdvanced: () =>
                     setState(() => _showAdvancedFilters = !_showAdvancedFilters),
+                hasParentLocation: hasParentLocation,
+                gpsActive: _gpsPosition != null,
+                gpsLoading: _gpsLoading,
+                onRequestGps: _requestGpsLocation,
+                onClearGps: () => setState(() => _gpsPosition = null),
                 dateFrom: _dateFrom,
                 dateTo: _dateTo,
                 onPickFrom: () => _pickDate(isFrom: true),
@@ -492,6 +565,11 @@ class _FilterCard extends StatelessWidget {
     required this.onScheduleChanged,
     required this.showAdvanced,
     required this.onToggleAdvanced,
+    required this.hasParentLocation,
+    required this.gpsActive,
+    required this.gpsLoading,
+    required this.onRequestGps,
+    required this.onClearGps,
     required this.onPickFrom,
     required this.onPickTo,
     this.dateFrom,
@@ -509,6 +587,11 @@ class _FilterCard extends StatelessWidget {
   final void Function(String key, bool value) onScheduleChanged;
   final bool showAdvanced;
   final VoidCallback onToggleAdvanced;
+  final bool hasParentLocation;
+  final bool gpsActive;
+  final bool gpsLoading;
+  final VoidCallback onRequestGps;
+  final VoidCallback onClearGps;
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final VoidCallback onPickFrom;
@@ -572,7 +655,7 @@ class _FilterCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Périmètre (UI uniquement — GeoPoint non disponible)
+          // Périmètre de recherche
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -583,7 +666,11 @@ class _FilterCard extends StatelessWidget {
               Text(
                 '${radiusKm.round()} km',
                 style: AppTextStyles.labelLarge
-                    .copyWith(color: AppColors.primary),
+                    .copyWith(
+                      color: (hasParentLocation || gpsActive)
+                          ? AppColors.primary
+                          : AppColors.secondaryText,
+                    ),
               ),
             ],
           ),
@@ -592,7 +679,9 @@ class _FilterCard extends StatelessWidget {
             min: 1,
             max: 30,
             onChanged: onRadiusChanged,
-            activeColor: AppColors.primary,
+            activeColor: (hasParentLocation || gpsActive)
+                ? AppColors.primary
+                : AppColors.secondaryText,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -607,6 +696,14 @@ class _FilterCard extends StatelessWidget {
                   style: AppTextStyles.labelSmall
                       .copyWith(color: AppColors.secondaryText)),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _LocationBanner(
+            hasParentLocation: hasParentLocation,
+            gpsActive: gpsActive,
+            gpsLoading: gpsLoading,
+            onRequestGps: onRequestGps,
+            onClearGps: onClearGps,
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -720,6 +817,139 @@ class _FilterCard extends StatelessWidget {
               ],
             ),
             secondChild: const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Location banner ──────────────────────────────────────────────────────────
+
+/// Affiché sous le slider "Périmètre de recherche".
+///
+/// Cas 1 — parent a une adresse sauvegardée : rien à afficher.
+/// Cas 2 — GPS actif : badge vert "Position GPS active" + bouton effacer.
+/// Cas 3 — aucune localisation : invitation à activer le GPS.
+class _LocationBanner extends StatelessWidget {
+  const _LocationBanner({
+    required this.hasParentLocation,
+    required this.gpsActive,
+    required this.gpsLoading,
+    required this.onRequestGps,
+    required this.onClearGps,
+  });
+
+  final bool hasParentLocation;
+  final bool gpsActive;
+  final bool gpsLoading;
+  final VoidCallback onRequestGps;
+  final VoidCallback onClearGps;
+
+  @override
+  Widget build(BuildContext context) {
+    // L'adresse du profil suffit — rien à montrer.
+    if (hasParentLocation) return const SizedBox.shrink();
+
+    if (gpsActive) {
+      // Badge "Position GPS active".
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.my_location_rounded,
+                size: 16, color: AppColors.success),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Position GPS active',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.success,
+                ),
+              ),
+            ),
+            InkWell(
+              onTap: onClearGps,
+              borderRadius: BorderRadius.circular(AppRadii.full),
+              child: const Icon(Icons.close_rounded,
+                  size: 16, color: AppColors.success),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Invitation à activer le GPS.
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.location_off_rounded,
+              size: 16, color: AppColors.accent),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Adresse non configurée',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Le filtre rayon est désactivé. Utilisez le GPS ou ajoutez votre adresse dans votre profil.',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.accent.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: gpsLoading ? null : onRequestGps,
+                    icon: gpsLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location_rounded, size: 16),
+                    label: Text(gpsLoading
+                        ? 'Localisation…'
+                        : 'Utiliser ma position GPS'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(
+                          color: AppColors.accent.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
+                      ),
+                      textStyle: AppTextStyles.labelMedium,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
