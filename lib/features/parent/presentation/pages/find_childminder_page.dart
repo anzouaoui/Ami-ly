@@ -231,16 +231,26 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         return;
       }
 
+      // Timeout 15 s — évite un blocage indéfini sur emulateur ou signal faible.
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.medium,
         ),
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception(
+          'Délai de localisation dépassé. Vérifiez votre signal GPS.',
+        ),
       );
       if (mounted) setState(() => _gpsPosition = position);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[GPS] _requestGpsLocation error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Impossible d\'obtenir votre position.'),
+        final msg = e.toString().contains('Délai')
+            ? 'Délai de localisation dépassé. Vérifiez votre signal GPS.'
+            : 'Impossible d\'obtenir votre position.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
           behavior: SnackBarBehavior.floating,
         ));
       }
