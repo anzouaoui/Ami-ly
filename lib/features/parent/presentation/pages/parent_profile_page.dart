@@ -6,30 +6,22 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/models/parent_profile_model.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../widgets/child_profile_card.dart';
 import '../widgets/parent_navigation_drawer.dart';
 import '../widgets/document_vault_card.dart';
-import '../widgets/family_description_section.dart';
-import '../widgets/personal_data_card.dart';
 import '../widgets/personal_info_card.dart';
+import '../widgets/personal_data_card.dart';
 import '../widgets/search_status_card.dart';
 
 /// Écran "Mon profil" du parent, composition des frames Parent Profile 1→6
 /// du design system.
 ///
-/// Sections (de haut en bas) :
-///   - Header (menu + logo centré, sans notifications)
-///   - Titre "Mon profil" + sous-titre
-///   - Informations personnelles (avatar + form)
-///   - Search Status (toggle "Ne recherche plus")
-///   - Description de la famille (textarea + compteur)
-///   - Cartes enfants (Lucas, Chloé) + bouton "Ajouter un enfant"
-///   - Coffre-fort numérique (liste documents signés)
-///   - Mes données personnelles (RGPD + actions)
-///   - Bottom action bar fixe : Annuler / Enregistrer le profil
-///
-/// 100% mock UI pour l'instant — aucune donnée n'est persistée. Les
-/// boutons stubs affichent un SnackBar.
+/// Lit le profil depuis Firestore via [parentProfileProvider].
+/// Les champs sont édités via des [TextEditingController]s initialisés à la
+/// première émission du stream. "Enregistrer" appelle [updateParentProfile]
+/// sur le datasource et affiche un SnackBar de confirmation.
 class ParentProfilePage extends ConsumerStatefulWidget {
   const ParentProfilePage({super.key});
 
@@ -38,8 +30,16 @@ class ParentProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
-  // État local mocké (design preview uniquement).
-  bool _isPaused = true;
+  bool _isPaused = false;
+  bool _initialized = false;
+  bool _saving = false;
+
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
 
   final List<ChildProfileData> _children = [
     const ChildProfileData(
@@ -57,64 +57,101 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     ),
   ];
 
-  static final _documents = <DocumentEntry>[
+  static const _documents = <DocumentEntry>[
     DocumentEntry(
       title: 'Fiche de paie — Mars',
-      subtitle: 'Signé le 05/03/2026 • Sophie Dupont',
+      subtitle: 'Signé le 05/03/2026',
       icon: Icons.receipt_long_rounded,
       iconBg: AppColors.parentIconBg,
       iconColor: AppColors.primary,
     ),
     DocumentEntry(
       title: 'Fiche de paie — Avril',
-      subtitle: 'Signé le 05/04/2026 • Sophie Dupont',
+      subtitle: 'Signé le 05/04/2026',
       icon: Icons.receipt_long_rounded,
       iconBg: AppColors.parentIconBg,
       iconColor: AppColors.primary,
     ),
     DocumentEntry(
       title: 'Droit à l\'image',
-      subtitle: 'Signé le 01/09/2025 • Sophie Dupont',
+      subtitle: 'Signé le 01/09/2025',
       icon: Icons.visibility_rounded,
       iconBg: AppColors.statBlueBg,
       iconColor: AppColors.statBlueColor,
     ),
     DocumentEntry(
       title: 'Autorisation de sortie',
-      subtitle: 'Signé le 01/09/2025 • Sophie Dupont',
+      subtitle: 'Signé le 01/09/2025',
       icon: Icons.verified_user_rounded,
       iconBg: AppColors.secondary,
       iconColor: AppColors.primary,
     ),
     DocumentEntry(
-      title: 'Fiche santé',
-      subtitle: 'Signé le 01/09/2025 • Sophie Dupont',
-      icon: Icons.medical_services_rounded,
-      iconBg: AppColors.secondary,
-      iconColor: AppColors.primary,
-    ),
-    DocumentEntry(
-      title: 'Carnet de vaccination',
-      subtitle: 'Signé le 01/09/2025 • Sophie Dupont',
-      icon: Icons.vaccines_rounded,
-      iconBg: AppColors.secondary,
-      iconColor: AppColors.primary,
-    ),
-    DocumentEntry(
       title: 'Contrat de garde',
-      subtitle: 'Signé le 15/01/2026 • Sophie Dupont, Marie Lefèvre',
+      subtitle: 'Signé le 15/01/2026',
       icon: Icons.description_rounded,
       iconBg: AppColors.divider,
       iconColor: AppColors.secondaryText,
     ),
-    DocumentEntry(
-      title: 'Droit à l\'image — bis',
-      subtitle: 'Signé le 15/01/2026 • Sophie Dupont',
-      icon: Icons.visibility_rounded,
-      iconBg: AppColors.statBlueBg,
-      iconColor: AppColors.statBlueColor,
-    ),
   ];
+
+  @override
+  void dispose() {
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _emailCtrl.dispose();
+    _addressCtrl.dispose();
+    _descriptionCtrl.dispose();
+    super.dispose();
+  }
+
+  void _initFromProfile(ParentProfileModel profile) {
+    _firstNameCtrl.text = profile.firstName;
+    _lastNameCtrl.text = profile.lastName;
+    _phoneCtrl.text = profile.phoneNumber;
+    _addressCtrl.text = profile.address;
+    _descriptionCtrl.text = profile.familyDescription;
+    _isPaused = profile.searchPaused;
+    _initialized = true;
+  }
+
+  Future<void> _save() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+
+    try {
+      await ref.read(authRemoteDataSourceProvider).updateParentProfile(
+            uid: user.uid,
+            firstName: _firstNameCtrl.text.trim(),
+            lastName: _lastNameCtrl.text.trim(),
+            phoneNumber: _phoneCtrl.text.trim(),
+            address: _addressCtrl.text.trim(),
+            familyDescription: _descriptionCtrl.text.trim(),
+            searchPaused: _isPaused,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil enregistré'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.of(context).maybePop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur : $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   void _stub(String label) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -127,108 +164,155 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final profileAsync = ref.watch(parentProfileProvider);
+    final email = ref.watch(currentUserProvider).valueOrNull?.email ?? '';
+
+    // Initialise les controllers à la première donnée disponible.
+    // Si le stream a déjà émis (cache), on le fait synchronement ici ;
+    // sinon ref.listen l'attrape dès la prochaine émission.
+    if (!_initialized) {
+      profileAsync.whenData((profile) {
+        if (profile != null) {
+          _emailCtrl.text = email;
+          _initFromProfile(profile);
+        }
+      });
+    }
+
+    ref.listen<AsyncValue<ParentProfileModel?>>(
+      parentProfileProvider,
+      (_, next) {
+        if (_initialized) return;
+        next.whenData((profile) {
+          if (profile != null && mounted) {
+            setState(() {
+              _emailCtrl.text = email;
+              _initFromProfile(profile);
+            });
+          }
+        });
+      },
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       drawer: const ParentNavigationDrawer(),
       body: Builder(
         builder: (scaffoldCtx) => SafeArea(
-        child: Column(
-          children: [
-            _ProfileAppBar(onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer()),
+          child: Column(
+            children: [
+              _ProfileAppBar(
+                  onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer()),
 
-            // ---- Scrollable content ----
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Title
-                    Text('Mon profil', style: AppTextStyles.headlineMedium),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Gérez votre profil familial',
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        color: AppColors.secondaryText,
-                      ),
+              // ---- Scrollable content ----
+              Expanded(
+                child: profileAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Center(
+                    child: Text(
+                      'Impossible de charger le profil.\n$err',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.error),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
+                  ),
+                  data: (_) => SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Title
+                        Text('Mon profil',
+                            style: AppTextStyles.headlineMedium),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Gérez votre profil familial',
+                          style: AppTextStyles.bodyLarge.copyWith(
+                            color: AppColors.secondaryText,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
 
-                    // Personal info
-                    PersonalInfoCard(
-                      firstName: 'Sophie',
-                      lastName: 'Dupont',
-                      phone: '06 98 76 54 32',
-                      email: 'sophie.dupont@email.com',
-                      address: '25 rue de Vaugirard, 75015 Paris',
-                      onChangePhoto: () => _stub('Changer la photo'),
+                        // Personal info + family description
+                        PersonalInfoCard(
+                          firstName: _firstNameCtrl.text,
+                          lastName: _lastNameCtrl.text,
+                          phone: _phoneCtrl.text,
+                          email: _emailCtrl.text,
+                          address: _addressCtrl.text,
+                          firstNameController: _firstNameCtrl,
+                          lastNameController: _lastNameCtrl,
+                          phoneController: _phoneCtrl,
+                          emailController: _emailCtrl,
+                          addressController: _addressCtrl,
+                          descriptionController: _descriptionCtrl,
+                          descriptionLabel: 'Description de la famille',
+                          descriptionHint:
+                              'Ex : Famille de 4 personnes, nous recherchons une assistante attentionnée…',
+                          onChangePhoto: () => _stub('Changer la photo'),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // Search status toggle
+                        SearchStatusCard(
+                          isPaused: _isPaused,
+                          onChanged: (v) => setState(() => _isPaused = v),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // Children
+                        for (final child in _children) ...[
+                          ChildProfileCard(
+                            child: child,
+                            onRemove: () => _removeChild(child),
+                            onAddInterest: () =>
+                                _stub('Ajouter un centre d\'intérêt'),
+                            onRemoveInterest: (tag) =>
+                                _removeInterest(child, tag),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                        ],
+
+                        // "+ Ajouter un enfant"
+                        OutlinedButton.icon(
+                          onPressed: () => _stub('Ajouter un enfant'),
+                          icon: const Icon(Icons.add_rounded, size: 20),
+                          label: const Text('Ajouter un enfant'),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // Document vault
+                        DocumentVaultCard(
+                          documents: _documents,
+                          onDocumentTap: (d) => _stub(d.title),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // Personal data (RGPD)
+                        PersonalDataCard(
+                          onDownload: () =>
+                              _stub('Télécharger mes données'),
+                          onDelete: _confirmDeleteAccount,
+                          onPrivacyPolicy: () =>
+                              _stub('Politique de confidentialité'),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Search status toggle
-                    SearchStatusCard(
-                      isPaused: _isPaused,
-                      onChanged: (v) => setState(() => _isPaused = v),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Family description
-                    const FamilyDescriptionSection(
-                      initialValue:
-                          'Nous sommes une famille bienveillante et attentive. Nous recherchons un environnement chaleureux et stimulant pour nos enfants avec des activités d\'éveil.',
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Children
-                    for (final child in _children) ...[
-                      ChildProfileCard(
-                        child: child,
-                        onRemove: () => _removeChild(child),
-                        onAddInterest: () => _stub('Ajouter un centre d\'intérêt'),
-                        onRemoveInterest: (tag) => _removeInterest(child, tag),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                    ],
-
-                    // "+ Ajouter un enfant"
-                    OutlinedButton.icon(
-                      onPressed: () => _stub('Ajouter un enfant'),
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text('Ajouter un enfant'),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Document vault
-                    DocumentVaultCard(
-                      documents: _documents,
-                      onDocumentTap: (d) => _stub(d.title),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Personal data (RGPD)
-                    PersonalDataCard(
-                      onDownload: () => _stub('Télécharger mes données'),
-                      onDelete: _confirmDeleteAccount,
-                      onPrivacyPolicy: () => _stub('Politique de confidentialité'),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                  ],
+                  ),
                 ),
               ),
-            ),
 
-            // ---- Bottom action bar fixe ----
-            _BottomActionBar(
-              onCancel: () => Navigator.of(context).maybePop(),
-              onSave: () {
-                _stub('Profil enregistré');
-                Navigator.of(context).maybePop();
-              },
-            ),
-          ],
-        ),      // Column
-      ),        // SafeArea
-      ),        // Builder
+              // ---- Bottom action bar fixe ----
+              _BottomActionBar(
+                saving: _saving,
+                onCancel: () => Navigator.of(context).maybePop(),
+                onSave: _saving ? null : _save,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -274,7 +358,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   }
 }
 
-/// Header custom : menu + logo AMiLY centré (pas de notifications ici).
+// ─── App bar ─────────────────────────────────────────────────────────────────
+
 class _ProfileAppBar extends StatelessWidget {
   const _ProfileAppBar({required this.onMenuTap});
   final VoidCallback onMenuTap;
@@ -307,7 +392,6 @@ class _ProfileAppBar extends StatelessWidget {
             constraints: const BoxConstraints(),
             tooltip: 'Menu',
           ),
-          // Logo centré
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -334,7 +418,6 @@ class _ProfileAppBar extends StatelessWidget {
               ),
             ],
           ),
-          // Balance pour centrer visuellement le logo
           const SizedBox(width: 28),
         ],
       ),
@@ -342,11 +425,17 @@ class _ProfileAppBar extends StatelessWidget {
   }
 }
 
-/// Barre d'actions fixe en bas de page : Annuler / Enregistrer.
+// ─── Bottom action bar ────────────────────────────────────────────────────────
+
 class _BottomActionBar extends StatelessWidget {
-  const _BottomActionBar({required this.onCancel, required this.onSave});
+  const _BottomActionBar({
+    required this.onCancel,
+    required this.onSave,
+    this.saving = false,
+  });
   final VoidCallback onCancel;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
@@ -355,9 +444,9 @@ class _BottomActionBar extends StatelessWidget {
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: const Border(
+        border: Border(
           top: BorderSide(color: AppColors.divider, width: 1),
         ),
         boxShadow: AppShadows.sm,
@@ -368,11 +457,10 @@ class _BottomActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: onCancel,
+                onPressed: saving ? null : onCancel,
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 ),
                 child: const Text(
                   'Annuler',
@@ -386,7 +474,14 @@ class _BottomActionBar extends StatelessWidget {
               flex: 2,
               child: FilledButton.icon(
                 onPressed: onSave,
-                icon: const Icon(Icons.check_rounded, size: 20),
+                icon: saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check_rounded, size: 20),
                 label: const Text(
                   'Enregistrer le profil',
                   maxLines: 1,

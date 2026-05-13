@@ -10,6 +10,7 @@ class ParentProfileModel {
     required this.createdAt,
     this.firstName = '',
     this.lastName = '',
+    this.phoneNumber = '',
     this.address = '',
     this.familyDescription = '',
     this.searchPaused = false,
@@ -20,6 +21,7 @@ class ParentProfileModel {
   final String uid;
   final String firstName;
   final String lastName;
+  final String phoneNumber;
   final String address;
   final String familyDescription;
   final bool searchPaused;
@@ -40,6 +42,7 @@ class ParentProfileModel {
       uid: doc.id,
       firstName: data['firstName'] as String? ?? '',
       lastName: data['lastName'] as String? ?? '',
+      phoneNumber: data['phoneNumber'] as String? ?? '',
       address: data['address'] as String? ?? '',
       familyDescription: data['familyDescription'] as String? ?? '',
       searchPaused: data['searchPaused'] as bool? ?? false,
@@ -53,6 +56,7 @@ class ParentProfileModel {
   Map<String, dynamic> toFirestore() => {
         'firstName': firstName,
         'lastName': lastName,
+        'phoneNumber': phoneNumber,
         'address': address,
         'familyDescription': familyDescription,
         'searchPaused': searchPaused,
@@ -79,6 +83,7 @@ class ParentProfileModel {
   ParentProfileModel copyWith({
     String? firstName,
     String? lastName,
+    String? phoneNumber,
     String? address,
     String? familyDescription,
     bool? searchPaused,
@@ -90,6 +95,7 @@ class ParentProfileModel {
         createdAt: createdAt,
         firstName: firstName ?? this.firstName,
         lastName: lastName ?? this.lastName,
+        phoneNumber: phoneNumber ?? this.phoneNumber,
         address: address ?? this.address,
         familyDescription: familyDescription ?? this.familyDescription,
         searchPaused: searchPaused ?? this.searchPaused,

@@ -21,6 +21,12 @@ class PersonalInfoCard extends StatelessWidget {
     required this.email,
     required this.address,
     required this.onChangePhoto,
+    this.firstNameController,
+    this.lastNameController,
+    this.phoneController,
+    this.emailController,
+    this.addressController,
+    this.descriptionController,
     this.avatarBg,
     this.avatarFg,
     this.descriptionValue,
@@ -34,6 +40,16 @@ class PersonalInfoCard extends StatelessWidget {
   final String email;
   final String address;
   final VoidCallback onChangePhoto;
+
+  /// Controllers optionnels — quand fournis, prennent la main sur les
+  /// [initialValue] correspondants (nécessaire pour les données Firestore
+  /// chargées de façon asynchrone).
+  final TextEditingController? firstNameController;
+  final TextEditingController? lastNameController;
+  final TextEditingController? phoneController;
+  final TextEditingController? emailController;
+  final TextEditingController? addressController;
+  final TextEditingController? descriptionController;
 
   /// Couleurs optionnelles de l'avatar — défaut : pêche (parent).
   /// Passer `secondary` / `primary` pour la variante assmat (vert).
@@ -122,27 +138,43 @@ class PersonalInfoCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
 
           // Form fields
-          ProfileFormField(label: 'Prénom', initialValue: firstName),
+          ProfileFormField(
+            label: 'Prénom',
+            controller: firstNameController,
+            initialValue: firstNameController == null ? firstName : null,
+          ),
           const SizedBox(height: AppSpacing.md),
-          ProfileFormField(label: 'Nom', initialValue: lastName),
+          ProfileFormField(
+            label: 'Nom',
+            controller: lastNameController,
+            initialValue: lastNameController == null ? lastName : null,
+          ),
           const SizedBox(height: AppSpacing.md),
           ProfileFormField(
             label: 'Téléphone',
-            initialValue: phone,
+            controller: phoneController,
+            initialValue: phoneController == null ? phone : null,
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: AppSpacing.md),
           ProfileFormField(
             label: 'Email',
-            initialValue: email,
+            controller: emailController,
+            initialValue: emailController == null ? email : null,
             keyboardType: TextInputType.emailAddress,
+            enabled: emailController == null,
           ),
           const SizedBox(height: AppSpacing.md),
-          ProfileFormField(label: 'Adresse', initialValue: address),
-          if (descriptionValue != null) ...[
+          ProfileFormField(
+            label: 'Adresse',
+            controller: addressController,
+            initialValue: addressController == null ? address : null,
+          ),
+          if (descriptionValue != null || descriptionController != null) ...[
             const SizedBox(height: AppSpacing.lg),
             FamilyDescriptionSection(
-              initialValue: descriptionValue!,
+              controller: descriptionController,
+              initialValue: descriptionValue ?? '',
               label: descriptionLabel ?? 'Description',
               hintText: descriptionHint ?? 'Parlez-nous de vous…',
             ),

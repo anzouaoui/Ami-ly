@@ -123,6 +123,37 @@ class AuthRemoteDataSource {
     }
   }
 
+  Stream<ParentProfileModel?> watchParentProfile(String uid) {
+    return _firebase.parentDoc(uid).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return ParentProfileModel.fromFirestore(doc);
+    });
+  }
+
+  Future<void> updateParentProfile({
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    required String address,
+    required String familyDescription,
+    required bool searchPaused,
+  }) async {
+    try {
+      await _firebase.parentDoc(uid).update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'phoneNumber': phoneNumber,
+        'address': address,
+        'familyDescription': familyDescription,
+        'searchPaused': searchPaused,
+        'updatedAt': DateTime.now(),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de la mise à jour du profil.');
+    }
+  }
+
   Future<void> completeParentOnboarding({
     required String uid,
     required String address,
