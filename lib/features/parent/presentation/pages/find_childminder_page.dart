@@ -45,6 +45,8 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   DateTime? _dateTo;
 
   bool _showAdvancedFilters = true;
+  bool _servicesExpanded = true;
+  bool _schedulesExpanded = true;
 
   final Map<String, bool> _services = {
     'Exerce en maison d\'assistants maternels': false,
@@ -258,6 +260,12 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                 showAdvanced: _showAdvancedFilters,
                 onToggleAdvanced: () =>
                     setState(() => _showAdvancedFilters = !_showAdvancedFilters),
+                servicesExpanded: _servicesExpanded,
+                onToggleServices: () =>
+                    setState(() => _servicesExpanded = !_servicesExpanded),
+                schedulesExpanded: _schedulesExpanded,
+                onToggleSchedules: () =>
+                    setState(() => _schedulesExpanded = !_schedulesExpanded),
                 dateFrom: _dateFrom,
                 dateTo: _dateTo,
                 onPickFrom: () => _pickDate(isFrom: true),
@@ -492,6 +500,10 @@ class _FilterCard extends StatelessWidget {
     required this.onScheduleChanged,
     required this.showAdvanced,
     required this.onToggleAdvanced,
+    required this.servicesExpanded,
+    required this.onToggleServices,
+    required this.schedulesExpanded,
+    required this.onToggleSchedules,
     required this.onPickFrom,
     required this.onPickTo,
     this.dateFrom,
@@ -509,6 +521,10 @@ class _FilterCard extends StatelessWidget {
   final void Function(String key, bool value) onScheduleChanged;
   final bool showAdvanced;
   final VoidCallback onToggleAdvanced;
+  final bool servicesExpanded;
+  final VoidCallback onToggleServices;
+  final bool schedulesExpanded;
+  final VoidCallback onToggleSchedules;
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final VoidCallback onPickFrom;
@@ -692,31 +708,63 @@ class _FilterCard extends StatelessWidget {
             firstChild: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const FilterSectionTitle(
+                // ── Services proposés ─────────────────────────────────────
+                _CollapsibleSectionHeader(
                   icon: Icons.task_alt_rounded,
                   title: 'Services proposés',
                   iconColor: AppColors.success,
+                  expanded: servicesExpanded,
+                  onTap: onToggleServices,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                for (final entry in services.entries)
-                  FilterCheckboxTile(
-                    label: entry.key,
-                    value: entry.value,
-                    onChanged: (v) => onServiceChanged(entry.key, v),
+                AnimatedCrossFade(
+                  crossFadeState: servicesExpanded
+                      ? CrossFadeState.showFirst
+                      : CrossFadeState.showSecond,
+                  duration: const Duration(milliseconds: 200),
+                  sizeCurve: Curves.easeInOut,
+                  firstChild: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: AppSpacing.sm),
+                      for (final entry in services.entries)
+                        FilterCheckboxTile(
+                          label: entry.key,
+                          value: entry.value,
+                          onChanged: (v) => onServiceChanged(entry.key, v),
+                        ),
+                    ],
                   ),
+                  secondChild: const SizedBox(width: double.infinity),
+                ),
                 const SizedBox(height: AppSpacing.lg),
-                const FilterSectionTitle(
+
+                // ── Horaires ──────────────────────────────────────────────
+                _CollapsibleSectionHeader(
                   icon: Icons.schedule_rounded,
                   title: 'Horaires',
+                  expanded: schedulesExpanded,
+                  onTap: onToggleSchedules,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                for (final entry in schedules.entries)
-                  FilterCheckboxTile(
-                    label: entry.key,
-                    value: entry.value,
-                    onChanged: (v) =>
-                        onScheduleChanged(entry.key, v),
+                AnimatedCrossFade(
+                  crossFadeState: schedulesExpanded
+                      ? CrossFadeState.showFirst
+                      : CrossFadeState.showSecond,
+                  duration: const Duration(milliseconds: 200),
+                  sizeCurve: Curves.easeInOut,
+                  firstChild: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: AppSpacing.sm),
+                      for (final entry in schedules.entries)
+                        FilterCheckboxTile(
+                          label: entry.key,
+                          value: entry.value,
+                          onChanged: (v) => onScheduleChanged(entry.key, v),
+                        ),
+                    ],
                   ),
+                  secondChild: const SizedBox(width: double.infinity),
+                ),
               ],
             ),
             secondChild: const SizedBox(width: double.infinity),
@@ -782,6 +830,59 @@ class _DateField extends StatelessWidget {
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Collapsible section header ───────────────────────────────────────────────
+
+class _CollapsibleSectionHeader extends StatelessWidget {
+  const _CollapsibleSectionHeader({
+    required this.icon,
+    required this.title,
+    required this.expanded,
+    required this.onTap,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final bool expanded;
+  final VoidCallback onTap;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 18, color: iconColor ?? AppColors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                title,
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: AppColors.primaryText,
+                ),
+              ),
+            ),
+            AnimatedRotation(
+              turns: expanded ? 0 : -0.25,
+              duration: const Duration(milliseconds: 200),
+              child: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 20,
+                color: AppColors.secondaryText,
               ),
             ),
           ],
