@@ -28,6 +28,16 @@ service cloud.firestore {
     match /parents/{uid} {
       allow read:  if isAuth();
       allow write: if isAuth() && isOwner(uid);
+
+      // ── parents/{uid}/children/{childId} ──────────────────────────────────
+      // Sous-collection des enfants du parent.
+      //   Lecture : tout utilisateur authentifié
+      //             (l'assmat a besoin de connaître les enfants qu'elle garde).
+      //   Écriture : uniquement le propriétaire (le parent).
+      match /children/{childId} {
+        allow read:  if isAuth();
+        allow write: if isAuth() && isOwner(uid);
+      }
     }
 
     // ── assmats/{uid} ────────────────────────────────────────────────────────
