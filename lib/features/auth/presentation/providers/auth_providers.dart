@@ -51,3 +51,12 @@ final assmatProfileProvider =
   if (uid == null) return const Stream.empty();
   return ref.read(authRemoteDataSourceProvider).watchAssmatProfile(uid);
 });
+
+/// Stream temps réel de toutes les assmats recherchables (`isSearchable == true`).
+///
+/// Utilisé par [FindChildminderPage] comme source de données brute ;
+/// les filtres texte / disponibilité sont appliqués côté client.
+final searchableAssmatsProvider =
+    StreamProvider.autoDispose<List<AssmatProfileModel>>((ref) {
+  return ref.read(authRemoteDataSourceProvider).watchSearchableAssmats();
+});

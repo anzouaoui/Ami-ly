@@ -1,42 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/models/assmat_profile_model.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../widgets/childminder_card.dart';
 import '../widgets/filter_checkbox_tile.dart';
 import '../widgets/filter_section_title.dart';
 import 'childminder_profile_page.dart';
 
-/// Page "Trouver une assistante maternelle" — entrée du flow de recherche.
+/// Page "Trouver une assistante maternelle" — branchée sur Firestore.
 ///
-/// Frame "Find a Childminder" du design system :
-///   - Header (menu + logo)
-///   - Titre + chip liens sélectionnés + sous-titre
-///   - Grosse carte de filtres (search + slider + dates + 12 checkboxes)
-///   - Bandeau "N assistantes maternelles trouvées • rayon X km"
-///   - Liste de [ChildminderCard] (3 mocks)
+/// Source : [searchableAssmatsProvider] (assmats avec `isSearchable == true`).
+/// Filtres appliqués côté client :
+///   - Texte (prénom, nom, adresse)
+///   - Places disponibles (`availableSlots > 0`)
 ///
-/// Toutes les données sont mockées, les filtres maintiennent leur état
-/// local via setState — aucune requête réseau.
-class FindChildminderPage extends StatefulWidget {
+/// Filtres non encore fonctionnels (champs absents du modèle Firestore) :
+///   - Rayon km (pas de GeoPoint dans AssmatProfileModel)
+///   - Services / horaires (pas encore stockés en Firestore)
+class FindChildminderPage extends ConsumerStatefulWidget {
   const FindChildminderPage({super.key});
 
   @override
-  State<FindChildminderPage> createState() => _FindChildminderPageState();
+  ConsumerState<FindChildminderPage> createState() =>
+      _FindChildminderPageState();
 }
 
-class _FindChildminderPageState extends State<FindChildminderPage> {
+class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   // --- Filtres ---
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
   double _radiusKm = 5;
-  bool _onlyMyCommune = false;
+  bool _onlyAvailable = false;
+
   DateTime? _dateFrom;
   DateTime? _dateTo;
 
-  /// Sections de filtres avancés (Services + Horaires). Visibles par défaut,
-  /// togglées ensemble par l'icône tune.
   bool _showAdvancedFilters = true;
 
   final Map<String, bool> _services = {
@@ -56,51 +61,84 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
     'Peut répondre aux accueils d\'urgence': false,
   };
 
-  // --- Résultats mockés ---
-  static const _results = <ChildminderSummary>[
-    ChildminderSummary(
-      initials: 'ML',
-      name: 'Marie L.',
-      location: 'Paris 15e',
-      distance: '0.8 km',
-      experience: '12 ans',
-      places: '1 place',
-      date: '01/06/2025',
-      cert: 'PSC1',
-    ),
-    ChildminderSummary(
-      initials: 'JD',
-      name: 'Julie D.',
-      location: 'Paris 15e',
-      distance: '1.2 km',
-      experience: '5 ans',
-      places: '2 places',
-      date: 'Immédiate',
-      cert: 'PSC1',
-    ),
-    ChildminderSummary(
-      initials: 'SC',
-      name: 'Sophie C.',
-      location: 'Paris 15e',
-      distance: '1.5 km',
-      experience: '8 ans',
-      places: '1 place',
-      date: '01/09/2025',
-      cert: 'BEP CSS',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() {
+      setState(() => _searchQuery = _searchCtrl.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   int get _selectedCount {
     final s = _services.values.where((v) => v).length;
     final h = _schedules.values.where((v) => v).length;
-    return s + h + (_onlyMyCommune ? 1 : 0);
+    return s + h + (_onlyAvailable ? 1 : 0);
+  }
+
+  /// Applique les filtres client-side sur la liste brute Firestore.
+  List<AssmatProfileModel> _applyFilters(List<AssmatProfileModel> all) {
+    return all.where((a) {
+      // Filtre texte sur prénom, nom, adresse.
+      if (_searchQuery.isNotEmpty) {
+        final fullName =
+            '${a.firstName} ${a.lastName}'.toLowerCase();
+        final address = a.address.toLowerCase();
+        if (!fullName.contains(_searchQuery) &&
+            !address.contains(_searchQuery)) {
+          return false;
+        }
+      }
+      // Filtre "places disponibles".
+      if (_onlyAvailable && a.availableSlots <= 0) return false;
+      return true;
+    }).toList();
+  }
+
+  /// Convertit un [AssmatProfileModel] en [ChildminderSummary] pour la carte.
+  ChildminderSummary _toSummary(AssmatProfileModel a) {
+    final firstName = a.firstName;
+    final lastName = a.lastName;
+    final initials = [
+      if (firstName.isNotEmpty) firstName[0],
+      if (lastName.isNotEmpty) lastName[0],
+    ].join().toUpperCase();
+
+    final name =
+        '${firstName.isEmpty ? '' : firstName} ${lastName.isEmpty ? '' : lastName}'
+            .trim();
+
+    final experience = a.yearsExperience > 0
+        ? '${a.yearsExperience} an${a.yearsExperience > 1 ? 's' : ''}'
+        : 'Exp. non renseignée';
+
+    final slots = a.availableSlots;
+    final places = slots > 0
+        ? '$slots place${slots > 1 ? 's' : ''}'
+        : 'Complet';
+
+    return ChildminderSummary(
+      uid: a.uid,
+      initials: initials.isEmpty ? '?' : initials,
+      name: name.isEmpty ? 'Assistante maternelle' : name,
+      location: a.address.isNotEmpty ? a.address : 'Adresse non renseignée',
+      distance: '—',
+      experience: experience,
+      places: places,
+      date: slots > 0 ? 'Disponible' : 'Complet',
+      cert: '—',
+    );
   }
 
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
-    final initial = isFrom
-        ? (_dateFrom ?? now)
-        : (_dateTo ?? _dateFrom ?? now);
+    final initial =
+        isFrom ? (_dateFrom ?? now) : (_dateTo ?? _dateFrom ?? now);
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -111,9 +149,9 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
       cancelText: 'Annuler',
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: Theme.of(ctx).colorScheme.copyWith(
-                primary: AppColors.primary,
-              ),
+          colorScheme: Theme.of(ctx)
+              .colorScheme
+              .copyWith(primary: AppColors.primary),
         ),
         child: child!,
       ),
@@ -132,6 +170,8 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final asyncAssmats = ref.watch(searchableAssmatsProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -142,50 +182,82 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
               const _Header(),
               _TitleSection(selectedFilters: _selectedCount),
               _FilterCard(
+                searchCtrl: _searchCtrl,
                 radiusKm: _radiusKm,
                 onRadiusChanged: (v) => setState(() => _radiusKm = v),
-                onlyMyCommune: _onlyMyCommune,
-                onOnlyMyCommuneChanged: (v) =>
-                    setState(() => _onlyMyCommune = v),
+                onlyAvailable: _onlyAvailable,
+                onOnlyAvailableChanged: (v) =>
+                    setState(() => _onlyAvailable = v),
                 services: _services,
-                onServiceChanged: (k, v) => setState(() => _services[k] = v),
+                onServiceChanged: (k, v) =>
+                    setState(() => _services[k] = v),
                 schedules: _schedules,
                 onScheduleChanged: (k, v) =>
                     setState(() => _schedules[k] = v),
                 showAdvanced: _showAdvancedFilters,
-                onToggleAdvanced: () => setState(
-                  () => _showAdvancedFilters = !_showAdvancedFilters,
-                ),
+                onToggleAdvanced: () =>
+                    setState(() => _showAdvancedFilters = !_showAdvancedFilters),
                 dateFrom: _dateFrom,
                 dateTo: _dateTo,
                 onPickFrom: () => _pickDate(isFrom: true),
                 onPickTo: () => _pickDate(isFrom: false),
               ),
-              _ResultsHeader(
-                count: _results.length,
-                radiusKm: _radiusKm.round(),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
+
+              // ── Résultats ──────────────────────────────────────────────────
+              asyncAssmats.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                  child: Center(child: CircularProgressIndicator()),
                 ),
-                child: Column(
-                  children: [
-                    for (final r in _results) ...[
-                      ChildminderCard(
-                        data: r,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ChildminderProfilePage(data: r),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Text(
+                    'Erreur : $e',
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.error),
+                  ),
+                ),
+                data: (all) {
+                  final results =
+                      _applyFilters(all).map(_toSummary).toList();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ResultsHeader(
+                        count: results.length,
+                        radiusKm: _radiusKm.round(),
+                      ),
+                      if (results.isEmpty)
+                        _EmptyState(hasQuery: _searchQuery.isNotEmpty)
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          child: Column(
+                            children: [
+                              for (final r in results) ...[
+                                ChildminderCard(
+                                  data: r,
+                                  onTap: () =>
+                                      Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          ChildminderProfilePage(data: r),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
                     ],
-                  ],
-                ),
+                  );
+                },
               ),
+
               const SizedBox(height: AppSpacing.xl),
             ],
           ),
@@ -195,7 +267,40 @@ class _FindChildminderPageState extends State<FindChildminderPage> {
   }
 }
 
-/// Header : back button + logo "AMiLY" (carré brun) + spacer.
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.hasQuery});
+  final bool hasQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xl,
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.search_off_rounded,
+              size: 48, color: AppColors.secondaryText),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            hasQuery
+                ? 'Aucune assistante trouvée pour « ${context.findAncestorStateOfType<_FindChildminderPageState>()?._searchCtrl.text ?? ''} »'
+                : 'Aucune assistante maternelle disponible pour le moment.',
+            style: AppTextStyles.bodyMedium
+                .copyWith(color: AppColors.secondaryText),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+
 class _Header extends StatelessWidget {
   const _Header();
 
@@ -217,11 +322,8 @@ class _Header extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           IconButton(
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppColors.primaryText,
-            ),
+            icon: const Icon(Icons.arrow_back_rounded,
+                size: 28, color: AppColors.primaryText),
             onPressed: () => Navigator.of(context).maybePop(),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -238,18 +340,14 @@ class _Header extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadii.md),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(
-                  Icons.face_6_rounded,
-                  color: Color(0xFF8D6E63),
-                  size: 20,
-                ),
+                child: const Icon(Icons.face_6_rounded,
+                    color: Color(0xFF8D6E63), size: 20),
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 'AMiLY',
-                style: AppTextStyles.titleLarge.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: AppTextStyles.titleLarge
+                    .copyWith(fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -260,6 +358,8 @@ class _Header extends StatelessWidget {
   }
 }
 
+// ─── Title section ────────────────────────────────────────────────────────────
+
 class _TitleSection extends StatelessWidget {
   const _TitleSection({required this.selectedFilters});
   final int selectedFilters;
@@ -268,11 +368,7 @@ class _TitleSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
+          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -280,36 +376,27 @@ class _TitleSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  'Trouver une assistante maternelle',
-                  style: AppTextStyles.headlineMedium,
-                ),
+                child: Text('Trouver une assistante maternelle',
+                    style: AppTextStyles.headlineMedium),
               ),
               const SizedBox(width: AppSpacing.sm),
-              // Chip : icône link + nombre de filtres actifs
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.secondary,
                   borderRadius: BorderRadius.circular(AppRadii.full),
                 ),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                    horizontal: 12, vertical: 6),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.link_rounded,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
+                    const Icon(Icons.tune_rounded,
+                        size: 16, color: AppColors.primary),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       '$selectedFilters',
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.primary,
-                      ),
+                      style: AppTextStyles.labelMedium
+                          .copyWith(color: AppColors.primary),
                     ),
                   ],
                 ),
@@ -319,9 +406,8 @@ class _TitleSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Trouvez une professionnelle agréée près de chez vous',
-            style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.secondaryText,
-            ),
+            style: AppTextStyles.bodyLarge
+                .copyWith(color: AppColors.secondaryText),
           ),
         ],
       ),
@@ -329,12 +415,15 @@ class _TitleSection extends StatelessWidget {
   }
 }
 
+// ─── Filter card ──────────────────────────────────────────────────────────────
+
 class _FilterCard extends StatelessWidget {
   const _FilterCard({
+    required this.searchCtrl,
     required this.radiusKm,
     required this.onRadiusChanged,
-    required this.onlyMyCommune,
-    required this.onOnlyMyCommuneChanged,
+    required this.onlyAvailable,
+    required this.onOnlyAvailableChanged,
     required this.services,
     required this.onServiceChanged,
     required this.schedules,
@@ -347,20 +436,17 @@ class _FilterCard extends StatelessWidget {
     this.dateTo,
   });
 
+  final TextEditingController searchCtrl;
   final double radiusKm;
   final ValueChanged<double> onRadiusChanged;
-  final bool onlyMyCommune;
-  final ValueChanged<bool> onOnlyMyCommuneChanged;
+  final bool onlyAvailable;
+  final ValueChanged<bool> onOnlyAvailableChanged;
   final Map<String, bool> services;
   final void Function(String key, bool value) onServiceChanged;
   final Map<String, bool> schedules;
   final void Function(String key, bool value) onScheduleChanged;
-
-  /// Visibilité des sections "Services proposés" + "Horaires".
-  /// Pilotée par l'icône tune.
   final bool showAdvanced;
   final VoidCallback onToggleAdvanced;
-
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final VoidCallback onPickFrom;
@@ -370,11 +456,7 @@ class _FilterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
+          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -390,8 +472,9 @@ class _FilterCard extends StatelessWidget {
             children: [
               Expanded(
                 child: TextField(
+                  controller: searchCtrl,
                   decoration: const InputDecoration(
-                    hintText: 'Ville, quartier ou spécialité',
+                    hintText: 'Prénom, nom ou ville…',
                     prefixIcon: Icon(Icons.search_rounded),
                   ),
                 ),
@@ -405,7 +488,9 @@ class _FilterCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: (showAdvanced ? AppColors.accent : AppColors.primary)
+                    color: (showAdvanced
+                            ? AppColors.accent
+                            : AppColors.primary)
                         .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppRadii.md),
                     border: Border.all(
@@ -415,18 +500,17 @@ class _FilterCard extends StatelessWidget {
                     ),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    Icons.tune_rounded,
-                    color:
-                        showAdvanced ? AppColors.accent : AppColors.primary,
-                  ),
+                  child: Icon(Icons.tune_rounded,
+                      color: showAdvanced
+                          ? AppColors.accent
+                          : AppColors.primary),
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Périmètre
+          // Périmètre (UI uniquement — GeoPoint non disponible)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -436,9 +520,8 @@ class _FilterCard extends StatelessWidget {
               ),
               Text(
                 '${radiusKm.round()} km',
-                style: AppTextStyles.labelLarge.copyWith(
-                  color: AppColors.primary,
-                ),
+                style: AppTextStyles.labelLarge
+                    .copyWith(color: AppColors.primary),
               ),
             ],
           ),
@@ -452,14 +535,20 @@ class _FilterCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('1 km', style: AppTextStyles.labelSmall.copyWith(color: AppColors.secondaryText)),
-              Text('15 km', style: AppTextStyles.labelSmall.copyWith(color: AppColors.secondaryText)),
-              Text('30 km', style: AppTextStyles.labelSmall.copyWith(color: AppColors.secondaryText)),
+              Text('1 km',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+              Text('15 km',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+              Text('30 km',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Disponibilité
+          // Disponibilité souhaitée
           const FilterSectionTitle(
             icon: Icons.calendar_today_rounded,
             title: 'Disponibilité souhaitée',
@@ -469,52 +558,45 @@ class _FilterCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _DateField(
-                  hint: 'À partir du...',
-                  date: dateFrom,
-                  onTap: onPickFrom,
-                ),
+                    hint: 'À partir du…',
+                    date: dateFrom,
+                    onTap: onPickFrom),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _DateField(
-                  hint: 'Jusqu\'au...',
-                  date: dateTo,
-                  onTap: onPickTo,
-                ),
+                    hint: 'Jusqu\'au…',
+                    date: dateTo,
+                    onTap: onPickTo),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // "Ma commune uniquement"
+          // Places disponibles
           InkWell(
-            onTap: () => onOnlyMyCommuneChanged(!onlyMyCommune),
+            onTap: () => onOnlyAvailableChanged(!onlyAvailable),
             borderRadius: BorderRadius.circular(AppRadii.sm),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              padding:
+                  const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.home_work_rounded,
-                    color: AppColors.secondaryText,
-                    size: 22,
-                  ),
+                  const Icon(Icons.child_care_rounded,
+                      color: AppColors.secondaryText, size: 22),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Ma commune uniquement',
-                          style: AppTextStyles.labelLarge,
-                        ),
+                        Text('Places disponibles uniquement',
+                            style: AppTextStyles.labelLarge),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          'Afficher uniquement les résultats de votre ville',
+                          'Masquer les assistantes dont le planning est complet',
                           style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.secondaryText,
-                          ),
+                              color: AppColors.secondaryText),
                         ),
                       ],
                     ),
@@ -523,10 +605,12 @@ class _FilterCard extends StatelessWidget {
                     width: 22,
                     height: 22,
                     child: Checkbox(
-                      value: onlyMyCommune,
-                      onChanged: (v) => onOnlyMyCommuneChanged(v ?? false),
+                      value: onlyAvailable,
+                      onChanged: (v) =>
+                          onOnlyAvailableChanged(v ?? false),
                       activeColor: AppColors.primary,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
@@ -536,8 +620,7 @@ class _FilterCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Filtres avancés (Services proposés + Horaires) — rétractables
-          // via l'icône tune.
+          // Filtres avancés — rétractables
           AnimatedCrossFade(
             crossFadeState: showAdvanced
                 ? CrossFadeState.showFirst
@@ -547,7 +630,6 @@ class _FilterCard extends StatelessWidget {
             firstChild: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Services proposés
                 const FilterSectionTitle(
                   icon: Icons.task_alt_rounded,
                   title: 'Services proposés',
@@ -561,8 +643,6 @@ class _FilterCard extends StatelessWidget {
                     onChanged: (v) => onServiceChanged(entry.key, v),
                   ),
                 const SizedBox(height: AppSpacing.lg),
-
-                // Horaires
                 const FilterSectionTitle(
                   icon: Icons.schedule_rounded,
                   title: 'Horaires',
@@ -572,7 +652,8 @@ class _FilterCard extends StatelessWidget {
                   FilterCheckboxTile(
                     label: entry.key,
                     value: entry.value,
-                    onChanged: (v) => onScheduleChanged(entry.key, v),
+                    onChanged: (v) =>
+                        onScheduleChanged(entry.key, v),
                   ),
               ],
             ),
@@ -583,6 +664,8 @@ class _FilterCard extends StatelessWidget {
     );
   }
 }
+
+// ─── Date field ───────────────────────────────────────────────────────────────
 
 class _DateField extends StatelessWidget {
   const _DateField({
@@ -619,11 +702,11 @@ class _DateField extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.event_available_rounded,
-              size: 18,
-              color: hasDate ? AppColors.primary : AppColors.secondaryText,
-            ),
+            Icon(Icons.event_available_rounded,
+                size: 18,
+                color: hasDate
+                    ? AppColors.primary
+                    : AppColors.secondaryText),
             const SizedBox(width: AppSpacing.sm),
             Flexible(
               child: Text(
@@ -632,7 +715,8 @@ class _DateField extends StatelessWidget {
                   color: hasDate
                       ? AppColors.primary
                       : AppColors.secondaryText,
-                  fontWeight: hasDate ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight:
+                      hasDate ? FontWeight.w600 : FontWeight.w400,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -645,6 +729,8 @@ class _DateField extends StatelessWidget {
   }
 }
 
+// ─── Results header ───────────────────────────────────────────────────────────
+
 class _ResultsHeader extends StatelessWidget {
   const _ResultsHeader({required this.count, required this.radiusKm});
   final int count;
@@ -654,18 +740,16 @@ class _ResultsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
+          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Text(
-              '$count assistantes maternelles trouvées',
+              count == 0
+                  ? 'Aucune assistante trouvée'
+                  : '$count assistante${count > 1 ? 's' : ''} maternelle${count > 1 ? 's' : ''} trouvée${count > 1 ? 's' : ''}',
               style: AppTextStyles.labelLarge,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -674,9 +758,8 @@ class _ResultsHeader extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Text(
             'rayon $radiusKm km',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
+            style: AppTextStyles.labelMedium
+                .copyWith(color: AppColors.secondaryText),
             maxLines: 1,
           ),
         ],

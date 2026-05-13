@@ -9,6 +9,7 @@ import '../../../../app/theme/app_text_styles.dart';
 /// Résumé d'une assistante maternelle affichée dans la liste de résultats.
 class ChildminderSummary {
   const ChildminderSummary({
+    required this.uid,
     required this.initials,
     required this.name,
     required this.location,
@@ -19,6 +20,8 @@ class ChildminderSummary {
     required this.cert,
   });
 
+  /// UID Firestore — utilisé pour naviguer vers le profil complet.
+  final String uid;
   final String initials;
   final String name;
   final String location;
