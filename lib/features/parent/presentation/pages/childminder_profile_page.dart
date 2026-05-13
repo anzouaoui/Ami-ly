@@ -73,7 +73,6 @@ class _ChildminderProfilePageState
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
             // ── Header ────────────────────────────────────────────────────
@@ -119,7 +118,7 @@ class _ChildminderProfilePageState
             ),
             const Divider(height: 1, color: AppColors.divider),
 
-            // ── Body ──────────────────────────────────────────────────────
+            // ── Body scrollable ───────────────────────────────────────────
             Expanded(
               child: asyncProfile.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -147,50 +146,53 @@ class _ChildminderProfilePageState
                 },
               ),
             ),
-          ],
-        ),
-      ),
 
-      // ── Bottom CTA ────────────────────────────────────────────────────
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
-          color: AppColors.surface,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Messagerie — à venir'),
-                      behavior: SnackBarBehavior.floating,
+            // ── CTA toujours visible en bas ───────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.divider)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Messagerie — à venir'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      ),
+                      icon: const Icon(Icons.chat_bubble_outline_rounded,
+                          size: 18),
+                      label: const Text('Envoyer un message'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                        ),
+                        textStyle: AppTextStyles.bodyMedium
+                            .copyWith(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
-                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                  label: const Text('Envoyer un message'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadii.md),
-                    ),
-                    textStyle: AppTextStyles.bodyMedium
-                        .copyWith(fontWeight: FontWeight.w700),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Le tarif horaire sera discuté lors de votre échange',
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.secondaryText),
+                    textAlign: TextAlign.center,
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Le tarif horaire sera discuté lors de votre échange',
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.secondaryText),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
