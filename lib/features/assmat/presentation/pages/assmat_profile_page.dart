@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,8 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/models/address_suggestion.dart';
+import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
@@ -36,8 +39,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   final _maxChildrenCtrl = TextEditingController();
   final _availableSlotsCtrl = TextEditingController();
 
-  // ── État booléen ───────────────────────────────────────────────────────────
+  // ── État booléen / géoloc / disponibilité ─────────────────────────────────
   bool _isSearchable = true;
+  GeoPoint? _location;
+  bool _locationCleared = false;
+  DateTime _availableFrom = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
   // ── Cycle de vie ──────────────────────────────────────────────────────────
   bool _initialized = false;
@@ -68,6 +74,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _maxChildrenCtrl.text = profile.maxChildren.toString();
     _availableSlotsCtrl.text = profile.availableSlots.toString();
     _isSearchable = profile.isSearchable;
+    _location = profile.location;
+    _locationCleared = false;
+    if (profile.availableFrom != null) {
+      _availableFrom = profile.availableFrom!;
+    }
     _initialized = true;
   }
 
@@ -106,6 +117,10 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             isSearchable: _isSearchable,
             maxChildren: savedMaxChildren,
             availableSlots: savedAvailableSlots,
+            location: _location,
+            clearLocation: _locationCleared,
+            availableFrom: _isSearchable ? _availableFrom : null,
+            clearAvailableFrom: !_isSearchable,
           );
 
       // Mettre à jour _loadedProfile pour que "Annuler" revienne aux
@@ -118,7 +133,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         isSearchable: _isSearchable,
         maxChildren: savedMaxChildren,
         availableSlots: savedAvailableSlots,
+        location: _locationCleared ? null : _location,
+        clearLocation: _locationCleared,
+        availableFrom: _isSearchable ? _availableFrom : null,
+        clearAvailableFrom: !_isSearchable,
       );
+      _locationCleared = false;
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -245,7 +265,6 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             firstNameController: _firstNameCtrl,
             lastNameController: _lastNameCtrl,
             emailController: _emailCtrl,
-            addressController: _addressCtrl,
             descriptionController: _bioCtrl,
             descriptionLabel: 'Description / Présentation',
             descriptionHint:
@@ -253,13 +272,27 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             onChangePhoto: () => _stub('Changer la photo'),
             avatarBg: AppColors.secondary,
             avatarFg: AppColors.primary,
+            addressWidget: AddressAutocompleteField(
+              controller: _addressCtrl,
+              label: 'Adresse',
+              onSelected: (AddressSuggestion s) => setState(() {
+                _location = GeoPoint(s.lat, s.lon);
+                _locationCleared = false;
+              }),
+              onClearLocation: () => setState(() {
+                _location = null;
+                _locationCleared = true;
+              }),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
 
           // ── Disponibilité ──────────────────────────────────────────────────
           _AvailabilityCard(
             isAvailable: _isSearchable,
+            availableFrom: _availableFrom,
             onAvailabilityChanged: (v) => setState(() => _isSearchable = v),
+            onAvailableFromChanged: (d) => setState(() => _availableFrom = d),
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -454,48 +487,38 @@ class _StatusChips extends StatelessWidget {
 
 // ─── Carte disponibilité ──────────────────────────────────────────────────────
 
-class _AvailabilityCard extends StatefulWidget {
+class _AvailabilityCard extends StatelessWidget {
   const _AvailabilityCard({
     required this.isAvailable,
+    required this.availableFrom,
     required this.onAvailabilityChanged,
+    required this.onAvailableFromChanged,
   });
 
   final bool isAvailable;
+  final DateTime availableFrom;
   final ValueChanged<bool> onAvailabilityChanged;
-
-  @override
-  State<_AvailabilityCard> createState() => _AvailabilityCardState();
-}
-
-class _AvailabilityCardState extends State<_AvailabilityCard> {
-  // La date reste en état local (pas encore dans AssmatProfileModel).
-  late DateTime _availableFrom;
+  final ValueChanged<DateTime> onAvailableFromChanged;
 
   static const _months = [
     '01', '02', '03', '04', '05', '06',
     '07', '08', '09', '10', '11', '12',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _availableFrom = DateTime(DateTime.now().year, DateTime.now().month, 1);
-  }
-
   String _format(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${_months[d.month - 1]}/${d.year}';
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _availableFrom,
+      initialDate: availableFrom,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035, 12, 31),
       locale: const Locale('fr', 'FR'),
       cancelText: 'Annuler',
       confirmText: 'Valider',
     );
-    if (picked != null) setState(() => _availableFrom = picked);
+    if (picked != null) onAvailableFromChanged(picked);
   }
 
   @override
@@ -507,8 +530,8 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(
-          color: widget.isAvailable ? AppColors.primary : AppColors.divider,
-          width: widget.isAvailable ? 1.5 : 1,
+          color: isAvailable ? AppColors.primary : AppColors.divider,
+          width: isAvailable ? 1.5 : 1,
         ),
       ),
       child: Column(
@@ -521,7 +544,7 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: widget.isAvailable
+                  color: isAvailable
                       ? AppColors.primary
                       : AppColors.secondaryText,
                   shape: BoxShape.circle,
@@ -533,7 +556,7 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.isAvailable
+                      isAvailable
                           ? 'Disponible — J\'accueille de nouveaux enfants'
                           : 'Indisponible — Je n\'accueille pas',
                       style: AppTextStyles.titleMedium
@@ -541,7 +564,7 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      widget.isAvailable
+                      isAvailable
                           ? 'Votre profil est visible par les parents en recherche'
                           : 'Votre profil est masqué des recherches',
                       style: AppTextStyles.bodySmall
@@ -552,20 +575,20 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
               ),
               const SizedBox(width: AppSpacing.sm),
               Switch(
-                value: widget.isAvailable,
-                onChanged: widget.onAvailabilityChanged,
+                value: isAvailable,
+                onChanged: onAvailabilityChanged,
                 activeThumbColor: AppColors.primary,
               ),
             ],
           ),
-          if (widget.isAvailable) ...[
+          if (isAvailable) ...[
             const SizedBox(height: AppSpacing.md),
             const Divider(height: 1, color: AppColors.divider),
             const SizedBox(height: AppSpacing.md),
             Text('Disponible à partir du', style: AppTextStyles.labelMedium),
             const SizedBox(height: AppSpacing.sm),
             InkWell(
-              onTap: _pickDate,
+              onTap: () => _pickDate(context),
               borderRadius: BorderRadius.circular(AppRadii.md),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -578,7 +601,7 @@ class _AvailabilityCardState extends State<_AvailabilityCard> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(_format(_availableFrom),
+                      child: Text(_format(availableFrom),
                           style: AppTextStyles.bodyLarge
                               .copyWith(color: AppColors.primaryText)),
                     ),

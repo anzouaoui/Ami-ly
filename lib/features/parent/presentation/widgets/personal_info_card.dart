@@ -29,6 +29,7 @@ class PersonalInfoCard extends StatelessWidget {
     this.descriptionController,
     this.avatarBg,
     this.avatarFg,
+    this.addressWidget,
     this.descriptionValue,
     this.descriptionLabel,
     this.descriptionHint,
@@ -55,6 +56,10 @@ class PersonalInfoCard extends StatelessWidget {
   /// Passer `secondary` / `primary` pour la variante assmat (vert).
   final Color? avatarBg;
   final Color? avatarFg;
+
+  /// Si non null, remplace le [ProfileFormField] de l'adresse par ce widget
+  /// (typiquement un [AddressAutocompleteField]).
+  final Widget? addressWidget;
 
   /// Si non null, affiche une section textarea "description" après
   /// le champ Adresse avec compteur de caractères.
@@ -165,11 +170,12 @@ class PersonalInfoCard extends StatelessWidget {
             enabled: emailController == null,
           ),
           const SizedBox(height: AppSpacing.md),
-          ProfileFormField(
-            label: 'Adresse',
-            controller: addressController,
-            initialValue: addressController == null ? address : null,
-          ),
+          addressWidget ??
+              ProfileFormField(
+                label: 'Adresse',
+                controller: addressController,
+                initialValue: addressController == null ? address : null,
+              ),
           if (descriptionValue != null || descriptionController != null) ...[
             const SizedBox(height: AppSpacing.lg),
             FamilyDescriptionSection(

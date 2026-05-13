@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -78,30 +80,72 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   int get _selectedCount {
     final s = _services.values.where((v) => v).length;
     final h = _schedules.values.where((v) => v).length;
-    return s + h + (_onlyAvailable ? 1 : 0);
+    return s +
+        h +
+        (_onlyAvailable ? 1 : 0) +
+        (_dateFrom != null ? 1 : 0);
+  }
+
+  /// Calcul de distance Haversine entre deux points (en km).
+  double _haversine(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLon = (lon2 - lon1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
   /// Applique les filtres client-side sur la liste brute Firestore.
-  List<AssmatProfileModel> _applyFilters(List<AssmatProfileModel> all) {
+  List<AssmatProfileModel> _applyFilters(
+    List<AssmatProfileModel> all,
+    double? parentLat,
+    double? parentLon,
+  ) {
     return all.where((a) {
       // Filtre texte sur prénom, nom, adresse.
       if (_searchQuery.isNotEmpty) {
-        final fullName =
-            '${a.firstName} ${a.lastName}'.toLowerCase();
+        final fullName = '${a.firstName} ${a.lastName}'.toLowerCase();
         final address = a.address.toLowerCase();
         if (!fullName.contains(_searchQuery) &&
             !address.contains(_searchQuery)) {
           return false;
         }
       }
+
       // Filtre "places disponibles".
       if (_onlyAvailable && a.availableSlots <= 0) return false;
+
+      // Filtre rayon — seulement si parent ET assmat ont des coordonnées.
+      if (parentLat != null &&
+          parentLon != null &&
+          a.location != null) {
+        final dist = _haversine(
+          parentLat, parentLon,
+          a.location!.latitude, a.location!.longitude,
+        );
+        if (dist > _radiusKm) return false;
+      }
+
+      // Filtre disponibilité souhaitée — seulement si une date de début est choisie.
+      if (_dateFrom != null && a.availableFrom != null) {
+        // L'assmat doit être disponible ≤ la date souhaitée par le parent.
+        if (a.availableFrom!.isAfter(_dateFrom!)) return false;
+      }
+
       return true;
     }).toList();
   }
 
   /// Convertit un [AssmatProfileModel] en [ChildminderSummary] pour la carte.
-  ChildminderSummary _toSummary(AssmatProfileModel a) {
+  ChildminderSummary _toSummary(
+    AssmatProfileModel a,
+    double? parentLat,
+    double? parentLon,
+  ) {
     final firstName = a.firstName;
     final lastName = a.lastName;
     final initials = [
@@ -122,12 +166,26 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         ? '$slots place${slots > 1 ? 's' : ''}'
         : 'Complet';
 
+    // Distance calculée si les deux GeoPoints sont disponibles.
+    String distance = '—';
+    if (parentLat != null &&
+        parentLon != null &&
+        a.location != null) {
+      final km = _haversine(
+        parentLat, parentLon,
+        a.location!.latitude, a.location!.longitude,
+      );
+      distance = km < 1
+          ? '${(km * 1000).round()} m'
+          : '${km.toStringAsFixed(1)} km';
+    }
+
     return ChildminderSummary(
       uid: a.uid,
       initials: initials.isEmpty ? '?' : initials,
       name: name.isEmpty ? 'Assistante maternelle' : name,
       location: a.address.isNotEmpty ? a.address : 'Adresse non renseignée',
-      distance: '—',
+      distance: distance,
       experience: experience,
       places: places,
       date: slots > 0 ? 'Disponible' : 'Complet',
@@ -171,6 +229,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   @override
   Widget build(BuildContext context) {
     final asyncAssmats = ref.watch(searchableAssmatsProvider);
+    final parentProfile = ref.watch(parentProfileProvider).valueOrNull;
+    final parentLat = parentProfile?.location?.latitude;
+    final parentLon = parentProfile?.location?.longitude;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -218,8 +279,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                   ),
                 ),
                 data: (all) {
-                  final results =
-                      _applyFilters(all).map(_toSummary).toList();
+                  final results = _applyFilters(all, parentLat, parentLon)
+                      .map((a) => _toSummary(a, parentLat, parentLon))
+                      .toList();
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

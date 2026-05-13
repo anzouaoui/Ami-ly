@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,8 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/models/address_suggestion.dart';
+import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/models/child_model.dart';
@@ -36,6 +39,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   bool _isPaused = false;
   bool _profileInitialized = false;
   ParentProfileModel? _loadedProfile;
+  GeoPoint? _location;
+  bool _locationCleared = false;
 
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -116,6 +121,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     _addressCtrl.text = profile.address;
     _descriptionCtrl.text = profile.familyDescription;
     _isPaused = profile.searchPaused;
+    _location = profile.location;
+    _locationCleared = false;
     _profileInitialized = true;
   }
 
@@ -161,6 +168,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
             address: _addressCtrl.text.trim(),
             familyDescription: _descriptionCtrl.text.trim(),
             searchPaused: _isPaused,
+            location: _location,
+            clearLocation: _locationCleared,
           );
 
       // Mettre à jour _loadedProfile pour que "Annuler" revienne aux
@@ -172,7 +181,10 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
         address: _addressCtrl.text.trim(),
         familyDescription: _descriptionCtrl.text.trim(),
         searchPaused: _isPaused,
+        location: _locationCleared ? null : _location,
+        clearLocation: _locationCleared,
       );
+      _locationCleared = false;
 
       // 2. Enfants : add / update
       // On itère par index pour pouvoir réinjecter l'ID Firestore retourné
@@ -388,12 +400,23 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
             lastNameController: _lastNameCtrl,
             phoneController: _phoneCtrl,
             emailController: _emailCtrl,
-            addressController: _addressCtrl,
             descriptionController: _descriptionCtrl,
             descriptionLabel: 'Description de la famille',
             descriptionHint:
                 'Ex : Famille de 4 personnes, nous recherchons une assistante attentionnée…',
             onChangePhoto: () => _stub('Changer la photo'),
+            addressWidget: AddressAutocompleteField(
+              controller: _addressCtrl,
+              label: 'Adresse',
+              onSelected: (AddressSuggestion s) => setState(() {
+                _location = GeoPoint(s.lat, s.lon);
+                _locationCleared = false;
+              }),
+              onClearLocation: () => setState(() {
+                _location = null;
+                _locationCleared = true;
+              }),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
 
