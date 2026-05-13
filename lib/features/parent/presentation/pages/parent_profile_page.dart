@@ -34,6 +34,11 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   bool _initialized = false;
   bool _saving = false;
 
+  /// Dernière valeur Firestore connue, utilisée pour réinitialiser les
+  /// champs quand "Annuler" est pressé dans le contexte onglet (pas de
+  /// route à dépiler).
+  ParentProfileModel? _loadedProfile;
+
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -107,6 +112,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   }
 
   void _initFromProfile(ParentProfileModel profile) {
+    _loadedProfile = profile;
     _firstNameCtrl.text = profile.firstName;
     _lastNameCtrl.text = profile.lastName;
     _phoneCtrl.text = profile.phoneNumber;
@@ -114,6 +120,22 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     _descriptionCtrl.text = profile.familyDescription;
     _isPaused = profile.searchPaused;
     _initialized = true;
+  }
+
+  /// "Annuler" : dépile la page si elle a été poussée via Navigator (ex :
+  /// ouverture depuis le drawer). Si la page est un onglet de l'IndexedStack
+  /// (aucune route parente à dépiler), réinitialise les champs à la dernière
+  /// valeur Firestore sans quitter la page.
+  void _cancel() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else if (_loadedProfile != null) {
+      final email = ref.read(currentUserProvider).valueOrNull?.email ?? '';
+      setState(() {
+        _emailCtrl.text = email;
+        _initFromProfile(_loadedProfile!);
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -139,7 +161,9 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.of(context).maybePop();
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -306,7 +330,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
               // ---- Bottom action bar fixe ----
               _BottomActionBar(
                 saving: _saving,
-                onCancel: () => Navigator.of(context).maybePop(),
+                onCancel: _cancel,
                 onSave: _saving ? null : _save,
               ),
             ],
