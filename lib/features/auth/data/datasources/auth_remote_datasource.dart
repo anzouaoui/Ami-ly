@@ -161,6 +161,16 @@ class AuthRemoteDataSource {
     });
   }
 
+  /// Stream temps réel de toutes les assmats ayant `isSearchable == true`.
+  /// Utilisé par la page de recherche parent.
+  Stream<List<AssmatProfileModel>> watchSearchableAssmats() {
+    return _firebase.assmatsCollection
+        .where('isSearchable', isEqualTo: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map(AssmatProfileModel.fromFirestore).toList());
+  }
+
   Future<void> updateAssmatProfile({
     required String uid,
     required String firstName,
