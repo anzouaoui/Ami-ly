@@ -60,3 +60,12 @@ final searchableAssmatsProvider =
     StreamProvider.autoDispose<List<AssmatProfileModel>>((ref) {
   return ref.read(authRemoteDataSourceProvider).watchSearchableAssmats();
 });
+
+/// Stream temps réel du profil d'une assmat identifiée par son UID.
+///
+/// Utilisé par [ChildminderProfilePage] pour afficher le profil complet
+/// d'une assmat sélectionnée depuis la liste de recherche.
+final assmatProfileByUidProvider =
+    StreamProvider.autoDispose.family<AssmatProfileModel?, String>((ref, uid) {
+  return ref.read(authRemoteDataSourceProvider).watchAssmatProfile(uid);
+});
