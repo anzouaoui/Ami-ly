@@ -9,6 +9,7 @@ import '../../../../core/widgets/ghost_button.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
+import 'forgot_password_page.dart';
 
 /// Écran de connexion email/password + Google.
 ///
@@ -75,11 +76,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _onForgotPassword() {
-    // TODO: écran / flow mot de passe oublié (envoi d'un mail via Firebase).
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Mot de passe oublié — à venir'),
-        behavior: SnackBarBehavior.floating,
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const ForgotPasswordPage(),
       ),
     );
   }
@@ -92,6 +91,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Dès que le stream émet un utilisateur connecté, on remonte à la racine
+    // pour laisser AuthWrapper afficher ParentShell / AssMatShell.
+    ref.listen(currentUserProvider, (_, next) {
+      next.whenData((user) {
+        if (user != null && mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       // AppBar transparente juste pour le back button automatique.

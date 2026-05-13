@@ -6,6 +6,7 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
+import 'assmat_home_page.dart';
 import '../../../parent/presentation/widgets/personal_info_card.dart';
 import '../../../parent/presentation/widgets/profile_form_field.dart';
 
@@ -34,10 +35,12 @@ class AssMatProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
+      drawer: const AssMatDrawer(),
+      body: Builder(
+        builder: (scaffoldCtx) => SafeArea(
         child: Column(
           children: [
-            const _ProfileHeader(),
+            _ProfileHeader(onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer()),
 
             // ---- Contenu scrollable ----
             Expanded(
@@ -107,15 +110,17 @@ class AssMatProfilePage extends StatelessWidget {
               },
             ),
           ],
-        ),
-      ),
+        ),      // Column
+      ),        // SafeArea
+      ),        // Builder
     );
   }
 }
 
 /// Header : back + carré brun logo + "AMiLY".
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  const _ProfileHeader({required this.onMenuTap});
+  final VoidCallback onMenuTap;
 
   static const _logoBg = Color(0xFF4A3B33);
 
@@ -137,14 +142,14 @@ class _ProfileHeader extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(
-              Icons.arrow_back_rounded,
+              Icons.menu_rounded,
               size: 28,
               color: AppColors.primaryText,
             ),
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: onMenuTap,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Retour',
+            tooltip: 'Menu',
           ),
           const SizedBox(width: AppSpacing.md),
           Container(

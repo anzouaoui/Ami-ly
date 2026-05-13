@@ -99,7 +99,8 @@ class FakeAuthRepository implements AuthRepository {
     required String email,
     required String password,
     required UserRole role,
-    String? displayName,
+    String? firstName,
+    String? lastName,
   }) async {
     await _simulateLatency();
 
@@ -110,17 +111,35 @@ class FakeAuthRepository implements AuthRepository {
       return const Left(AuthFailure('Mot de passe trop court (min. 6).'));
     }
 
+    final fullName = [firstName ?? '', lastName ?? '']
+        .where((s) => s.isNotEmpty)
+        .join(' ');
+
     final user = AppUser(
       uid: 'fake-${email.hashCode}',
       email: email,
       role: role,
       createdAt: DateTime.now(),
-      displayName: displayName ?? _displayNameFromEmail(email),
+      displayName: fullName.isNotEmpty ? fullName : _displayNameFromEmail(email),
       isProfileComplete: false,
     );
 
     _emit(user);
     return Right(user);
+  }
+
+  @override
+  Future<Either<Failure, Unit>> completeParentOnboarding({
+    required String uid,
+    required String address,
+    String familyDescription = '',
+  }) async {
+    await _simulateLatency(ms: 300);
+    // Met à jour le user en mémoire avec isProfileComplete = true.
+    if (_current != null && _current!.uid == uid) {
+      _emit(_current!.copyWith(isProfileComplete: true));
+    }
+    return const Right(unit);
   }
 
   @override

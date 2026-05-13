@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    // ── users/{uid} ──────────────────────────────────────────────────────────
+    // Source de vérité : email, rôle, isPro, isProfileComplete.
+    // Accessible uniquement par son propriétaire.
+    match /users/{uid} {
+      allow read, write: if isAuth() && isOwner(uid);
+    }
+
+    // ── parents/{uid} ────────────────────────────────────────────────────────
+    // Profil étendu du parent.
+    //   Lecture : tout utilisateur authentifié
+    //             (les assmats peuvent lire le profil d'une famille).
+    //   Écriture : uniquement le propriétaire.
+    match /parents/{uid} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && isOwner(uid);
+
+      // ── parents/{uid}/children/{childId} ──────────────────────────────────
+      // Sous-collection des enfants du parent.
+      //   Lecture : tout utilisateur authentifié
+      //             (l'assmat a besoin de connaître les enfants qu'elle garde).
+      //   Écriture : uniquement le propriétaire (le parent).
+      match /children/{childId} {
+        allow read:  if isAuth();
+        allow write: if isAuth() && isOwner(uid);
+      }
+    }
+
+    // ── assmats/{uid} ────────────────────────────────────────────────────────
+    // Profil étendu de l'assistante maternelle.
+    //   Lecture : tout utilisateur authentifié
+    //             (les parents peuvent chercher des assmats disponibles).
+    //   Écriture : uniquement le propriétaire.
+    match /assmats/{uid} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && isOwner(uid);
+    }
+
+    // ── Blocage par défaut ───────────────────────────────────────────────────
+    // Toute collection non listée ci-dessus est refusée.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../shared/models/user_role.dart';
+import '../models/assmat_profile_model.dart';
+import '../models/parent_profile_model.dart';
 import '../models/user_model.dart';
 
 /// Couche la plus basse : tape directement sur Firebase Auth + Firestore.
@@ -30,11 +32,12 @@ class AuthRemoteDataSource {
   /// Stream en temps réel du profil utilisateur (utile pour refléter
   /// instantanément un changement de `isPro` depuis RevenueCat ou un
   /// update de profil).
-  Stream<UserModel> watchUserProfile(String uid) {
+  ///
+  /// Émet `null` si le document n'existe pas encore (ex : inscription en cours,
+  /// doc Firestore pas encore écrit). L'appelant filtre le null.
+  Stream<UserModel?> watchUserProfile(String uid) {
     return _firebase.userDoc(uid).snapshots().map((doc) {
-      if (!doc.exists) {
-        throw FirestoreException('Profil $uid introuvable.');
-      }
+      if (!doc.exists) return null;
       return UserModel.fromFirestore(doc);
     });
   }
@@ -62,7 +65,8 @@ class AuthRemoteDataSource {
     required String email,
     required String password,
     required UserRole role,
-    String? displayName,
+    String? firstName,
+    String? lastName,
   }) async {
     try {
       final cred = await _firebase.auth.createUserWithEmailAndPassword(
@@ -74,25 +78,101 @@ class AuthRemoteDataSource {
         throw AuthException('Inscription échouée.');
       }
 
-      if (displayName != null && displayName.isNotEmpty) {
-        await user.updateDisplayName(displayName);
+      final fullName = [firstName ?? '', lastName ?? '']
+          .where((s) => s.isNotEmpty)
+          .join(' ');
+
+      if (fullName.isNotEmpty) {
+        await user.updateDisplayName(fullName);
       }
 
-      // Crée le document Firestore `users/{uid}` — source de vérité du rôle.
+      final now = DateTime.now();
+
+      // 1. Document `users/{uid}` — source de vérité du rôle.
       final model = UserModel(
         uid: user.uid,
         email: email,
         role: role,
-        createdAt: DateTime.now(),
-        displayName: displayName,
+        createdAt: now,
+        displayName: fullName.isNotEmpty ? fullName : null,
       );
       await _firebase.userDoc(user.uid).set(model.toFirestore());
+
+      // 2. Sous-document profil étendu selon le rôle.
+      if (role == UserRole.parent) {
+        final profile = ParentProfileModel.initial(
+          uid: user.uid,
+          firstName: firstName ?? '',
+          lastName: lastName ?? '',
+        );
+        await _firebase.parentDoc(user.uid).set(profile.toFirestore());
+      } else {
+        final profile = AssmatProfileModel.initial(
+          uid: user.uid,
+          firstName: firstName ?? '',
+          lastName: lastName ?? '',
+        );
+        await _firebase.assmatDoc(user.uid).set(profile.toFirestore());
+      }
 
       return model;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapAuthError(e));
     } on FirebaseException catch (e) {
       throw FirestoreException(e.message ?? 'Erreur lors de la création du profil.');
+    }
+  }
+
+  Stream<ParentProfileModel?> watchParentProfile(String uid) {
+    return _firebase.parentDoc(uid).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return ParentProfileModel.fromFirestore(doc);
+    });
+  }
+
+  Future<void> updateParentProfile({
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    required String address,
+    required String familyDescription,
+    required bool searchPaused,
+  }) async {
+    try {
+      await _firebase.parentDoc(uid).update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'phoneNumber': phoneNumber,
+        'address': address,
+        'familyDescription': familyDescription,
+        'searchPaused': searchPaused,
+        'updatedAt': DateTime.now(),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de la mise à jour du profil.');
+    }
+  }
+
+  Future<void> completeParentOnboarding({
+    required String uid,
+    required String address,
+    String familyDescription = '',
+  }) async {
+    try {
+      final now = DateTime.now();
+      // 1. Mise à jour du profil étendu parent.
+      await _firebase.parentDoc(uid).update({
+        'address': address,
+        'familyDescription': familyDescription,
+        'updatedAt': now,
+      });
+      // 2. Marque le profil comme complété dans le document racine.
+      await _firebase.userDoc(uid).update({
+        'isProfileComplete': true,
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de la sauvegarde du profil.');
     }
   }
 

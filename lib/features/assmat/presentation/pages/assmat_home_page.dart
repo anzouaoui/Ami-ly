@@ -50,7 +50,7 @@ class AssMatHomePage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      drawer: const _AssMatDrawer(),
+      drawer: const AssMatDrawer(),
       body: Builder(
         builder: (scaffoldCtx) => SafeArea(
           bottom: false,
@@ -1052,14 +1052,14 @@ class _QuickActionsCard extends StatelessWidget {
   }
 }
 
-class _AssMatDrawer extends ConsumerStatefulWidget {
-  const _AssMatDrawer();
+class AssMatDrawer extends ConsumerStatefulWidget {
+  const AssMatDrawer();
 
   @override
-  ConsumerState<_AssMatDrawer> createState() => _AssMatDrawerState();
+  ConsumerState<AssMatDrawer> createState() => AssMatDrawerState();
 }
 
-class _AssMatDrawerState extends ConsumerState<_AssMatDrawer> {
+class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
   static const _logoBg = Color(0xFF4A3B33);
 
   final _expanded = <String>{'ACTIVITÉ'};
@@ -1283,8 +1283,32 @@ class _AssMatDrawerState extends ConsumerState<_AssMatDrawer> {
                       icon: Icons.logout_rounded,
                       label: 'Se déconnecter',
                       onTap: () async {
-                        Navigator.of(context).pop();
-                        await ref.read(authRepositoryProvider).signOut();
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Se déconnecter ?'),
+                            content: const Text(
+                              'Vous devrez vous reconnecter pour accéder à votre compte.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text('Annuler'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text('Se déconnecter'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop(); // ferme le drawer
+                        if (confirm == true) {
+                          await ref.read(authRepositoryProvider).signOut();
+                        }
                       },
                     ),
                   ],

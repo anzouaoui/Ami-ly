@@ -9,15 +9,20 @@ import '../../../../app/theme/app_text_styles.dart';
 ///
 /// [maxLength] contrôle la limite max (500 par défaut). Le compteur est
 /// mis à jour à chaque frappe.
+///
+/// Passer un [controller] externe pour que la page parente gère la valeur
+/// (obligatoire dès que la donnée vient de Firestore de façon asynchrone).
 class FamilyDescriptionSection extends StatefulWidget {
   const FamilyDescriptionSection({
     super.key,
+    this.controller,
     this.initialValue = '',
     this.maxLength = 500,
     this.label = 'Description de la famille',
     this.hintText = 'Parlez-nous de votre famille…',
   });
 
+  final TextEditingController? controller;
   final String initialValue;
   final int maxLength;
 
@@ -34,7 +39,28 @@ class FamilyDescriptionSection extends StatefulWidget {
 }
 
 class _FamilyDescriptionSectionState extends State<FamilyDescriptionSection> {
-  late int _count = widget.initialValue.length;
+  late int _count;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.controller != null) {
+      _count = widget.controller!.text.length;
+      widget.controller!.addListener(_onControllerChanged);
+    } else {
+      _count = widget.initialValue.length;
+    }
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() => _count = widget.controller!.text.length);
+  }
+
+  @override
+  void dispose() {
+    widget.controller?.removeListener(_onControllerChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +75,14 @@ class _FamilyDescriptionSectionState extends State<FamilyDescriptionSection> {
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
-          initialValue: widget.initialValue,
+          controller: widget.controller,
+          initialValue: widget.controller != null ? null : widget.initialValue,
           maxLines: 5,
           maxLength: widget.maxLength,
           // On planque le compteur natif pour afficher le nôtre custom.
           buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
               const SizedBox.shrink(),
-          onChanged: (v) => setState(() => _count = v.length),
+          onChanged: widget.controller != null ? null : (v) => setState(() => _count = v.length),
           decoration: InputDecoration(
             hintText: widget.hintText,
           ),

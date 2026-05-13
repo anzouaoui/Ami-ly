@@ -13,6 +13,7 @@ class ProfileFormField extends StatelessWidget {
   const ProfileFormField({
     super.key,
     required this.label,
+    this.controller,
     this.initialValue,
     this.hintText,
     this.maxLines = 1,
@@ -24,6 +25,8 @@ class ProfileFormField extends StatelessWidget {
   });
 
   final String label;
+  /// Quand fourni, prend la main sur [initialValue].
+  final TextEditingController? controller;
   final String? initialValue;
   final String? hintText;
   final int maxLines;
@@ -63,7 +66,8 @@ class ProfileFormField extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
-          initialValue: initialValue,
+          controller: controller,
+          initialValue: controller != null ? null : initialValue,
           maxLines: maxLines,
           keyboardType: keyboardType,
           enabled: enabled,

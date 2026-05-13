@@ -5,6 +5,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../widgets/parent_navigation_drawer.dart';
 
 /// Page "Paiements" — historique des paiements envoyés à l'assistante
 /// maternelle (via Pajemploi / CESU).
@@ -18,6 +19,7 @@ class PaymentsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const ParentNavigationDrawer(),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,16 +78,18 @@ class _Header extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppColors.primaryText,
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(
+                Icons.menu_rounded,
+                size: 28,
+                color: AppColors.primaryText,
+              ),
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Menu',
             ),
-            onPressed: () => Navigator.of(context).maybePop(),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Retour',
           ),
           Row(
             mainAxisSize: MainAxisSize.min,

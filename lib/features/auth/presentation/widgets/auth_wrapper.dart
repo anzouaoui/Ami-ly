@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_splash_screen.dart';
 import '../../../../shared/models/user_role.dart';
 import '../../../assmat/presentation/pages/assmat_shell.dart';
 import '../../../onboarding/presentation/pages/welcome_page.dart';
+import '../../../parent/presentation/pages/parent_onboarding_page.dart';
 import '../../../parent/presentation/pages/parent_shell.dart';
 import '../providers/auth_providers.dart';
 
@@ -36,11 +37,11 @@ class AuthWrapper extends ConsumerWidget {
         onRetry: () => ref.invalidate(currentUserProvider),
       ),
       data: (user) {
-        if (user == null) {
-          return const WelcomePage();
-        }
+        if (user == null) return const WelcomePage();
+
         switch (user.role) {
           case UserRole.parent:
+            if (!user.isProfileComplete) return const ParentOnboardingPage();
             return const ParentShell();
           case UserRole.assmat:
             return const AssMatShell();

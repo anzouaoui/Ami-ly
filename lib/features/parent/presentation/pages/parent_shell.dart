@@ -58,7 +58,7 @@ class _ParentBottomBar extends StatelessWidget {
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
-      selectedItemColor: AppColors.accent,
+      selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.secondaryText,
       selectedLabelStyle: AppTextStyles.labelSmall.copyWith(
         fontWeight: FontWeight.w600,

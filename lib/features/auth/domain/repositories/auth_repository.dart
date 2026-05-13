@@ -23,10 +23,19 @@ abstract class AuthRepository {
     required String email,
     required String password,
     required UserRole role,
-    String? displayName,
+    String? firstName,
+    String? lastName,
   });
 
   Future<Either<Failure, Unit>> sendPasswordResetEmail(String email);
+
+  /// Complète le profil parent après l'inscription et passe
+  /// `isProfileComplete` à `true` dans `users/{uid}`.
+  Future<Either<Failure, Unit>> completeParentOnboarding({
+    required String uid,
+    required String address,
+    String familyDescription = '',
+  });
 
   Future<Either<Failure, Unit>> signOut();
 }
