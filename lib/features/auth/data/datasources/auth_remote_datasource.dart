@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/errors/exceptions.dart';
@@ -138,6 +139,8 @@ class AuthRemoteDataSource {
     required String address,
     required String familyDescription,
     required bool searchPaused,
+    GeoPoint? location,
+    bool clearLocation = false,
   }) async {
     try {
       await _firebase.parentDoc(uid).update({
@@ -147,6 +150,10 @@ class AuthRemoteDataSource {
         'address': address,
         'familyDescription': familyDescription,
         'searchPaused': searchPaused,
+        if (clearLocation)
+          'location': FieldValue.delete()
+        else if (location != null)
+          'location': location,
         'updatedAt': DateTime.now(),
       });
     } on FirebaseException catch (e) {
@@ -180,6 +187,10 @@ class AuthRemoteDataSource {
     required bool isSearchable,
     required int maxChildren,
     required int availableSlots,
+    GeoPoint? location,
+    bool clearLocation = false,
+    DateTime? availableFrom,
+    bool clearAvailableFrom = false,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -190,6 +201,14 @@ class AuthRemoteDataSource {
         'isSearchable': isSearchable,
         'maxChildren': maxChildren,
         'availableSlots': availableSlots,
+        if (clearLocation)
+          'location': FieldValue.delete()
+        else if (location != null)
+          'location': location,
+        if (clearAvailableFrom)
+          'availableFrom': FieldValue.delete()
+        else if (availableFrom != null)
+          'availableFrom': Timestamp.fromDate(availableFrom),
         'updatedAt': DateTime.now(),
       });
     } on FirebaseException catch (e) {

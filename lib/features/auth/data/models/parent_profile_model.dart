@@ -15,6 +15,7 @@ class ParentProfileModel {
     this.familyDescription = '',
     this.searchPaused = false,
     this.subscriptionPlan = 'free',
+    this.location,
     this.updatedAt,
   });
 
@@ -28,6 +29,10 @@ class ParentProfileModel {
 
   /// `'free'` | `'pro'`
   final String subscriptionPlan;
+
+  /// Coordonnées géographiques de l'adresse (stockées lors de la sélection
+  /// via l'autocomplétion BAN). Null si l'adresse n'a jamais été géocodée.
+  final GeoPoint? location;
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -47,6 +52,7 @@ class ParentProfileModel {
       familyDescription: data['familyDescription'] as String? ?? '',
       searchPaused: data['searchPaused'] as bool? ?? false,
       subscriptionPlan: data['subscriptionPlan'] as String? ?? 'free',
+      location: data['location'] as GeoPoint?,
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -61,6 +67,7 @@ class ParentProfileModel {
         'familyDescription': familyDescription,
         'searchPaused': searchPaused,
         'subscriptionPlan': subscriptionPlan,
+        if (location != null) 'location': location,
         'createdAt': Timestamp.fromDate(createdAt),
         if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
       };
@@ -88,7 +95,9 @@ class ParentProfileModel {
     String? familyDescription,
     bool? searchPaused,
     String? subscriptionPlan,
+    GeoPoint? location,
     DateTime? updatedAt,
+    bool clearLocation = false,
   }) =>
       ParentProfileModel(
         uid: uid,
@@ -100,6 +109,7 @@ class ParentProfileModel {
         familyDescription: familyDescription ?? this.familyDescription,
         searchPaused: searchPaused ?? this.searchPaused,
         subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+        location: clearLocation ? null : (location ?? this.location),
         updatedAt: updatedAt ?? this.updatedAt,
       );
 }

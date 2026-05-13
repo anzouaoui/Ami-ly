@@ -20,6 +20,8 @@ class AssmatProfileModel {
     this.availableSlots = 0,
     this.isSearchable = true,
     this.subscriptionPlan = 'free',
+    this.location,
+    this.availableFrom,
     this.updatedAt,
   });
 
@@ -49,6 +51,13 @@ class AssmatProfileModel {
   /// `'free'` | `'pro'`
   final String subscriptionPlan;
 
+  /// Coordonnées géographiques de l'adresse (stockées lors de la sélection
+  /// via l'autocomplétion BAN). Null si l'adresse n'a jamais été géocodée.
+  final GeoPoint? location;
+
+  /// Date à partir de laquelle l'assmat est disponible.
+  final DateTime? availableFrom;
+
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -72,6 +81,8 @@ class AssmatProfileModel {
       availableSlots: data['availableSlots'] as int? ?? 0,
       isSearchable: data['isSearchable'] as bool? ?? true,
       subscriptionPlan: data['subscriptionPlan'] as String? ?? 'free',
+      location: data['location'] as GeoPoint?,
+      availableFrom: (data['availableFrom'] as Timestamp?)?.toDate(),
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -91,6 +102,9 @@ class AssmatProfileModel {
         'availableSlots': availableSlots,
         'isSearchable': isSearchable,
         'subscriptionPlan': subscriptionPlan,
+        if (location != null) 'location': location,
+        if (availableFrom != null)
+          'availableFrom': Timestamp.fromDate(availableFrom!),
         'createdAt': Timestamp.fromDate(createdAt),
         if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
       };
@@ -123,7 +137,11 @@ class AssmatProfileModel {
     int? availableSlots,
     bool? isSearchable,
     String? subscriptionPlan,
+    GeoPoint? location,
+    DateTime? availableFrom,
     DateTime? updatedAt,
+    bool clearLocation = false,
+    bool clearAvailableFrom = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -140,6 +158,10 @@ class AssmatProfileModel {
         availableSlots: availableSlots ?? this.availableSlots,
         isSearchable: isSearchable ?? this.isSearchable,
         subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+        location: clearLocation ? null : (location ?? this.location),
+        availableFrom: clearAvailableFrom
+            ? null
+            : (availableFrom ?? this.availableFrom),
         updatedAt: updatedAt ?? this.updatedAt,
       );
 }
