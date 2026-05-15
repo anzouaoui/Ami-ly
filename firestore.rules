@@ -38,6 +38,13 @@ service cloud.firestore {
         allow read:  if isAuth();
         allow write: if isAuth() && isOwner(uid);
       }
+
+      // ── parents/{uid}/favorites/{assmatUid} ───────────────────────────────
+      // Assmats mises en favori par ce parent.
+      //   Lecture/Écriture : uniquement le propriétaire.
+      match /favorites/{assmatUid} {
+        allow read, write: if isAuth() && isOwner(uid);
+      }
     }
 
     // ── assmats/{uid} ────────────────────────────────────────────────────────

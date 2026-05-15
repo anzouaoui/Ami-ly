@@ -36,7 +36,7 @@ class ChildminderSummary {
 ///
 /// Layout :
 ///   - Avatar initiales pêche en haut à gauche
-///   - Nom + localisation + distance
+///   - Nom + localisation + distance + icône favori en haut à droite
 ///   - Grille 2x2 de pastilles : cert / expérience / places / date
 ///   - "Voir le profil →" en bas (primary, CTA)
 class ChildminderCard extends StatelessWidget {
@@ -44,10 +44,14 @@ class ChildminderCard extends StatelessWidget {
     super.key,
     required this.data,
     required this.onTap,
+    this.isFavorite = false,
+    this.onToggleFavorite,
   });
 
   final ChildminderSummary data;
   final VoidCallback onTap;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +71,7 @@ class ChildminderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header : avatar + nom + loc
+              // Header : avatar + nom + loc + favori
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -101,6 +105,23 @@ class ChildminderCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (onToggleFavorite != null)
+                    GestureDetector(
+                      onTap: onToggleFavorite,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: AppSpacing.sm),
+                        child: Icon(
+                          isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: 22,
+                          color: isFavorite
+                              ? Colors.redAccent
+                              : AppColors.secondaryText,
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),

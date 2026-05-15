@@ -11,6 +11,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
 import '../widgets/filter_checkbox_tile.dart';
 import '../widgets/filter_section_title.dart';
@@ -52,6 +53,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   DateTime? _dateTo;
 
   bool _showAdvancedFilters = true;
+
+  // ── Favoris ────────────────────────────────────────────────────────────────
+  bool _onlyFavorites = false;
 
   // ── Tri ────────────────────────────────────────────────────────────────────
   _SortOrder _sortOrder = _SortOrder.pertinence;
@@ -101,6 +105,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         h +
         (_onlyAvailable ? 1 : 0) +
         (_dateFrom != null ? 1 : 0) +
+        (_onlyFavorites ? 1 : 0) +
         (_childAgeMonths > 0 ? 1 : 0);
   }
 
@@ -122,8 +127,12 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     List<AssmatProfileModel> all,
     double? parentLat,
     double? parentLon,
+    Set<String> favoriteIds,
   ) {
     return all.where((a) {
+      // Filtre favoris uniquement.
+      if (_onlyFavorites && !favoriteIds.contains(a.uid)) return false;
+
       // Filtre texte sur prénom, nom, adresse.
       if (_searchQuery.isNotEmpty) {
         final fullName = '${a.firstName} ${a.lastName}'.toLowerCase();
@@ -356,6 +365,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   Widget build(BuildContext context) {
     final asyncAssmats = ref.watch(searchableAssmatsProvider);
     final parentProfile = ref.watch(parentProfileProvider).valueOrNull;
+    final favoriteIds = ref.watch(favoriteIdsProvider).valueOrNull ?? {};
     // Coordonnées : profil sauvegardé en priorité, GPS en fallback.
     final parentLat = parentProfile?.location?.latitude ?? _gpsPosition?.latitude;
     final parentLon = parentProfile?.location?.longitude ?? _gpsPosition?.longitude;
@@ -414,7 +424,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                   ),
                 ),
                 data: (all) {
-                  final filtered = _applyFilters(all, parentLat, parentLon);
+                  final filtered = _applyFilters(all, parentLat, parentLon, favoriteIds);
                   final sorted = _sortResults(filtered, parentLat, parentLon);
                   final results = sorted
                       .map((a) => _toSummary(a, parentLat, parentLon))
@@ -433,6 +443,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                         current: _sortOrder,
                         locationAvailable: hasLocation,
                         onChanged: (o) => setState(() => _sortOrder = o),
+                        onlyFavorites: _onlyFavorites,
+                        onToggleFavorites: () =>
+                            setState(() => _onlyFavorites = !_onlyFavorites),
                       ),
                       if (results.isEmpty)
                         _EmptyState(hasQuery: _searchQuery.isNotEmpty)
@@ -446,6 +459,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                               for (final r in results) ...[
                                 ChildminderCard(
                                   data: r,
+                                  isFavorite: favoriteIds.contains(r.uid),
+                                  onToggleFavorite: () =>
+                                      toggleFavoriteWithFeedback(ref, r.uid, context),
                                   onTap: () =>
                                       Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -950,11 +966,15 @@ class _SortBar extends StatelessWidget {
     required this.current,
     required this.locationAvailable,
     required this.onChanged,
+    required this.onlyFavorites,
+    required this.onToggleFavorites,
   });
 
   final _SortOrder current;
   final bool locationAvailable;
   final ValueChanged<_SortOrder> onChanged;
+  final bool onlyFavorites;
+  final VoidCallback onToggleFavorites;
 
   static const _options = [
     (order: _SortOrder.pertinence, label: 'Pertinence', icon: Icons.sort_rounded),
@@ -972,6 +992,17 @@ class _SortBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            // Chip favoris — toujours en tête de liste
+            _SortChip(
+              label: 'Mes favoris',
+              icon: onlyFavorites
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              selected: onlyFavorites,
+              enabled: true,
+              onTap: onToggleFavorites,
+            ),
+            const SizedBox(width: AppSpacing.sm),
             for (final opt in _options) ...[
               _SortChip(
                 label: opt.label,
