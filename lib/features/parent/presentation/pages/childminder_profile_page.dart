@@ -7,6 +7,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
 
 // ─── Internal view-model ──────────────────────────────────────────────────────
@@ -63,12 +64,12 @@ class ChildminderProfilePage extends ConsumerStatefulWidget {
 
 class _ChildminderProfilePageState
     extends ConsumerState<ChildminderProfilePage> {
-  bool _isFavorite = false;
-
   @override
   Widget build(BuildContext context) {
     final asyncProfile =
         ref.watch(assmatProfileByUidProvider(widget.data.uid));
+    final favoriteIds = ref.watch(favoriteIdsProvider).valueOrNull ?? {};
+    final isFavorite = favoriteIds.contains(widget.data.uid);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -100,14 +101,13 @@ class _ChildminderProfilePageState
                     ),
                   ),
                   IconButton(
-                    onPressed: () =>
-                        setState(() => _isFavorite = !_isFavorite),
+                    onPressed: () => toggleFavoriteWithFeedback(ref, widget.data.uid, context),
                     icon: Icon(
-                      _isFavorite
+                      isFavorite
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
                       size: 22,
-                      color: _isFavorite
+                      color: isFavorite
                           ? Colors.redAccent
                           : AppColors.secondaryText,
                     ),

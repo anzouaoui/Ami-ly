@@ -79,6 +79,15 @@ class FirebaseService {
   DocumentReference<Map<String, dynamic>> childDoc(
           String parentUid, String childId) =>
       childrenCollection(parentUid).doc(childId);
+
+  /// Sous-collection `parents/{parentUid}/favorites` — assmats favorites.
+  CollectionReference<Map<String, dynamic>> favoritesCollection(
+          String parentUid) =>
+      parentDoc(parentUid).collection('favorites');
+
+  DocumentReference<Map<String, dynamic>> favoriteDoc(
+          String parentUid, String assmatUid) =>
+      favoritesCollection(parentUid).doc(assmatUid);
 }
 
 /// Provider Riverpod exposant le singleton [FirebaseService] à toute l'app.

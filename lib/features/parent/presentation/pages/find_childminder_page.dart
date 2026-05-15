@@ -11,12 +11,23 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
 import '../widgets/filter_checkbox_tile.dart';
 import '../widgets/filter_section_title.dart';
 import 'childminder_profile_page.dart';
 
 enum _SortOrder { pertinence, distance, places, date }
+
+/// Formate un nombre de mois en label lisible (ex : "18 mois", "2 ans", "2 ans 6 mois").
+String _ageLabel(int months) {
+  if (months == 0) return 'Pas de filtre';
+  if (months < 12) return '$months mois';
+  final years = months ~/ 12;
+  final rem = months % 12;
+  if (rem == 0) return '$years an${years > 1 ? 's' : ''}';
+  return '$years an${years > 1 ? 's' : ''} $rem mois';
+}
 
 /// Page "Trouver une assistante maternelle" — branchée sur Firestore.
 ///
@@ -43,8 +54,14 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
 
   bool _showAdvancedFilters = true;
 
+  // ── Favoris ────────────────────────────────────────────────────────────────
+  bool _onlyFavorites = false;
+
   // ── Tri ────────────────────────────────────────────────────────────────────
   _SortOrder _sortOrder = _SortOrder.pertinence;
+
+  // ── Tranche d'âge (0 = pas de filtre, valeur en mois) ─────────────────────
+  int _childAgeMonths = 0;
 
   // ── GPS ────────────────────────────────────────────────────────────────────
   Position? _gpsPosition;
@@ -87,7 +104,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     return s +
         h +
         (_onlyAvailable ? 1 : 0) +
-        (_dateFrom != null ? 1 : 0);
+        (_dateFrom != null ? 1 : 0) +
+        (_onlyFavorites ? 1 : 0) +
+        (_childAgeMonths > 0 ? 1 : 0);
   }
 
   /// Calcul de distance Haversine entre deux points (en km).
@@ -108,8 +127,12 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     List<AssmatProfileModel> all,
     double? parentLat,
     double? parentLon,
+    Set<String> favoriteIds,
   ) {
     return all.where((a) {
+      // Filtre favoris uniquement.
+      if (_onlyFavorites && !favoriteIds.contains(a.uid)) return false;
+
       // Filtre texte sur prénom, nom, adresse.
       if (_searchQuery.isNotEmpty) {
         final fullName = '${a.firstName} ${a.lastName}'.toLowerCase();
@@ -347,6 +370,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   Widget build(BuildContext context) {
     final asyncAssmats = ref.watch(searchableAssmatsProvider);
     final parentProfile = ref.watch(parentProfileProvider).valueOrNull;
+    final favoriteIds = ref.watch(favoriteIdsProvider).valueOrNull ?? {};
     // Coordonnées : profil sauvegardé en priorité, GPS en fallback.
     final parentLat = parentProfile?.location?.latitude ?? _gpsPosition?.latitude;
     final parentLon = parentProfile?.location?.longitude ?? _gpsPosition?.longitude;
@@ -386,6 +410,8 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                 dateTo: _dateTo,
                 onPickFrom: () => _pickDate(isFrom: true),
                 onPickTo: () => _pickDate(isFrom: false),
+                childAgeMonths: _childAgeMonths,
+                onChildAgeChanged: (v) => setState(() => _childAgeMonths = v),
               ),
 
               // ── Résultats ──────────────────────────────────────────────────
@@ -403,7 +429,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                   ),
                 ),
                 data: (all) {
-                  final filtered = _applyFilters(all, parentLat, parentLon);
+                  final filtered = _applyFilters(all, parentLat, parentLon, favoriteIds);
                   final sorted = _sortResults(filtered, parentLat, parentLon);
                   final results = sorted
                       .map((a) => _toSummary(a, parentLat, parentLon))
@@ -422,6 +448,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                         current: _sortOrder,
                         locationAvailable: hasLocation,
                         onChanged: (o) => setState(() => _sortOrder = o),
+                        onlyFavorites: _onlyFavorites,
+                        onToggleFavorites: () =>
+                            setState(() => _onlyFavorites = !_onlyFavorites),
                       ),
                       if (results.isEmpty)
                         _EmptyState(hasQuery: _searchQuery.isNotEmpty)
@@ -435,6 +464,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                               for (final r in results) ...[
                                 ChildminderCard(
                                   data: r,
+                                  isFavorite: favoriteIds.contains(r.uid),
+                                  onToggleFavorite: () =>
+                                      toggleFavoriteWithFeedback(ref, r.uid, context),
                                   onTap: () =>
                                       Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -632,6 +664,8 @@ class _FilterCard extends StatelessWidget {
     required this.onClearGps,
     required this.onPickFrom,
     required this.onPickTo,
+    required this.childAgeMonths,
+    required this.onChildAgeChanged,
     this.dateFrom,
     this.dateTo,
   });
@@ -656,6 +690,8 @@ class _FilterCard extends StatelessWidget {
   final DateTime? dateTo;
   final VoidCallback onPickFrom;
   final VoidCallback onPickTo;
+  final int childAgeMonths;
+  final ValueChanged<int> onChildAgeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -792,6 +828,50 @@ class _FilterCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
 
+          // Âge de l'enfant
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const FilterSectionTitle(
+                icon: Icons.child_friendly_rounded,
+                title: "Âge de l'enfant",
+              ),
+              Text(
+                _ageLabel(childAgeMonths),
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: childAgeMonths > 0
+                      ? AppColors.primary
+                      : AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: childAgeMonths.toDouble(),
+            min: 0,
+            max: 72,
+            divisions: 72,
+            onChanged: (v) => onChildAgeChanged(v.round()),
+            activeColor: childAgeMonths > 0
+                ? AppColors.primary
+                : AppColors.secondaryText,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Naissance',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+              Text('3 ans',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+              Text('6 ans',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
           // Places disponibles
           InkWell(
             onTap: () => onOnlyAvailableChanged(!onlyAvailable),
@@ -891,11 +971,15 @@ class _SortBar extends StatelessWidget {
     required this.current,
     required this.locationAvailable,
     required this.onChanged,
+    required this.onlyFavorites,
+    required this.onToggleFavorites,
   });
 
   final _SortOrder current;
   final bool locationAvailable;
   final ValueChanged<_SortOrder> onChanged;
+  final bool onlyFavorites;
+  final VoidCallback onToggleFavorites;
 
   static const _options = [
     (order: _SortOrder.pertinence, label: 'Pertinence', icon: Icons.sort_rounded),
@@ -913,6 +997,17 @@ class _SortBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            // Chip favoris — toujours en tête de liste
+            _SortChip(
+              label: 'Mes favoris',
+              icon: onlyFavorites
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              selected: onlyFavorites,
+              enabled: true,
+              onTap: onToggleFavorites,
+            ),
+            const SizedBox(width: AppSpacing.sm),
             for (final opt in _options) ...[
               _SortChip(
                 label: opt.label,
