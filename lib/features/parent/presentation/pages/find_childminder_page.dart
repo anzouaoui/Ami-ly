@@ -19,6 +19,16 @@ import 'childminder_profile_page.dart';
 
 enum _SortOrder { pertinence, distance, places, date }
 
+/// Formate un nombre de mois en label lisible (ex : "18 mois", "2 ans", "2 ans 6 mois").
+String _ageLabel(int months) {
+  if (months == 0) return 'Pas de filtre';
+  if (months < 12) return '$months mois';
+  final years = months ~/ 12;
+  final rem = months % 12;
+  if (rem == 0) return '$years an${years > 1 ? 's' : ''}';
+  return '$years an${years > 1 ? 's' : ''} $rem mois';
+}
+
 /// Page "Trouver une assistante maternelle" — branchée sur Firestore.
 ///
 /// Source : [searchableAssmatsProvider] (assmats avec `isSearchable == true`).
@@ -49,6 +59,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
 
   // ── Tri ────────────────────────────────────────────────────────────────────
   _SortOrder _sortOrder = _SortOrder.pertinence;
+
+  // ── Tranche d'âge (0 = pas de filtre, valeur en mois) ─────────────────────
+  int _childAgeMonths = 0;
 
   // ── GPS ────────────────────────────────────────────────────────────────────
   Position? _gpsPosition;
@@ -92,7 +105,8 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         h +
         (_onlyAvailable ? 1 : 0) +
         (_dateFrom != null ? 1 : 0) +
-        (_onlyFavorites ? 1 : 0);
+        (_onlyFavorites ? 1 : 0) +
+        (_childAgeMonths > 0 ? 1 : 0);
   }
 
   /// Calcul de distance Haversine entre deux points (en km).
@@ -147,6 +161,15 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
       if (_dateFrom != null && a.availableFrom != null) {
         // L'assmat doit être disponible ≤ la date souhaitée par le parent.
         if (a.availableFrom!.isAfter(_dateFrom!)) return false;
+      }
+
+      // Filtre tranche d'âge — ignoré si le parent n'a pas sélectionné d'âge
+      // ou si l'assmat n'a pas renseigné sa tranche (ageGroupMax <= ageGroupMin).
+      if (_childAgeMonths > 0 && a.ageGroupMax > a.ageGroupMin) {
+        if (_childAgeMonths < a.ageGroupMin ||
+            _childAgeMonths > a.ageGroupMax) {
+          return false;
+        }
       }
 
       return true;
@@ -382,6 +405,8 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                 dateTo: _dateTo,
                 onPickFrom: () => _pickDate(isFrom: true),
                 onPickTo: () => _pickDate(isFrom: false),
+                childAgeMonths: _childAgeMonths,
+                onChildAgeChanged: (v) => setState(() => _childAgeMonths = v),
               ),
 
               // ── Résultats ──────────────────────────────────────────────────
@@ -634,6 +659,8 @@ class _FilterCard extends StatelessWidget {
     required this.onClearGps,
     required this.onPickFrom,
     required this.onPickTo,
+    required this.childAgeMonths,
+    required this.onChildAgeChanged,
     this.dateFrom,
     this.dateTo,
   });
@@ -658,6 +685,8 @@ class _FilterCard extends StatelessWidget {
   final DateTime? dateTo;
   final VoidCallback onPickFrom;
   final VoidCallback onPickTo;
+  final int childAgeMonths;
+  final ValueChanged<int> onChildAgeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -790,6 +819,50 @@ class _FilterCard extends StatelessWidget {
                     date: dateTo,
                     onTap: onPickTo),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Âge de l'enfant
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const FilterSectionTitle(
+                icon: Icons.child_friendly_rounded,
+                title: "Âge de l'enfant",
+              ),
+              Text(
+                _ageLabel(childAgeMonths),
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: childAgeMonths > 0
+                      ? AppColors.primary
+                      : AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: childAgeMonths.toDouble(),
+            min: 0,
+            max: 72,
+            divisions: 72,
+            onChanged: (v) => onChildAgeChanged(v.round()),
+            activeColor: childAgeMonths > 0
+                ? AppColors.primary
+                : AppColors.secondaryText,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Naissance',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+              Text('3 ans',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
+              Text('6 ans',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.secondaryText)),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
