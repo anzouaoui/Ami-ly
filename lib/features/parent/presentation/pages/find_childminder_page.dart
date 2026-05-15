@@ -436,7 +436,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
                                   data: r,
                                   isFavorite: favoriteIds.contains(r.uid),
                                   onToggleFavorite: () =>
-                                      toggleFavorite(ref, r.uid),
+                                      toggleFavoriteWithFeedback(ref, r.uid, context),
                                   onTap: () =>
                                       Navigator.of(context).push(
                                     MaterialPageRoute(

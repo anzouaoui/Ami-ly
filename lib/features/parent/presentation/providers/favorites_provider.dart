@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/firebase_service.dart';
@@ -19,6 +20,7 @@ final favoriteIdsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
 
 /// Bascule le statut favori d'une assmat pour le parent connecté.
 ///
+/// Lance une exception si l'écriture Firestore échoue — à capturer à l'appelant.
 /// Retourne silencieusement si le parent n'est pas authentifié.
 Future<void> toggleFavorite(WidgetRef ref, String assmatUid) async {
   final uid = ref.read(currentUserProvider).valueOrNull?.uid;
@@ -29,5 +31,24 @@ Future<void> toggleFavorite(WidgetRef ref, String assmatUid) async {
     await ds.removeFavorite(uid, assmatUid);
   } else {
     await ds.addFavorite(uid, assmatUid);
+  }
+}
+
+/// Variante de [toggleFavorite] avec affichage d'un [SnackBar] en cas d'erreur.
+Future<void> toggleFavoriteWithFeedback(
+  WidgetRef ref,
+  String assmatUid,
+  BuildContext context,
+) async {
+  try {
+    await toggleFavorite(ref, assmatUid);
+  } catch (e) {
+    debugPrint('[Favorites] toggleFavorite error: $e');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Impossible de modifier les favoris.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 }

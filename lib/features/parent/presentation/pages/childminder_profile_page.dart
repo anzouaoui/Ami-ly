@@ -101,7 +101,7 @@ class _ChildminderProfilePageState
                     ),
                   ),
                   IconButton(
-                    onPressed: () => toggleFavorite(ref, widget.data.uid),
+                    onPressed: () => toggleFavoriteWithFeedback(ref, widget.data.uid, context),
                     icon: Icon(
                       isFavorite
                           ? Icons.favorite_rounded
