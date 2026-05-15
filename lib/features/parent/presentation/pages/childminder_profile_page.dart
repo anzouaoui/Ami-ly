@@ -9,6 +9,7 @@ import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
+import 'parent_chat_page.dart';
 
 // ─── Internal view-model ──────────────────────────────────────────────────────
 
@@ -161,11 +162,12 @@ class _ChildminderProfilePageState
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Messagerie — à venir'),
-                          behavior: SnackBarBehavior.floating,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ParentChatPage(
+                            assmatUid: widget.data.uid,
+                            assmatName: widget.data.name,
+                          ),
                         ),
                       ),
                       icon: const Icon(Icons.chat_bubble_outline_rounded,

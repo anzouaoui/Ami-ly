@@ -88,6 +88,18 @@ class FirebaseService {
   DocumentReference<Map<String, dynamic>> favoriteDoc(
           String parentUid, String assmatUid) =>
       favoritesCollection(parentUid).doc(assmatUid);
+
+  /// Collection `conversations/{convId}` — conversations parent ↔ assmat.
+  /// L'ID de conversation est déterministe : `${parentUid}_${assmatUid}`.
+  CollectionReference<Map<String, dynamic>> get conversationsCollection =>
+      firestore.collection('conversations');
+
+  DocumentReference<Map<String, dynamic>> conversationDoc(String convId) =>
+      conversationsCollection.doc(convId);
+
+  /// Sous-collection `conversations/{convId}/messages` — messages du fil.
+  CollectionReference<Map<String, dynamic>> messagesCollection(String convId) =>
+      conversationDoc(convId).collection('messages');
 }
 
 /// Provider Riverpod exposant le singleton [FirebaseService] à toute l'app.

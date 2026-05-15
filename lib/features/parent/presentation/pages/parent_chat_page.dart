@@ -5,42 +5,40 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../shared/models/message_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
+import '../../../../shared/models/message_model.dart';
 
-// ─── Model ────────────────────────────────────────────────────────────────────
-
-class ChatContact {
-  const ChatContact({required this.name, required this.initials});
-  final String name;
-  final String initials;
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-class AssMatChatPage extends ConsumerStatefulWidget {
-  const AssMatChatPage({
+/// Page de chat côté parent — fil de messages avec une assmat donnée.
+///
+/// Si la conversation n'existe pas encore, elle est créée automatiquement
+/// lors du premier envoi (via [MessagingDatasource.getOrCreateConversation]).
+class ParentChatPage extends ConsumerStatefulWidget {
+  const ParentChatPage({
     super.key,
-    required this.contact,
-    required this.conversationId,
+    required this.assmatUid,
+    required this.assmatName,
   });
 
-  final ChatContact contact;
-  final String conversationId;
+  final String assmatUid;
+  final String assmatName;
 
   @override
-  ConsumerState<AssMatChatPage> createState() => _AssMatChatPageState();
+  ConsumerState<ParentChatPage> createState() => _ParentChatPageState();
 }
 
-class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
+class _ParentChatPageState extends ConsumerState<ParentChatPage> {
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+
+  /// Null tant que la conversation n'est pas encore créée/récupérée.
+  String? _convId;
 
   @override
   void initState() {
     super.initState();
-    _markRead();
+    _initConversation();
   }
 
   @override
@@ -50,26 +48,43 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
     super.dispose();
   }
 
-  Future<void> _markRead() async {
-    await ref.read(messagingDatasourceProvider).markAsRead(
-          convId: widget.conversationId,
-          readerIsParent: false,
-        );
+  Future<void> _initConversation() async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final parentProfile = ref.read(parentProfileProvider).valueOrNull;
+    final parentName = parentProfile != null
+        ? '${parentProfile.firstName} ${parentProfile.lastName}'.trim()
+        : currentUser.displayName ?? 'Parent';
+
+    final datasource = ref.read(messagingDatasourceProvider);
+    final convId = await datasource.getOrCreateConversation(
+      parentUid: currentUser.uid,
+      assmatUid: widget.assmatUid,
+      parentName: parentName,
+      assmatName: widget.assmatName,
+    );
+
+    if (!mounted) return;
+    setState(() => _convId = convId);
+
+    // Marque les messages comme lus à l'ouverture
+    await datasource.markAsRead(convId: convId, readerIsParent: true);
   }
 
   Future<void> _send() async {
     final text = _msgCtrl.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _convId == null) return;
 
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
 
     _msgCtrl.clear();
     await ref.read(messagingDatasourceProvider).sendMessage(
-          convId: widget.conversationId,
+          convId: _convId!,
           senderUid: currentUser.uid,
           text: text,
-          senderIsParent: false,
+          senderIsParent: true,
         );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,12 +103,19 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final myUid = currentUser?.uid ?? '';
 
+    final initials = widget.assmatName
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ───────────────────────────────────────────────────
+            // ── Header ──────────────────────────────────────────────────
             Container(
               color: AppColors.surface,
               padding: const EdgeInsets.symmetric(
@@ -111,7 +133,7 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                     backgroundColor:
                         AppColors.primary.withValues(alpha: 0.12),
                     child: Text(
-                      widget.contact.initials,
+                      initials,
                       style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700),
@@ -120,7 +142,7 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      widget.contact.name,
+                      widget.assmatName,
                       style: AppTextStyles.bodyMedium
                           .copyWith(fontWeight: FontWeight.w700),
                     ),
@@ -130,75 +152,43 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
             ),
             const Divider(height: 1),
 
-            // ── Page title ────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Messages',
-                        style: AppTextStyles.titleLarge.copyWith(
-                            fontWeight: FontWeight.w800, fontSize: 26)),
-                    Text('Communication sécurisée avec les parents',
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.secondaryText)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-
-            // ── Bubble list ───────────────────────────────────────────────
+            // ── Messages ─────────────────────────────────────────────────
             Expanded(
-              child: ref
-                  .watch(messagesProvider(widget.conversationId))
-                  .when(
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Center(
-                      child: Text(
-                        'Erreur de chargement\n$e',
-                        style: AppTextStyles.bodySmall
-                            .copyWith(color: AppColors.error),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    data: (messages) {
-                      if (messages.isEmpty) {
-                        return Center(
+              child: _convId == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : ref.watch(messagesProvider(_convId!)).when(
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Center(
                           child: Text(
-                            'Aucun message pour l\'instant.',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.secondaryText),
+                            'Erreur de chargement\n$e',
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.error),
+                            textAlign: TextAlign.center,
                           ),
-                        );
-                      }
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (_scrollCtrl.hasClients) {
-                          _scrollCtrl
-                              .jumpTo(_scrollCtrl.position.maxScrollExtent);
-                        }
-                      });
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(AppRadii.md),
-                            topRight: Radius.circular(AppRadii.md),
-                          ),
-                          border: Border.all(color: AppColors.divider),
                         ),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(AppRadii.md),
-                            topRight: Radius.circular(AppRadii.md),
-                          ),
-                          child: ListView.builder(
+                        data: (messages) {
+                          if (messages.isEmpty) {
+                            return Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.all(AppSpacing.xl),
+                                child: Text(
+                                  'Envoyez votre premier message\nà ${widget.assmatName} !',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                      color: AppColors.secondaryText),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_scrollCtrl.hasClients) {
+                              _scrollCtrl.jumpTo(
+                                  _scrollCtrl.position.maxScrollExtent);
+                            }
+                          });
+                          return ListView.builder(
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.all(AppSpacing.md),
                             itemCount: messages.length,
@@ -206,17 +196,16 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                               msg: messages[i],
                               isMe: messages[i].senderUid == myUid,
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
             ),
 
             // ── Input bar ────────────────────────────────────────────────
             Container(
               color: AppColors.surface,
-              padding: const EdgeInsets.all(AppSpacing.sm),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
               child: Row(
                 children: [
                   Expanded(
@@ -234,15 +223,18 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 10),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadii.full),
+                          borderRadius:
+                              BorderRadius.circular(AppRadii.full),
                           borderSide: BorderSide.none,
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadii.full),
+                          borderRadius:
+                              BorderRadius.circular(AppRadii.full),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadii.full),
+                          borderRadius:
+                              BorderRadius.circular(AppRadii.full),
                           borderSide: const BorderSide(
                               color: AppColors.primary, width: 1.5),
                         ),
@@ -273,7 +265,7 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
   }
 }
 
-// ─── Bubble tile ──────────────────────────────────────────────────────────────
+// ─── Bubble ───────────────────────────────────────────────────────────────────
 
 class _BubbleTile extends StatelessWidget {
   const _BubbleTile({required this.msg, required this.isMe});
@@ -321,27 +313,10 @@ class _BubbleTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      time,
-                      style: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.hint, fontSize: 10),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 3),
-                      Icon(
-                        msg.isRead
-                            ? Icons.done_all_rounded
-                            : Icons.done_rounded,
-                        size: 13,
-                        color: msg.isRead
-                            ? AppColors.primary
-                            : AppColors.secondaryText,
-                      ),
-                    ],
-                  ],
+                Text(
+                  time,
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.hint, fontSize: 10),
                 ),
               ],
             ),
@@ -355,7 +330,9 @@ class _BubbleTile extends StatelessWidget {
     final now = DateTime.now();
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
-    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+    if (dt.year == now.year &&
+        dt.month == now.month &&
+        dt.day == now.day) {
       return '$h:$m';
     }
     final yesterday = now.subtract(const Duration(days: 1));
