@@ -45,6 +45,24 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   bool _locationCleared = false;
   DateTime _availableFrom = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
+  // ── Services & horaires (wirés Firestore) ──────────────────────────────────
+  final Map<String, bool> _services = {
+    'Exerce en maison d\'assistants maternels': false,
+    'Peut accueillir des enfants en situation de handicap': false,
+    'Peut véhiculer les enfants': false,
+    'Peut fournir des produits d\'hygiène': false,
+    'Peut fournir les repas': false,
+  };
+
+  final Map<String, bool> _schedules = {
+    'Peut être flexible sur les horaires': false,
+    'Peut accueillir les enfants la nuit': false,
+    'Peut accueillir les enfants le week-end': false,
+    'Peut accueillir les enfants les jours fériés': false,
+    'Travaille pendant les vacances scolaires': false,
+    'Peut répondre aux accueils d\'urgence': false,
+  };
+
   // ── Cycle de vie ──────────────────────────────────────────────────────────
   bool _initialized = false;
   AssmatProfileModel? _loadedProfile;
@@ -78,6 +96,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _locationCleared = false;
     if (profile.availableFrom != null) {
       _availableFrom = profile.availableFrom!;
+    }
+    for (final key in _services.keys) {
+      _services[key] = profile.services.contains(key);
+    }
+    for (final key in _schedules.keys) {
+      _schedules[key] = profile.schedules.contains(key);
     }
     _initialized = true;
   }
@@ -117,6 +141,14 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             isSearchable: _isSearchable,
             maxChildren: savedMaxChildren,
             availableSlots: savedAvailableSlots,
+            services: _services.entries
+                .where((e) => e.value)
+                .map((e) => e.key)
+                .toList(),
+            schedules: _schedules.entries
+                .where((e) => e.value)
+                .map((e) => e.key)
+                .toList(),
             location: _location,
             clearLocation: _locationCleared,
             availableFrom: _isSearchable ? _availableFrom : null,
@@ -304,11 +336,23 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           const SizedBox(height: AppSpacing.lg),
 
           // ── Services proposés ──────────────────────────────────────────────
-          const _ServicesOfferedCard(),
+          _ChecklistCard(
+            icon: Icons.volunteer_activism_rounded,
+            title: 'Services proposés',
+            subtitle: 'Indiquez les services que vous proposez aux familles',
+            items: _services,
+            onChanged: (k, v) => setState(() => _services[k] = v),
+          ),
           const SizedBox(height: AppSpacing.lg),
 
           // ── Horaires & Flexibilité ─────────────────────────────────────────
-          const _FlexibilityCard(),
+          _ChecklistCard(
+            icon: Icons.access_time_rounded,
+            title: 'Horaires & Flexibilité',
+            subtitle: 'Précisez vos disponibilités horaires',
+            items: _schedules,
+            onChanged: (k, v) => setState(() => _schedules[k] = v),
+          ),
           const SizedBox(height: AppSpacing.lg),
 
           // ── Diplômes & Expérience ──────────────────────────────────────────
@@ -757,27 +801,22 @@ class _IconLabeledDropdown extends StatelessWidget {
   }
 }
 
-// ─── Cartes à checkboxes ──────────────────────────────────────────────────────
+// ─── Carte à checkboxes (wirée) ───────────────────────────────────────────────
 
-class _ChecklistCard extends StatefulWidget {
+class _ChecklistCard extends StatelessWidget {
   const _ChecklistCard({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.initialItems,
+    required this.items,
+    required this.onChanged,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final Map<String, bool> initialItems;
-
-  @override
-  State<_ChecklistCard> createState() => _ChecklistCardState();
-}
-
-class _ChecklistCardState extends State<_ChecklistCard> {
-  late final Map<String, bool> _items = Map.of(widget.initialItems);
+  final Map<String, bool> items;
+  final void Function(String key, bool value) onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -795,65 +834,24 @@ class _ChecklistCardState extends State<_ChecklistCard> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, color: AppColors.primary, size: 22),
+              Icon(icon, color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(widget.title, style: AppTextStyles.titleMedium),
+              Text(title, style: AppTextStyles.titleMedium),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(widget.subtitle,
+          Text(subtitle,
               style: AppTextStyles.bodyMedium
                   .copyWith(color: AppColors.secondaryText)),
           const SizedBox(height: AppSpacing.md),
-          for (final entry in _items.entries)
+          for (final entry in items.entries)
             FilterCheckboxTile(
               label: entry.key,
               value: entry.value,
-              onChanged: (v) => setState(() => _items[entry.key] = v),
+              onChanged: (v) => onChanged(entry.key, v),
             ),
         ],
       ),
-    );
-  }
-}
-
-class _ServicesOfferedCard extends StatelessWidget {
-  const _ServicesOfferedCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _ChecklistCard(
-      icon: Icons.volunteer_activism_rounded,
-      title: 'Services proposés',
-      subtitle: 'Indiquez les services que vous proposez aux familles',
-      initialItems: {
-        'Exerce en maison d\'assistants maternels': false,
-        'Peut accueillir des enfants en situation de handicap': true,
-        'Peut véhiculer les enfants': false,
-        'Peut fournir des produits d\'hygiène': true,
-        'Peut fournir les repas': true,
-      },
-    );
-  }
-}
-
-class _FlexibilityCard extends StatelessWidget {
-  const _FlexibilityCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _ChecklistCard(
-      icon: Icons.access_time_rounded,
-      title: 'Horaires & Flexibilité',
-      subtitle: 'Précisez vos disponibilités horaires',
-      initialItems: {
-        'Peut être flexible sur les horaires': true,
-        'Peut accueillir les enfants la nuit': false,
-        'Peut accueillir les enfants le week-end': false,
-        'Peut accueillir les enfants les jours fériés': false,
-        'Travaille pendant les vacances scolaires': true,
-        'Peut répondre aux accueils d\'urgence': false,
-      },
     );
   }
 }

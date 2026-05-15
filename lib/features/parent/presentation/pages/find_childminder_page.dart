@@ -140,6 +140,20 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         if (a.availableFrom!.isAfter(_dateFrom!)) return false;
       }
 
+      // Filtres services — ignorés si l'assmat n'a pas renseigné ses services.
+      if (a.services.isNotEmpty) {
+        for (final entry in _services.entries) {
+          if (entry.value && !a.services.contains(entry.key)) return false;
+        }
+      }
+
+      // Filtres horaires — ignorés si l'assmat n'a pas renseigné ses horaires.
+      if (a.schedules.isNotEmpty) {
+        for (final entry in _schedules.entries) {
+          if (entry.value && !a.schedules.contains(entry.key)) return false;
+        }
+      }
+
       return true;
     }).toList();
   }

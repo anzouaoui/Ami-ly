@@ -249,6 +249,12 @@ class _ProfileBody extends StatelessWidget {
 
             // Disponibilités (places)
             _SlotsCard(profile: profile),
+
+            // Services & horaires
+            if (profile.services.isNotEmpty || profile.schedules.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              _ServicesCard(profile: profile),
+            ],
           ],
         ),
       ),
@@ -606,6 +612,83 @@ class _GreenBadge extends StatelessWidget {
             style: AppTextStyles.bodySmall.copyWith(
                 color: color,
                 fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Services & horaires card ─────────────────────────────────────────────────
+
+class _ServicesCard extends StatelessWidget {
+  const _ServicesCard({required this.profile});
+  final AssmatProfileModel profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+            child: Row(
+              children: [
+                const Icon(Icons.volunteer_activism_rounded,
+                    size: 18, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Text('Services & horaires',
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          if (profile.services.isNotEmpty) ...[
+            for (final s in profile.services)
+              _ServiceRow(label: s, icon: Icons.check_circle_outline_rounded),
+          ],
+          if (profile.schedules.isNotEmpty) ...[
+            if (profile.services.isNotEmpty)
+              const Divider(height: 1, color: AppColors.divider),
+            for (final s in profile.schedules)
+              _ServiceRow(label: s, icon: Icons.schedule_rounded),
+          ],
+          const SizedBox(height: AppSpacing.xs),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceRow extends StatelessWidget {
+  const _ServiceRow({required this.label, required this.icon});
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 14, color: AppColors.primary),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(label,
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.primaryText)),
           ),
         ],
       ),

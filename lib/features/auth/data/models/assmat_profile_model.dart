@@ -20,6 +20,8 @@ class AssmatProfileModel {
     this.availableSlots = 0,
     this.isSearchable = true,
     this.subscriptionPlan = 'free',
+    this.services = const [],
+    this.schedules = const [],
     this.location,
     this.availableFrom,
     this.updatedAt,
@@ -51,6 +53,12 @@ class AssmatProfileModel {
   /// `'free'` | `'pro'`
   final String subscriptionPlan;
 
+  /// Services proposés (liste de clés identiques aux filtres parent).
+  final List<String> services;
+
+  /// Flexibilité horaire (liste de clés identiques aux filtres parent).
+  final List<String> schedules;
+
   /// Coordonnées géographiques de l'adresse (stockées lors de la sélection
   /// via l'autocomplétion BAN). Null si l'adresse n'a jamais été géocodée.
   final GeoPoint? location;
@@ -81,6 +89,8 @@ class AssmatProfileModel {
       availableSlots: data['availableSlots'] as int? ?? 0,
       isSearchable: data['isSearchable'] as bool? ?? true,
       subscriptionPlan: data['subscriptionPlan'] as String? ?? 'free',
+      services: List<String>.from(data['services'] as List? ?? []),
+      schedules: List<String>.from(data['schedules'] as List? ?? []),
       location: data['location'] as GeoPoint?,
       availableFrom: (data['availableFrom'] as Timestamp?)?.toDate(),
       createdAt:
@@ -102,6 +112,8 @@ class AssmatProfileModel {
         'availableSlots': availableSlots,
         'isSearchable': isSearchable,
         'subscriptionPlan': subscriptionPlan,
+        'services': services,
+        'schedules': schedules,
         if (location != null) 'location': location,
         if (availableFrom != null)
           'availableFrom': Timestamp.fromDate(availableFrom!),
@@ -137,6 +149,8 @@ class AssmatProfileModel {
     int? availableSlots,
     bool? isSearchable,
     String? subscriptionPlan,
+    List<String>? services,
+    List<String>? schedules,
     GeoPoint? location,
     DateTime? availableFrom,
     DateTime? updatedAt,
@@ -158,6 +172,8 @@ class AssmatProfileModel {
         availableSlots: availableSlots ?? this.availableSlots,
         isSearchable: isSearchable ?? this.isSearchable,
         subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+        services: services ?? this.services,
+        schedules: schedules ?? this.schedules,
         location: clearLocation ? null : (location ?? this.location),
         availableFrom: clearAvailableFrom
             ? null
