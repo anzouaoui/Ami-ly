@@ -163,12 +163,17 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         if (a.availableFrom!.isAfter(_dateFrom!)) return false;
       }
 
-      // Filtre tranche d'âge — ignoré si le parent n'a pas sélectionné d'âge
-      // ou si l'assmat n'a pas renseigné sa tranche (ageGroupMax <= ageGroupMin).
-      if (_childAgeMonths > 0 && a.ageGroupMax > a.ageGroupMin) {
-        if (_childAgeMonths < a.ageGroupMin ||
-            _childAgeMonths > a.ageGroupMax) {
-          return false;
+      // Filtres services — ignorés si l'assmat n'a pas renseigné ses services.
+      if (a.services.isNotEmpty) {
+        for (final entry in _services.entries) {
+          if (entry.value && !a.services.contains(entry.key)) return false;
+        }
+      }
+
+      // Filtres horaires — ignorés si l'assmat n'a pas renseigné ses horaires.
+      if (a.schedules.isNotEmpty) {
+        for (final entry in _schedules.entries) {
+          if (entry.value && !a.schedules.contains(entry.key)) return false;
         }
       }
 

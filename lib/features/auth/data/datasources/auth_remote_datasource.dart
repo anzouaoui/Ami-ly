@@ -187,6 +187,8 @@ class AuthRemoteDataSource {
     required bool isSearchable,
     required int maxChildren,
     required int availableSlots,
+    required List<String> services,
+    required List<String> schedules,
     GeoPoint? location,
     bool clearLocation = false,
     DateTime? availableFrom,
@@ -201,6 +203,8 @@ class AuthRemoteDataSource {
         'isSearchable': isSearchable,
         'maxChildren': maxChildren,
         'availableSlots': availableSlots,
+        'services': services,
+        'schedules': schedules,
         if (clearLocation)
           'location': FieldValue.delete()
         else if (location != null)
