@@ -35,6 +35,9 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
   /// Null tant que la conversation n'est pas encore créée/récupérée.
   String? _convId;
 
+  /// Message d'erreur si la création de conversation échoue.
+  String? _initError;
+
   @override
   void initState() {
     super.initState();
@@ -49,27 +52,34 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
   }
 
   Future<void> _initConversation() async {
-    final currentUser = ref.read(currentUserProvider).valueOrNull;
-    if (currentUser == null) return;
+    try {
+      final currentUser = ref.read(currentUserProvider).valueOrNull;
+      if (currentUser == null) return;
 
-    final parentProfile = ref.read(parentProfileProvider).valueOrNull;
-    final parentName = parentProfile != null
-        ? '${parentProfile.firstName} ${parentProfile.lastName}'.trim()
-        : currentUser.displayName ?? 'Parent';
+      final parentProfile = ref.read(parentProfileProvider).valueOrNull;
+      final parentName = parentProfile != null
+          ? '${parentProfile.firstName} ${parentProfile.lastName}'.trim()
+          : currentUser.displayName ?? 'Parent';
 
-    final datasource = ref.read(messagingDatasourceProvider);
-    final convId = await datasource.getOrCreateConversation(
-      parentUid: currentUser.uid,
-      assmatUid: widget.assmatUid,
-      parentName: parentName,
-      assmatName: widget.assmatName,
-    );
+      final datasource = ref.read(messagingDatasourceProvider);
+      final convId = await datasource.getOrCreateConversation(
+        parentUid: currentUser.uid,
+        assmatUid: widget.assmatUid,
+        parentName: parentName,
+        assmatName: widget.assmatName,
+      );
 
-    if (!mounted) return;
-    setState(() => _convId = convId);
+      if (!mounted) return;
+      setState(() => _convId = convId);
 
-    // Marque les messages comme lus à l'ouverture
-    await datasource.markAsRead(convId: convId, readerIsParent: true);
+      // Marque les messages comme lus à l'ouverture
+      await datasource.markAsRead(convId: convId, readerIsParent: true);
+    } catch (e) {
+      debugPrint('[Chat] _initConversation error: $e');
+      if (!mounted) return;
+      setState(() => _initError =
+          'Impossible d\'ouvrir la conversation.\nVérifiez votre connexion et réessayez.');
+    }
   }
 
   Future<void> _send() async {
@@ -152,10 +162,18 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
             ),
             const Divider(height: 1),
 
-            // ── Messages ─────────────────────────────────────────────────
+            // ── Messages ───────────────────────────────────────────────────────────
             Expanded(
-              child: _convId == null
-                  ? const Center(child: CircularProgressIndicator())
+              child: _initError != null
+                  ? _ErrorView(
+                      message: _initError!,
+                      onRetry: () {
+                        setState(() => _initError = null);
+                        _initConversation();
+                      },
+                    )
+                  : _convId == null
+                      ? const Center(child: CircularProgressIndicator())
                   : ref.watch(messagesProvider(_convId!)).when(
                         loading: () =>
                             const Center(child: CircularProgressIndicator()),

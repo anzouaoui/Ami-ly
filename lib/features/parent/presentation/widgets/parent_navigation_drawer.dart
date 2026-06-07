@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -274,6 +275,7 @@ class _ParentNavigationDrawerState
             _UserCard(
               displayName: ref.watch(currentUserProvider).valueOrNull?.displayName ?? 'Utilisateur',
               role: 'Parent',
+              photoUrl: ref.watch(parentProfileProvider).valueOrNull?.photoUrl,
             ),
             const SizedBox(height: 8),
           ],
@@ -417,12 +419,13 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-// ─── User card ────────────────────────────────────────────────────────────────
+// ─── User card ───────────────────────────────────────────────────────────────────
 
 class _UserCard extends StatelessWidget {
-  const _UserCard({required this.displayName, required this.role});
+  const _UserCard({required this.displayName, required this.role, this.photoUrl});
   final String displayName;
   final String role;
+  final String? photoUrl;
 
   String get _initials {
     final parts = displayName.trim().split(' ');
@@ -438,22 +441,7 @@ class _UserCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF5C6B8),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              _initials,
-              style: AppTextStyles.labelLarge.copyWith(
-                color: const Color(0xFF8B4A35),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          _buildAvatar(),
           const SizedBox(width: AppSpacing.sm),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,6 +462,40 @@ class _UserCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    const bg = Color(0xFFF5C6B8);
+    const fg = Color(0xFF8B4A35);
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _initialsWidget(bg, fg),
+          errorWidget: (_, __, ___) => _initialsWidget(bg, fg),
+        ),
+      );
+    }
+    return _initialsWidget(bg, fg);
+  }
+
+  Widget _initialsWidget(Color bg, Color fg) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Text(
+        _initials,
+        style: AppTextStyles.labelLarge.copyWith(
+          color: fg,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

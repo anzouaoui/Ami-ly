@@ -1,0 +1,24 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Refuse tout par défaut
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Photos de profil parent
+    match /parents/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Photos de profil assistante maternelle
+    match /assmats/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+  }
+}

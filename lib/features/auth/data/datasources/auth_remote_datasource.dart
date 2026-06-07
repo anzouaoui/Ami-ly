@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/services/firebase_service.dart';
@@ -161,6 +164,35 @@ class AuthRemoteDataSource {
     }
   }
 
+  /// Upload une image de profil parent dans Firebase Storage et retourne l'URL
+  /// de téléchargement publique.
+  Future<String> uploadParentPhoto(String uid, File imageFile) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('parents/$uid/profile_photo.jpg');
+      final task = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return await task.ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de l\'upload de la photo.');
+    }
+  }
+
+  /// Met à jour le champ `photoUrl` dans Firestore.
+  Future<void> updateParentPhotoUrl(String uid, String photoUrl) async {
+    try {
+      await _firebase.parentDoc(uid).update({
+        'photoUrl': photoUrl,
+        'updatedAt': DateTime.now(),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de la mise à jour de la photo.');
+    }
+  }
+
   Stream<AssmatProfileModel?> watchAssmatProfile(String uid) {
     return _firebase.assmatDoc(uid).snapshots().map((doc) {
       if (!doc.exists) return null;
@@ -218,6 +250,35 @@ class AuthRemoteDataSource {
     } on FirebaseException catch (e) {
       throw FirestoreException(
           e.message ?? 'Erreur lors de la mise à jour du profil.');
+    }
+  }
+
+  /// Upload une image de profil assmat dans Firebase Storage et retourne l'URL
+  /// de téléchargement publique.
+  Future<String> uploadAssmatPhoto(String uid, File imageFile) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('assmats/$uid/profile_photo.jpg');
+      final task = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return await task.ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de l\'upload de la photo.');
+    }
+  }
+
+  /// Met à jour le champ `photoUrl` dans le document assmat Firestore.
+  Future<void> updateAssmatPhotoUrl(String uid, String photoUrl) async {
+    try {
+      await _firebase.assmatDoc(uid).update({
+        'photoUrl': photoUrl,
+        'updatedAt': DateTime.now(),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Erreur lors de la mise à jour de la photo.');
     }
   }
 

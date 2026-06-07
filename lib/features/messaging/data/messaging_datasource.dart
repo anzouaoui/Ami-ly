@@ -37,6 +37,11 @@ class MessagingDatasource {
   }
 
   /// Retourne l'ID de conversation, en créant le document s'il n'existe pas.
+  ///
+  /// N'utilise pas de `get()` préalable pour éviter une erreur de règle Firestore
+  /// sur les documents inexistants (`resource == null`).
+  /// `mergeFields` garantit que les champs d'état (unreadAssmat, lastMessage…)
+  /// ne sont pas écrasés si la conversation existe déjà.
   Future<String> getOrCreateConversation({
     required String parentUid,
     required String assmatUid,
@@ -45,18 +50,33 @@ class MessagingDatasource {
   }) async {
     final convId = ConversationModel.buildId(parentUid, assmatUid);
     final ref = _firebase.conversationDoc(convId);
-    final snap = await ref.get();
-    if (!snap.exists) {
-      final model = ConversationModel(
-        id: convId,
-        parentUid: parentUid,
-        assmatUid: assmatUid,
-        parentName: parentName,
-        assmatName: assmatName,
-        createdAt: DateTime.now(),
-      );
-      await ref.set(model.toFirestore());
-    }
+
+    // Crée le document avec les champs de base s'il n'existe pas.
+    // SetOptions(mergeFields: ...) ne touche pas les champs d'état existants
+    // (lastMessage, lastMessageAt, unreadParent, unreadAssmat).
+    await ref.set(
+      {
+        'parentUid': parentUid,
+        'assmatUid': assmatUid,
+        'parentName': parentName,
+        'assmatName': assmatName,
+        'lastMessage': '',
+        'unreadParent': 0,
+        'unreadAssmat': 0,
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+      },
+      SetOptions(mergeFields: [
+        'parentUid',
+        'assmatUid',
+        'parentName',
+        'assmatName',
+        'createdAt',
+        'lastMessage',
+        'unreadParent',
+        'unreadAssmat',
+      ]),
+    );
+
     return convId;
   }
 

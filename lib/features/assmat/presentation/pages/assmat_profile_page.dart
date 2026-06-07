@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -67,6 +70,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   bool _initialized = false;
   AssmatProfileModel? _loadedProfile;
   bool _saving = false;
+  String? _photoUrl;
+  bool _uploadingPhoto = false;
 
   @override
   void dispose() {
@@ -94,6 +99,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _isSearchable = profile.isSearchable;
     _location = profile.location;
     _locationCleared = false;
+    _photoUrl = profile.photoUrl;
     if (profile.availableFrom != null) {
       _availableFrom = profile.availableFrom!;
     }
@@ -202,6 +208,84 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     );
   }
 
+  Future<void> _changePhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadAssmatPhoto(user.uid, File(picked.path));
+      await ds.updateAssmatPhotoUrl(user.uid, url);
+      if (mounted) {
+        setState(() => _photoUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo mise à jour'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -294,6 +378,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             phone: '',
             email: _emailCtrl.text,
             address: _addressCtrl.text,
+            photoUrl: _photoUrl,
+            uploadingPhoto: _uploadingPhoto,
             firstNameController: _firstNameCtrl,
             lastNameController: _lastNameCtrl,
             emailController: _emailCtrl,
@@ -301,7 +387,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             descriptionLabel: 'Description / Présentation',
             descriptionHint:
                 'Parlez-nous de votre expérience et de votre cadre d\'accueil…',
-            onChangePhoto: () => _stub('Changer la photo'),
+            onChangePhoto: _changePhoto,
             avatarBg: AppColors.secondary,
             avatarFg: AppColors.primary,
             addressWidget: AddressAutocompleteField(

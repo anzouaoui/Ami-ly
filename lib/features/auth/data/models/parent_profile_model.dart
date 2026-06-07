@@ -17,6 +17,7 @@ class ParentProfileModel {
     this.subscriptionPlan = 'free',
     this.location,
     this.updatedAt,
+    this.photoUrl,
   });
 
   final String uid;
@@ -37,6 +38,10 @@ class ParentProfileModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  /// URL de la photo de profil stockée dans Firebase Storage.
+  /// Null si l'utilisateur n'a pas encore défini de photo.
+  final String? photoUrl;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory ParentProfileModel.fromFirestore(
@@ -56,6 +61,7 @@ class ParentProfileModel {
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      photoUrl: data['photoUrl'] as String?,
     );
   }
 
@@ -70,6 +76,7 @@ class ParentProfileModel {
         if (location != null) 'location': location,
         'createdAt': Timestamp.fromDate(createdAt),
         if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
+        if (photoUrl != null) 'photoUrl': photoUrl,
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -98,6 +105,8 @@ class ParentProfileModel {
     GeoPoint? location,
     DateTime? updatedAt,
     bool clearLocation = false,
+    String? photoUrl,
+    bool clearPhotoUrl = false,
   }) =>
       ParentProfileModel(
         uid: uid,
@@ -111,5 +120,6 @@ class ParentProfileModel {
         subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
         location: clearLocation ? null : (location ?? this.location),
         updatedAt: updatedAt ?? this.updatedAt,
+        photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       );
 }
