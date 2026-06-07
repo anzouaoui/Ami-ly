@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -21,6 +22,8 @@ class PersonalInfoCard extends StatelessWidget {
     required this.email,
     required this.address,
     required this.onChangePhoto,
+    this.photoUrl,
+    this.uploadingPhoto = false,
     this.firstNameController,
     this.lastNameController,
     this.phoneController,
@@ -41,6 +44,12 @@ class PersonalInfoCard extends StatelessWidget {
   final String email;
   final String address;
   final VoidCallback onChangePhoto;
+
+  /// URL de la photo de profil (Firebase Storage). Null = affiche les initiales.
+  final String? photoUrl;
+
+  /// Si true, affiche un indicateur de chargement sur le bouton photo.
+  final bool uploadingPhoto;
 
   /// Controllers optionnels — quand fournis, prennent la main sur les
   /// [initialValue] correspondants (nécessaire pour les données Firestore
@@ -111,6 +120,7 @@ class PersonalInfoCard extends StatelessWidget {
                 initials: _initials,
                 bg: avatarBg ?? AppColors.assmatIconBg,
                 fg: avatarFg ?? AppColors.primaryText,
+                photoUrl: photoUrl,
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -118,7 +128,7 @@ class PersonalInfoCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     OutlinedButton(
-                      onPressed: onChangePhoto,
+                      onPressed: uploadingPhoto ? null : onChangePhoto,
                       style: OutlinedButton.styleFrom(
                         minimumSize: Size.zero,
                         padding: const EdgeInsets.symmetric(
@@ -126,7 +136,15 @@ class PersonalInfoCard extends StatelessWidget {
                           vertical: AppSpacing.sm,
                         ),
                       ),
-                      child: const Text('Changer la photo'),
+                      child: uploadingPhoto
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('Changer la photo'),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
@@ -191,9 +209,48 @@ class PersonalInfoCard extends StatelessWidget {
   }
 }
 
-/// Avatar circulaire avec initiales — bg et fg configurables.
+/// Avatar circulaire avec photo ou initiales — bg et fg configurables.
 class _Avatar extends StatelessWidget {
   const _Avatar({
+    required this.initials,
+    required this.bg,
+    required this.fg,
+    this.photoUrl,
+  });
+
+  final String initials;
+  final Color bg;
+  final Color fg;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl!,
+          width: 64,
+          height: 64,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => _InitialsAvatar(
+            initials: initials,
+            bg: bg,
+            fg: fg,
+          ),
+          errorWidget: (context, url, error) => _InitialsAvatar(
+            initials: initials,
+            bg: bg,
+            fg: fg,
+          ),
+        ),
+      );
+    }
+    return _InitialsAvatar(initials: initials, bg: bg, fg: fg);
+  }
+}
+
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({
     required this.initials,
     required this.bg,
     required this.fg,

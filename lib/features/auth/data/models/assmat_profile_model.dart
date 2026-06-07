@@ -25,6 +25,7 @@ class AssmatProfileModel {
     this.location,
     this.availableFrom,
     this.updatedAt,
+    this.photoUrl,
   });
 
   final String uid;
@@ -69,6 +70,10 @@ class AssmatProfileModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  /// URL de la photo de profil stockée dans Firebase Storage.
+  /// Null si l'assistante n'a pas encore défini de photo.
+  final String? photoUrl;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -96,6 +101,7 @@ class AssmatProfileModel {
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      photoUrl: data['photoUrl'] as String?,
     );
   }
 
@@ -119,6 +125,7 @@ class AssmatProfileModel {
           'availableFrom': Timestamp.fromDate(availableFrom!),
         'createdAt': Timestamp.fromDate(createdAt),
         if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
+        if (photoUrl != null) 'photoUrl': photoUrl,
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -156,6 +163,8 @@ class AssmatProfileModel {
     DateTime? updatedAt,
     bool clearLocation = false,
     bool clearAvailableFrom = false,
+    String? photoUrl,
+    bool clearPhotoUrl = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -179,5 +188,6 @@ class AssmatProfileModel {
             ? null
             : (availableFrom ?? this.availableFrom),
         updatedAt: updatedAt ?? this.updatedAt,
+        photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       );
 }

@@ -1,96 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../shared/models/conversation_model.dart';
+import '../../../messaging/providers/messaging_providers.dart';
 import 'assmat_chat_page.dart';
 import 'assmat_home_page.dart';
 
-// ─── Models ───────────────────────────────────────────────────────────────────
-
-class _Conversation {
-  const _Conversation({
-    required this.parentName,
-    required this.initials,
-    required this.childName,
-    required this.lastMessage,
-    required this.time,
-    this.unread = 0,
-  });
-  final String parentName;
-  final String initials;
-  final String childName;
-  final String lastMessage;
-  final String time;
-  final int unread;
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const _kConversations = [
-  _Conversation(
-    parentName: 'Marie Dupont',
-    initials: 'MD',
-    childName: 'Lucas Dupont',
-    lastMessage: 'Bonjour, à quelle heure...',
-    time: '09:30',
-    unread: 2,
-  ),
-  _Conversation(
-    parentName: 'Julie Leroy',
-    initials: 'JL',
-    childName: 'Emma Leroy',
-    lastMessage: 'Merci beaucoup !',
-    time: 'Hier',
-    unread: 0,
-  ),
-  _Conversation(
-    parentName: 'Thomas Bernard',
-    initials: 'TB',
-    childName: 'Léa Bernard',
-    lastMessage: 'Elle a bien mangé aujourd\'hui.',
-    time: 'Lun',
-    unread: 0,
-  ),
-  _Conversation(
-    parentName: 'Sophie Martin',
-    initials: 'SM',
-    childName: 'Hugo Martin',
-    lastMessage: 'D\'accord, on sera là à 17h.',
-    time: 'Ven',
-    unread: 0,
-  ),
-];
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-class AssMatMessagesPage extends StatefulWidget {
+class AssMatMessagesPage extends ConsumerWidget {
   const AssMatMessagesPage({super.key});
 
   @override
-  State<AssMatMessagesPage> createState() => _AssMatMessagesPageState();
-}
-
-class _AssMatMessagesPageState extends State<AssMatMessagesPage> {
-  final _searchCtrl = TextEditingController();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  List<_Conversation> get _filtered => _kConversations
-      .where((c) =>
-          _query.isEmpty ||
-          c.parentName.toLowerCase().contains(_query.toLowerCase()) ||
-          c.childName.toLowerCase().contains(_query.toLowerCase()))
-      .toList();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.background,
       drawer: const AssMatDrawer(),
@@ -109,7 +34,7 @@ class _AssMatMessagesPageState extends State<AssMatMessagesPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ────────────────────────────────────
+          // ── Header ────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
@@ -117,8 +42,8 @@ class _AssMatMessagesPageState extends State<AssMatMessagesPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Messages',
-                    style: AppTextStyles.titleLarge.copyWith(
-                        fontWeight: FontWeight.w800, fontSize: 28)),
+                    style: AppTextStyles.titleLarge
+                        .copyWith(fontWeight: FontWeight.w800, fontSize: 28)),
                 const SizedBox(height: 4),
                 Text('Communication sécurisée avec les parents',
                     style: AppTextStyles.bodyMedium
@@ -127,78 +52,145 @@ class _AssMatMessagesPageState extends State<AssMatMessagesPage> {
             ),
           ),
 
-          // ── Conversation list card ─────────────────────
+          // ── Conversation list ─────────────────────────────────────────
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadii.md),
-                border: Border.all(color: AppColors.divider),
-              ),
-              child: Column(
-                children: [
-                  // Search bar
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      onChanged: (v) => setState(() => _query = v),
-                      style: AppTextStyles.bodySmall,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher...',
-                        hintStyle: AppTextStyles.bodySmall
-                            .copyWith(color: AppColors.hint),
-                        prefixIcon: const Icon(Icons.search_rounded,
-                            size: 18, color: AppColors.secondaryText),
-                        filled: true,
-                        fillColor: AppColors.background,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadii.full),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadii.full),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadii.full),
-                          borderSide: const BorderSide(
-                              color: AppColors.primary, width: 1.5),
-                        ),
+            child: ref.watch(assmatConversationsProvider).when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Text(
+                        'Impossible de charger les messages.\n$e',
+                        style: AppTextStyles.bodyMedium
+                            .copyWith(color: AppColors.error),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                  const Divider(height: 1),
-
-                  // List
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: _filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, indent: 72),
-                      itemBuilder: (_, i) =>
-                          _ConversationTile(conv: _filtered[i]),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                  data: (conversations) => conversations.isEmpty
+                      ? _EmptyState()
+                      : _ConversationListCard(conversations: conversations),
+                ),
           ),
           const SizedBox(height: AppSpacing.md),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nouveau message — à venir'),
-            behavior: SnackBarBehavior.floating,
-          ),
+    );
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.chat_bubble_outline_rounded,
+                size: 72, color: AppColors.secondaryText),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Aucun message',
+                style: AppTextStyles.headlineMedium.copyWith(
+                    color: AppColors.primaryText,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Les parents qui vous contactent apparaîtront ici.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.secondaryText),
+            ),
+          ],
         ),
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.edit_outlined, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// ─── Conversation list card ───────────────────────────────────────────────────
+
+class _ConversationListCard extends StatefulWidget {
+  const _ConversationListCard({required this.conversations});
+  final List<ConversationModel> conversations;
+
+  @override
+  State<_ConversationListCard> createState() => _ConversationListCardState();
+}
+
+class _ConversationListCardState extends State<_ConversationListCard> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<ConversationModel> get _filtered => widget.conversations
+      .where((c) =>
+          _query.isEmpty ||
+          c.parentName.toLowerCase().contains(_query.toLowerCase()))
+      .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _query = v),
+              style: AppTextStyles.bodySmall,
+              decoration: InputDecoration(
+                hintText: 'Rechercher...',
+                hintStyle:
+                    AppTextStyles.bodySmall.copyWith(color: AppColors.hint),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    size: 18, color: AppColors.secondaryText),
+                filled: true,
+                fillColor: AppColors.background,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.full),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.full),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.full),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _filtered.length,
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, indent: 72),
+              itemBuilder: (_, i) => _ConversationTile(conv: _filtered[i]),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -208,31 +200,52 @@ class _AssMatMessagesPageState extends State<AssMatMessagesPage> {
 
 class _ConversationTile extends StatelessWidget {
   const _ConversationTile({required this.conv});
-  final _Conversation conv;
+  final ConversationModel conv;
 
   @override
   Widget build(BuildContext context) {
+    final initials = conv.parentName
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+    final unread = conv.unreadAssmat;
+    final timeLabel = _timeLabel(conv.lastMessageAt);
+
     return InkWell(
-      onTap: () => _openThread(context, conv),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AssMatChatPage(
+            contact: ChatContact(
+              name: conv.parentName,
+              initials: initials,
+            ),
+            conversationId: conv.id,
+          ),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: 14),
         child: Row(
           children: [
-            // Avatar
+            // Avatar + badge
             Stack(
               clipBehavior: Clip.none,
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor:
+                      AppColors.primary.withValues(alpha: 0.12),
                   child: Text(
-                    conv.initials,
+                    initials,
                     style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.primary, fontWeight: FontWeight.w700),
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700),
                   ),
                 ),
-                if (conv.unread > 0)
+                if (unread > 0)
                   Positioned(
                     right: -4,
                     top: -4,
@@ -240,12 +253,11 @@ class _ConversationTile extends StatelessWidget {
                       width: 20,
                       height: 20,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFE07830),
-                        shape: BoxShape.circle,
-                      ),
+                          color: Color(0xFFE07830),
+                          shape: BoxShape.circle),
                       child: Center(
                         child: Text(
-                          '${conv.unread}',
+                          '$unread',
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -269,38 +281,41 @@ class _ConversationTile extends StatelessWidget {
                         child: Text(
                           conv.parentName,
                           style: AppTextStyles.bodyMedium.copyWith(
-                            fontWeight: conv.unread > 0
+                            fontWeight: unread > 0
                                 ? FontWeight.w700
                                 : FontWeight.w600,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        conv.time,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: conv.unread > 0
-                              ? const Color(0xFFE07830)
-                              : AppColors.secondaryText,
-                          fontWeight: conv.unread > 0
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          fontSize: 12,
+                      if (timeLabel.isNotEmpty)
+                        Text(
+                          timeLabel,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: unread > 0
+                                ? const Color(0xFFE07830)
+                                : AppColors.secondaryText,
+                            fontWeight: unread > 0
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${conv.childName} · ${conv.lastMessage}',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.secondaryText,
-                      fontWeight: conv.unread > 0
-                          ? FontWeight.w500
-                          : FontWeight.w400,
+                  if (conv.lastMessage.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      conv.lastMessage,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.secondaryText,
+                        fontWeight: unread > 0
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -310,267 +325,21 @@ class _ConversationTile extends StatelessWidget {
     );
   }
 
-  void _openThread(BuildContext context, _Conversation conv) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AssMatChatPage(
-          contact: ChatContact(
-            name: conv.parentName,
-            initials: conv.initials,
-            childName: conv.childName,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Chat thread page ─────────────────────────────────────────────────────────
-
-class _ChatMessage {
-  const _ChatMessage(
-      {required this.text, required this.isMe, required this.time});
-  final String text;
-  final bool isMe;
-  final String time;
-}
-
-final _kThreads = <String, List<_ChatMessage>>{
-  'Marie Dupont': [
-    const _ChatMessage(
-        text: 'Bonjour ! Tout se passe bien avec Lucas ?',
-        isMe: false,
-        time: '09:20'),
-    const _ChatMessage(
-        text: 'Oui, il est en pleine forme ! Il a très bien mangé ce midi.',
-        isMe: true,
-        time: '09:25'),
-    const _ChatMessage(
-        text: 'Bonjour, à quelle heure puis-je venir le récupérer ?',
-        isMe: false,
-        time: '09:30'),
-  ],
-  'Julie Leroy': [
-    const _ChatMessage(
-        text: 'Emma a fait une belle sieste aujourd\'hui, 2h sans se réveiller.',
-        isMe: true,
-        time: 'Hier 14:10'),
-    const _ChatMessage(text: 'Merci beaucoup !', isMe: false, time: 'Hier 17:45'),
-  ],
-};
-
-class _ChatThreadPage extends StatefulWidget {
-  const _ChatThreadPage({required this.conv});
-  final _Conversation conv;
-
-  @override
-  State<_ChatThreadPage> createState() => _ChatThreadPageState();
-}
-
-class _ChatThreadPageState extends State<_ChatThreadPage> {
-  final _msgCtrl = TextEditingController();
-  late final List<_ChatMessage> _messages;
-
-  @override
-  void initState() {
-    super.initState();
-    _messages = List.of(
-        _kThreads[widget.conv.parentName] ?? []);
-  }
-
-  @override
-  void dispose() {
-    _msgCtrl.dispose();
-    super.dispose();
-  }
-
-  void _send() {
-    final text = _msgCtrl.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _messages.add(_ChatMessage(text: text, isMe: true, time: 'maintenant'));
-      _msgCtrl.clear();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-              child: Text(
-                widget.conv.initials,
-                style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.conv.parentName,
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(fontWeight: FontWeight.w700)),
-                Text(widget.conv.childName,
-                    style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.secondaryText, fontSize: 11)),
-              ],
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          // Messages
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              itemCount: _messages.length,
-              itemBuilder: (_, i) => _Bubble(msg: _messages[i]),
-            ),
-          ),
-
-          // Input bar
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.sm, AppSpacing.sm, AppSpacing.md),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _msgCtrl,
-                    style: AppTextStyles.bodySmall,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _send(),
-                    decoration: InputDecoration(
-                      hintText: 'Écrire un message...',
-                      hintStyle: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.hint),
-                      filled: true,
-                      fillColor: AppColors.background,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppRadii.full),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppRadii.full),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppRadii.full),
-                        borderSide: const BorderSide(
-                            color: AppColors.primary, width: 1.5),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: _send,
-                  borderRadius: BorderRadius.circular(AppRadii.full),
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.send_rounded,
-                        size: 18, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Chat bubble ─────────────────────────────────────────────────────────────
-
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.msg});
-  final _ChatMessage msg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        mainAxisAlignment:
-            msg.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!msg.isMe) ...[
-            const CircleAvatar(
-              radius: 14,
-              backgroundColor: Color(0xFFE0E8E4),
-              child: Icon(Icons.person_rounded,
-                  size: 16, color: AppColors.secondaryText),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Column(
-              crossAxisAlignment: msg.isMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: msg.isMe
-                        ? AppColors.primary
-                        : AppColors.surface,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(msg.isMe ? 16 : 4),
-                      bottomRight: Radius.circular(msg.isMe ? 4 : 16),
-                    ),
-                    border: msg.isMe
-                        ? null
-                        : Border.all(color: AppColors.divider),
-                  ),
-                  child: Text(
-                    msg.text,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: msg.isMe ? Colors.white : AppColors.primaryText,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  msg.time,
-                  style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.hint, fontSize: 10),
-                ),
-              ],
-            ),
-          ),
-          if (msg.isMe) const SizedBox(width: 4),
-        ],
-      ),
-    );
+  static String _timeLabel(DateTime? dt) {
+    if (dt == null) return '';
+    final now = DateTime.now();
+    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+      return DateFormat('HH:mm').format(dt);
+    }
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (dt.year == yesterday.year &&
+        dt.month == yesterday.month &&
+        dt.day == yesterday.day) {
+      return 'Hier';
+    }
+    if (now.difference(dt).inDays < 7) {
+      return DateFormat('EEE', 'fr_FR').format(dt);
+    }
+    return DateFormat('dd/MM').format(dt);
   }
 }

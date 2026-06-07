@@ -269,6 +269,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
       places: places,
       date: slots > 0 ? 'Disponible' : 'Complet',
       cert: '—',
+      photoUrl: a.photoUrl,
     );
   }
 

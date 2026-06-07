@@ -57,6 +57,52 @@ service cloud.firestore {
       allow write: if isAuth() && isOwner(uid);
     }
 
+    // ── conversations/{convId} ───────────────────────────────────────────────
+    // Fil de discussion entre un parent et une assmat.
+    //   convId = "${parentUid}_${assmatUid}" (déterministe).
+    //   Lecture/Écriture : uniquement le parent ou l'assmat de la conversation.
+    match /conversations/{convId} {
+      function isParticipant() {
+        let data = resource.data;
+        return isAuth() && (
+          request.auth.uid == data.parentUid ||
+          request.auth.uid == data.assmatUid
+        );
+      }
+
+      function isParticipantOnCreate() {
+        let data = request.resource.data;
+        return isAuth() && (
+          request.auth.uid == data.parentUid ||
+          request.auth.uid == data.assmatUid
+        );
+      }
+
+      allow read: if isParticipant();
+      allow create: if isParticipantOnCreate();
+      allow update: if isParticipant();
+      allow delete: if false;
+
+      // ── conversations/{convId}/messages/{msgId} ────────────────────────────
+      // Messages du fil.
+      //   Lecture/Écriture : uniquement les participants de la conversation parente.
+      match /messages/{msgId} {
+        function convData() {
+          return get(/databases/$(database)/documents/conversations/$(convId)).data;
+        }
+
+        function isConvParticipant() {
+          return isAuth() && (
+            request.auth.uid == convData().parentUid ||
+            request.auth.uid == convData().assmatUid
+          );
+        }
+
+        allow read, create: if isConvParticipant();
+        allow update, delete: if false;
+      }
+    }
+
     // ── Blocage par défaut ───────────────────────────────────────────────────
     // Toute collection non listée ci-dessus est refusée.
     match /{document=**} {

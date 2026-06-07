@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -41,6 +44,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   ParentProfileModel? _loadedProfile;
   GeoPoint? _location;
   bool _locationCleared = false;
+  String? _photoUrl;
+  bool _uploadingPhoto = false;
 
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -123,6 +128,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     _isPaused = profile.searchPaused;
     _location = profile.location;
     _locationCleared = false;
+    _photoUrl = profile.photoUrl;
     _profileInitialized = true;
   }
 
@@ -288,6 +294,85 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     );
   }
 
+  Future<void> _changePhoto() async {
+    // Propose galerie ou appareil photo
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadParentPhoto(user.uid, File(picked.path));
+      await ds.updateParentPhotoUrl(user.uid, url);
+      if (mounted) {
+        setState(() => _photoUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo mise à jour'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -396,6 +481,8 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
             phone: _phoneCtrl.text,
             email: _emailCtrl.text,
             address: _addressCtrl.text,
+            photoUrl: _photoUrl,
+            uploadingPhoto: _uploadingPhoto,
             firstNameController: _firstNameCtrl,
             lastNameController: _lastNameCtrl,
             phoneController: _phoneCtrl,
@@ -404,7 +491,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
             descriptionLabel: 'Description de la famille',
             descriptionHint:
                 'Ex : Famille de 4 personnes, nous recherchons une assistante attentionnée…',
-            onChangePhoto: () => _stub('Changer la photo'),
+            onChangePhoto: _changePhoto,
             addressWidget: AddressAutocompleteField(
               controller: _addressCtrl,
               label: 'Adresse',

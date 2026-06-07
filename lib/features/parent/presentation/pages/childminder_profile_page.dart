@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
+import 'parent_chat_page.dart';
 
 // ─── Internal view-model ──────────────────────────────────────────────────────
 
@@ -161,11 +163,12 @@ class _ChildminderProfilePageState
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Messagerie — à venir'),
-                          behavior: SnackBarBehavior.floating,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ParentChatPage(
+                            assmatUid: widget.data.uid,
+                            assmatName: widget.data.name,
+                          ),
                         ),
                       ),
                       icon: const Icon(Icons.chat_bubble_outline_rounded,
@@ -289,22 +292,7 @@ class _IdentityCard extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(AppRadii.md),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  summary.initials,
-                  style: AppTextStyles.titleMedium.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+              _buildAvatar(profile, summary),
               if (isPro)
                 Positioned(
                   bottom: -6,
@@ -374,6 +362,44 @@ class _IdentityCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Avatar 72x72 arrondi : photo si disponible, sinon initiales.
+  Widget _buildAvatar(AssmatProfileModel profile, ChildminderSummary summary) {
+    final photoUrl = profile.photoUrl;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: CachedNetworkImage(
+          imageUrl: photoUrl,
+          width: 72,
+          height: 72,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _initialsBox(summary.initials),
+          errorWidget: (_, __, ___) => _initialsBox(summary.initials),
+        ),
+      );
+    }
+    return _initialsBox(summary.initials);
+  }
+
+  Widget _initialsBox(String initials) {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: AppTextStyles.titleMedium.copyWith(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

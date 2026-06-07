@@ -45,6 +45,10 @@
 	<string>Ami-ly utilise votre position pour filtrer les assistantes maternelles à proximité.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Ami-ly utilise votre position pour filtrer les assistantes maternelles à proximité.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ami-ly a besoin d'accéder à votre galerie pour choisir une photo de profil.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ami-ly a besoin d'accéder à votre appareil photo pour prendre une photo de profil.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

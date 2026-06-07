@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -18,6 +19,7 @@ class ChildminderSummary {
     required this.places,
     required this.date,
     required this.cert,
+    this.photoUrl,
   });
 
   /// UID Firestore — utilisé pour naviguer vers le profil complet.
@@ -30,6 +32,9 @@ class ChildminderSummary {
   final String places;
   final String date;
   final String cert;
+
+  /// URL de la photo de profil (Firebase Storage). Null si non définie.
+  final String? photoUrl;
 }
 
 /// Carte compacte listée dans la page "Trouver une assistante maternelle".
@@ -75,7 +80,7 @@ class ChildminderCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Avatar(initials: data.initials),
+                  _Avatar(initials: data.initials, photoUrl: data.photoUrl),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
@@ -191,23 +196,43 @@ class ChildminderCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initials});
+  const _Avatar({required this.initials, this.photoUrl});
   final String initials;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
+    const bg = AppColors.assmatIconBg;
+    const fg = AppColors.primaryText;
+
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl!,
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _initials(bg, fg),
+          errorWidget: (_, __, ___) => _initials(bg, fg),
+        ),
+      );
+    }
+    return _initials(bg, fg);
+  }
+
+  Widget _initials(Color bg, Color fg) {
     return Container(
       width: 48,
       height: 48,
-      decoration: const BoxDecoration(
-        color: AppColors.assmatIconBg,
+      decoration: BoxDecoration(
+        color: bg,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
         style: AppTextStyles.labelLarge.copyWith(
-          color: AppColors.primaryText,
+          color: fg,
           fontWeight: FontWeight.w700,
         ),
       ),

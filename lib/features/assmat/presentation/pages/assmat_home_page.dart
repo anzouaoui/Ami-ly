@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -1330,7 +1331,13 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                 }
               },
             ),
-            const SizedBox(height: 4),
+            const Divider(height: 1, color: AppColors.divider),
+            _UserCard(
+              displayName: ref.watch(currentUserProvider).valueOrNull?.displayName ?? 'Utilisateur',
+              role: 'Assistante maternelle',
+              photoUrl: ref.watch(assmatProfileProvider).valueOrNull?.photoUrl,
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -1471,3 +1478,91 @@ class _DrawerItem extends StatelessWidget {
     );
   }
 }
+
+// ─── User card ────────────────────────────────────────────────────────────────
+
+class _UserCard extends StatelessWidget {
+  const _UserCard({
+    required this.displayName,
+    required this.role,
+    this.photoUrl,
+  });
+
+  final String displayName;
+  final String role;
+  final String? photoUrl;
+
+  String get _initials {
+    final parts = displayName.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          _buildAvatar(),
+          const SizedBox(width: AppSpacing.sm),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                displayName,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                role,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    const bg = Color(0xFFD4EDD4); // vert clair assmat
+    const fg = AppColors.primary;
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl!,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _initialsWidget(bg, fg),
+          errorWidget: (_, __, ___) => _initialsWidget(bg, fg),
+        ),
+      );
+    }
+    return _initialsWidget(bg, fg);
+  }
+
+  Widget _initialsWidget(Color bg, Color fg) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Text(
+        _initials,
+        style: AppTextStyles.labelLarge.copyWith(
+          color: fg,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+

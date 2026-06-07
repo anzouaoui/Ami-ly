@@ -27,7 +27,8 @@
       "Bash(find /c /d /e -name \"flutter.bat\" -maxdepth 6)",
       "Bash(python -c ' *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(grep -n \"^  }$\\\\|^    }$\\\\|^  }\\\\|^    }\\)\" \"/c/dev/Ami-ly/lib/features/parent/presentation/pages/parent_profile_page.dart\")"
     ]
   }
 }
