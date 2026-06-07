@@ -63,6 +63,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '483499244920',
     projectId: 'ami-ly',
     storageBucket: 'ami-ly.firebasestorage.app',
-    iosBundleId: 'com.amily.amily',
+    iosBundleId: 'com.amily.ami_ly',
   );
 }
