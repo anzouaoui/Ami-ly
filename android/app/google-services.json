@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:483499244920:android:dcdfd1109e5f3b3d3b5c8d",
+        "mobilesdk_app_id": "1:483499244920:android:d11f62315046f5d33b5c8d",
         "android_client_info": {
-          "package_name": "com.amily.amily"
+          "package_name": "com.app.amily"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "483499244920-pp1v2gi508t9qihno89f0963o871id4o.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDPxT74fsfQZxozrnQ7IEBCPdbxBFVzF9U"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "483499244920-pp1v2gi508t9qihno89f0963o871id4o.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "483499244920-1m47jdsqv4sa3kg0pkj0k3esm8p2blq1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.amily.amily"
+              }
+            }
+          ]
         }
       }
     }

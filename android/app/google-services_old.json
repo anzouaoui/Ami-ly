@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "483499244920",
+    "project_id": "ami-ly",
+    "storage_bucket": "ami-ly.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:483499244920:android:dcdfd1109e5f3b3d3b5c8d",
+        "android_client_info": {
+          "package_name": "com.app.amily"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPxT74fsfQZxozrnQ7IEBCPdbxBFVzF9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
