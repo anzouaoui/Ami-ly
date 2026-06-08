@@ -5,7 +5,7 @@ import '../../../../core/widgets/app_error_screen.dart';
 import '../../../../core/widgets/app_splash_screen.dart';
 import '../../../../shared/models/user_role.dart';
 import '../../../assmat/presentation/pages/assmat_shell.dart';
-import '../../../onboarding/presentation/pages/welcome_page.dart';
+import '../pages/login_page.dart';
 import '../../../parent/presentation/pages/parent_onboarding_page.dart';
 import '../../../parent/presentation/pages/parent_shell.dart';
 import '../providers/auth_providers.dart';
@@ -15,7 +15,7 @@ import '../providers/auth_providers.dart';
 ///
 /// Flow :
 ///   1. Au boot, [currentUserProvider] émet `AsyncLoading` → [AppSplashScreen].
-///   2. Pas d'utilisateur Firebase     → [WelcomePage] (choix du rôle).
+///   2. Pas d'utilisateur Firebase     → [LoginPage].
 ///   3. Utilisateur + rôle `parent`    → [ParentHomePage].
 ///   4. Utilisateur + rôle `assmat`    → [AssMatHomePage].
 ///   5. Erreur (profil corrompu, etc.) → [AppErrorScreen] avec retry.
@@ -37,7 +37,7 @@ class AuthWrapper extends ConsumerWidget {
         onRetry: () => ref.invalidate(currentUserProvider),
       ),
       data: (user) {
-        if (user == null) return const WelcomePage();
+        if (user == null) return const LoginPage();
 
         switch (user.role) {
           case UserRole.parent:

@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
+import '../../../onboarding/presentation/pages/welcome_page.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
@@ -84,9 +85,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _onSignUp() {
-    // Retour à la racine (WelcomePage via AuthWrapper) pour choisir un rôle
-    // avant de s'inscrire.
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const WelcomePage()),
+    );
   }
 
   @override
