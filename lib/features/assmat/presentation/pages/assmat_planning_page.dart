@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import 'assmat_home_page.dart';
 
 const _kMonthsShort = [
   'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
@@ -53,6 +54,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const AssMatDrawer(),
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
@@ -1939,4 +1941,3 @@ class _AddHolidaysSheetState extends State<_AddHolidaysSheet> {
     );
   }
 }
-

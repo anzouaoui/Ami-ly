@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import 'assmat_home_page.dart';
 
 class AssMatHolidaysPage extends StatefulWidget {
   const AssMatHolidaysPage({super.key});
@@ -21,6 +22,7 @@ class _AssMatHolidaysPageState extends State<AssMatHolidaysPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const AssMatDrawer(),
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,

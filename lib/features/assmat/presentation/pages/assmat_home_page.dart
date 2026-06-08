@@ -1279,44 +1279,45 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                       label: "Convertisseur d'heures",
                       onTap: () => _go(const AssMatConverterPage()),
                     ),
-                    _DrawerItem(
-                      icon: Icons.logout_rounded,
-                      label: 'Se déconnecter',
-                      onTap: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Se déconnecter ?'),
-                            content: const Text(
-                              'Vous devrez vous reconnecter pour accéder à votre compte.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: const Text('Annuler'),
-                              ),
-                              FilledButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
-                                child: const Text('Se déconnecter'),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (!context.mounted) return;
-                        Navigator.of(context).pop(); // ferme le drawer
-                        if (confirm == true) {
-                          await ref.read(authRepositoryProvider).signOut();
-                        }
-                      },
-                    ),
                   ],
                 ],
               ),
             ),
 
             const Divider(height: 1, color: AppColors.divider),
+            _DrawerItem(
+              icon: Icons.logout_rounded,
+              label: 'Déconnexion',
+              isSpecial: true,
+              onTap: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Se déconnecter ?'),
+                    content: const Text(
+                      'Vous devrez vous reconnecter pour accéder à votre compte.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.of(context).pop(false),
+                        child: const Text('Annuler'),
+                      ),
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.of(context).pop(true),
+                        child: const Text('Se déconnecter'),
+                      ),
+                    ],
+                  ),
+                );
+                if (!context.mounted) return;
+                Navigator.of(context).pop(); // ferme le drawer
+                if (confirm == true) {
+                  await ref.read(authRepositoryProvider).signOut();
+                }
+              },
+            ),
             _UserCard(
               displayName: ref.watch(currentUserProvider).valueOrNull?.displayName ?? 'Utilisateur',
               role: 'Assistante maternelle',
