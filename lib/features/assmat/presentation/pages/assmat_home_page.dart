@@ -7,7 +7,6 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../auth/data/repositories/fake_auth_repository.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
@@ -1317,20 +1316,6 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
               ),
             ),
 
-            // ── Vue Parent — épinglé en bas ──────────────
-            const Divider(height: 1, color: AppColors.divider),
-            _DrawerItem(
-              icon: Icons.settings_rounded,
-              label: 'Vue Parent',
-              isSpecial: true,
-              onTap: () {
-                Navigator.of(context).pop();
-                final repo = ref.read(authRepositoryProvider);
-                if (repo is FakeAuthRepository) {
-                  repo.loginAs(DevUsers.parent());
-                }
-              },
-            ),
             const Divider(height: 1, color: AppColors.divider),
             _UserCard(
               displayName: ref.watch(currentUserProvider).valueOrNull?.displayName ?? 'Utilisateur',
