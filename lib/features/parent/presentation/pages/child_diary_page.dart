@@ -24,9 +24,10 @@ import '../widgets/parent_navigation_drawer.dart';
 ///
 /// Aucun rapport réel — tout est en empty state pour l'instant.
 class ChildDiaryPage extends StatefulWidget {
-  const ChildDiaryPage({super.key, this.childName});
+  const ChildDiaryPage({super.key, this.childName, this.showMenuButton = false});
 
   final String? childName;
+  final bool showMenuButton;
 
   @override
   State<ChildDiaryPage> createState() => _ChildDiaryPageState();
@@ -116,7 +117,7 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const _Header(),
+                  _Header(showMenuButton: widget.showMenuButton),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.lg,
@@ -220,7 +221,8 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
 
 /// Header : back + logo "AMiLY" + spacer.
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({this.showMenuButton = false});
+  final bool showMenuButton;
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +243,7 @@ class _Header extends StatelessWidget {
         children: [
           Builder(
             builder: (ctx) {
-              final canPop = Navigator.of(ctx).canPop();
+              final canPop = showMenuButton ? false : Navigator.of(ctx).canPop();
               if (canPop) {
                 return IconButton(
                   icon: const Icon(

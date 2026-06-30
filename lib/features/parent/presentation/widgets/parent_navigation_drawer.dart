@@ -126,7 +126,7 @@ class _ParentNavigationDrawerState
                     _DrawerItem(
                       icon: Icons.assignment_outlined,
                       label: 'Journal quotidien',
-                      onTap: () => _go(const ChildDiaryPage()),
+                      onTap: () => _go(const ChildDiaryPage(showMenuButton: true)),
                     ),
                     _DrawerItem(
                       icon: Icons.fact_check_outlined,
