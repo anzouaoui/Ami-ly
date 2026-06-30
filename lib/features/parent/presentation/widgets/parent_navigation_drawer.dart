@@ -152,20 +152,12 @@ class _ParentNavigationDrawerState
                     ),
                   ],
 
-                  // ── TROUVER UNE ASSISTANTE ──
-                  _SectionHeader(
-                    label: 'TROUVER UNE ASSISTANTE',
-                    expanded: _expanded.contains('TROUVER'),
-                    onTap: () => _toggle('TROUVER'),
+                  // ── RECHERCHER UNE ASSISTANTE ──
+                  _DrawerItem(
+                    icon: Icons.search_rounded,
+                    label: 'Rechercher une assistante',
+                    onTap: () => _go(const FindChildminderPage()),
                   ),
-                  if (_expanded.contains('TROUVER')) ...[
-                    _DrawerItem(
-                      icon: Icons.search_rounded,
-                      label: 'Recherche',
-                      badgeCount: 2,
-                      onTap: () => _go(const FindChildminderPage()),
-                    ),
-                  ],
 
                   // ── GESTION ADMINISTRATIVE ──
                   _SectionHeader(
