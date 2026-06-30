@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../providers/parent_providers.dart';
 import 'child_diary_page.dart';
 import 'messages_page.dart';
 import 'parent_home_screen.dart';
@@ -9,15 +11,8 @@ import 'parent_profile_page.dart';
 import 'payments_page.dart';
 
 /// Shell parent : 5 onglets persistants + BottomNavigationBar.
-class ParentShell extends StatefulWidget {
+class ParentShell extends ConsumerWidget {
   const ParentShell({super.key});
-
-  @override
-  State<ParentShell> createState() => _ParentShellState();
-}
-
-class _ParentShellState extends State<ParentShell> {
-  int _currentIndex = 0;
 
   static const _pages = <Widget>[
     ParentHomeScreen(),
@@ -28,19 +23,22 @@ class _ParentShellState extends State<ParentShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(parentShellIndexProvider);
+
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _pages,
       ),
       bottomNavigationBar: _ParentBottomBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        currentIndex: currentIndex,
+        onTap: (i) => ref.read(parentShellIndexProvider.notifier).state = i,
       ),
     );
   }
 }
+
 
 class _ParentBottomBar extends StatelessWidget {
   const _ParentBottomBar({

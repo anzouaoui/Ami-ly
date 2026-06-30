@@ -21,3 +21,8 @@ final childrenProvider =
   if (uid == null) return const Stream.empty();
   return ref.read(parentRemoteDataSourceProvider).watchChildren(uid);
 });
+
+/// Index de l'onglet actif du [ParentShell].
+/// Permet à n'importe quel widget (ex : tiroir latéral) de changer
+/// d'onglet sans pousser une nouvelle route.
+final parentShellIndexProvider = StateProvider<int>((ref) => 0);

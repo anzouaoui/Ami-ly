@@ -9,7 +9,6 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../pages/assistant_page.dart';
 import '../pages/book_year_page.dart';
-import '../pages/child_diary_page.dart';
 import '../pages/contract_page.dart';
 import '../pages/documents_page.dart';
 import '../pages/find_childminder_page.dart';
@@ -17,6 +16,7 @@ import '../pages/messages_page.dart';
 import '../pages/parent_profile_page.dart';
 import '../pages/payments_page.dart';
 import '../pages/planning_page.dart';
+import '../providers/parent_providers.dart';
 
 class ParentNavigationDrawer extends ConsumerStatefulWidget {
   const ParentNavigationDrawer({super.key});
@@ -40,6 +40,13 @@ class _ParentNavigationDrawerState
   void _go(Widget page) {
     Navigator.of(context).pop();
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  /// Navigue vers un onglet de la barre de navigation principale
+  /// sans pousser de nouvelle route (la navbar reste visible).
+  void _goTab(int index) {
+    Navigator.of(context).pop(); // ferme le tiroir
+    ref.read(parentShellIndexProvider.notifier).state = index;
   }
 
   void _stub(String label) {
@@ -126,7 +133,7 @@ class _ParentNavigationDrawerState
                     _DrawerItem(
                       icon: Icons.assignment_outlined,
                       label: 'Journal quotidien',
-                      onTap: () => _go(const ChildDiaryPage(showMenuButton: true)),
+                      onTap: () => _goTab(1),
                     ),
                     _DrawerItem(
                       icon: Icons.fact_check_outlined,
