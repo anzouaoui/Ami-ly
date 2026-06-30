@@ -23,16 +23,16 @@ import '../widgets/parent_navigation_drawer.dart';
 ///   - Bouton outlined "Contacter l'assistante"
 ///
 /// Aucun rapport réel — tout est en empty state pour l'instant.
-class ChildDiaryPage extends ConsumerStatefulWidget {
+class ChildDiaryPage extends StatefulWidget {
   const ChildDiaryPage({super.key, this.childName});
 
   final String? childName;
 
   @override
-  ConsumerState<ChildDiaryPage> createState() => _ChildDiaryPageState();
+  State<ChildDiaryPage> createState() => _ChildDiaryPageState();
 }
 
-class _ChildDiaryPageState extends ConsumerState<ChildDiaryPage> {
+class _ChildDiaryPageState extends State<ChildDiaryPage> {
   DateTime _date = DateTime.now();
   ChildModel? _selectedChild;
   bool _initialized = false;
@@ -89,127 +89,131 @@ class _ChildDiaryPageState extends ConsumerState<ChildDiaryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final childrenAsync = ref.watch(childrenProvider);
-    final children = childrenAsync.valueOrNull ?? [];
+    return Consumer(
+      builder: (context, ref, _) {
+        final childrenAsync = ref.watch(childrenProvider);
+        final children = childrenAsync.valueOrNull ?? [];
 
-    if (children.isNotEmpty && !_initialized) {
-      if (widget.childName != null) {
-        _selectedChild = children.firstWhere(
-          (c) => c.firstName.toLowerCase() == widget.childName!.toLowerCase(),
-          orElse: () => children.first,
-        );
-      } else {
-        _selectedChild = children.first;
-      }
-      _initialized = true;
-    }
+        if (children.isNotEmpty && !_initialized) {
+          if (widget.childName != null) {
+            _selectedChild = children.firstWhere(
+              (c) => c.firstName.toLowerCase() == widget.childName!.toLowerCase(),
+              orElse: () => children.first,
+            );
+          } else {
+            _selectedChild = children.first;
+          }
+          _initialized = true;
+        }
 
-    final currentChildName = _selectedChild?.firstName ?? widget.childName;
+        final currentChildName = _selectedChild?.firstName ?? widget.childName;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      drawer: const ParentNavigationDrawer(),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _Header(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.lg,
-                  AppSpacing.lg,
-                  0,
-                ),
-                child: children.isEmpty
-                    ? Text(
-                        'Journal de mon enfant',
-                        style: AppTextStyles.headlineMedium,
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text('Journal de ', style: AppTextStyles.headlineMedium),
-                          Expanded(
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<ChildModel>(
-                                value: _selectedChild,
-                                isDense: true,
-                                style: AppTextStyles.headlineMedium.copyWith(
-                                  color: AppColors.primary,
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          drawer: const ParentNavigationDrawer(),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _Header(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      0,
+                    ),
+                    child: children.isEmpty
+                        ? Text(
+                            'Journal de mon enfant',
+                            style: AppTextStyles.headlineMedium,
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text('Journal de ', style: AppTextStyles.headlineMedium),
+                              Expanded(
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<ChildModel>(
+                                    value: _selectedChild,
+                                    isDense: true,
+                                    style: AppTextStyles.headlineMedium.copyWith(
+                                      color: AppColors.primary,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down_rounded,
+                                      color: AppColors.primary,
+                                      size: 32,
+                                    ),
+                                    items: children.map((c) {
+                                      return DropdownMenuItem<ChildModel>(
+                                        value: c,
+                                        child: Text(c.firstName),
+                                      );
+                                    }).toList(),
+                                    onChanged: (c) {
+                                      if (c != null) {
+                                        setState(() => _selectedChild = c);
+                                      }
+                                    },
+                                  ),
                                 ),
-                                icon: const Icon(
-                                  Icons.arrow_drop_down_rounded,
-                                  color: AppColors.primary,
-                                  size: 32,
-                                ),
-                                items: children.map((c) {
-                                  return DropdownMenuItem<ChildModel>(
-                                    value: c,
-                                    child: Text(c.firstName),
-                                  );
-                                }).toList(),
-                                onChanged: (c) {
-                                  if (c != null) {
-                                    setState(() => _selectedChild = c);
-                                  }
-                                },
                               ),
-                            ),
+                            ],
                           ),
-                        ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.xs,
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                    ),
+                    child: Text(
+                      'Rapport quotidien envoyé par votre assistante maternelle',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.secondaryText,
                       ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.xs,
-                  AppSpacing.lg,
-                  AppSpacing.md,
-                ),
-                child: Text(
-                  'Rapport quotidien envoyé par votre assistante maternelle',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.secondaryText,
+                    ),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                ),
-                child: _DateSelector(
-                  label: _formattedDate,
-                  onPrevious: () => _shift(-1),
-                  onNext: () => _shift(1),
-                  onTapDate: _pickDate,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: _EmptyReportCard(childName: currentChildName),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: _onContactAssmat,
-                  icon: const Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    size: 20,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                    ),
+                    child: _DateSelector(
+                      label: _formattedDate,
+                      onPrevious: () => _shift(-1),
+                      onNext: () => _shift(1),
+                      onTapDate: _pickDate,
+                    ),
                   ),
-                  label: const Text('Contacter l\'assistante'),
-                ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                    child: _EmptyReportCard(childName: currentChildName),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                    ),
+                    child: OutlinedButton.icon(
+                      onPressed: _onContactAssmat,
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 20,
+                      ),
+                      label: const Text('Contacter l\'assistante'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                ],
               ),
-              const SizedBox(height: AppSpacing.xl),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
