@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../data/models/child_model.dart';
+import '../providers/parent_providers.dart';
 import '../widgets/parent_navigation_drawer.dart';
 
 /// Page "Journal de mon enfant" — rapports quotidiens envoyés par
@@ -19,15 +23,19 @@ import '../widgets/parent_navigation_drawer.dart';
 ///   - Bouton outlined "Contacter l'assistante"
 ///
 /// Aucun rapport réel — tout est en empty state pour l'instant.
-class ChildDiaryPage extends StatefulWidget {
-  const ChildDiaryPage({super.key});
+class ChildDiaryPage extends ConsumerStatefulWidget {
+  const ChildDiaryPage({super.key, this.childName});
+
+  final String? childName;
 
   @override
-  State<ChildDiaryPage> createState() => _ChildDiaryPageState();
+  ConsumerState<ChildDiaryPage> createState() => _ChildDiaryPageState();
 }
 
-class _ChildDiaryPageState extends State<ChildDiaryPage> {
+class _ChildDiaryPageState extends ConsumerState<ChildDiaryPage> {
   DateTime _date = DateTime.now();
+  ChildModel? _selectedChild;
+  bool _initialized = false;
 
   static const _weekdays = [
     'lundi',
@@ -81,6 +89,23 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final childrenAsync = ref.watch(childrenProvider);
+    final children = childrenAsync.valueOrNull ?? [];
+
+    if (children.isNotEmpty && !_initialized) {
+      if (widget.childName != null) {
+        _selectedChild = children.firstWhere(
+          (c) => c.firstName.toLowerCase() == widget.childName!.toLowerCase(),
+          orElse: () => children.first,
+        );
+      } else {
+        _selectedChild = children.first;
+      }
+      _initialized = true;
+    }
+
+    final currentChildName = _selectedChild?.firstName ?? widget.childName;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       drawer: const ParentNavigationDrawer(),
@@ -94,6 +119,52 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
                   AppSpacing.lg,
+                  AppSpacing.lg,
+                  0,
+                ),
+                child: children.isEmpty
+                    ? Text(
+                        'Journal de mon enfant',
+                        style: AppTextStyles.headlineMedium,
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text('Journal de ', style: AppTextStyles.headlineMedium),
+                          Expanded(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<ChildModel>(
+                                value: _selectedChild,
+                                isDense: true,
+                                style: AppTextStyles.headlineMedium.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                                icon: const Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  color: AppColors.primary,
+                                  size: 32,
+                                ),
+                                items: children.map((c) {
+                                  return DropdownMenuItem<ChildModel>(
+                                    value: c,
+                                    child: Text(c.firstName),
+                                  );
+                                }).toList(),
+                                onChanged: (c) {
+                                  if (c != null) {
+                                    setState(() => _selectedChild = c);
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.xs,
                   AppSpacing.lg,
                   AppSpacing.md,
                 ),
@@ -116,9 +187,9 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: _EmptyReportCard(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: _EmptyReportCard(childName: currentChildName),
               ),
               const SizedBox(height: AppSpacing.lg),
               Padding(
@@ -164,18 +235,16 @@ class _Header extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Builder(
-            builder: (ctx) => IconButton(
-              icon: const Icon(
-                Icons.menu_rounded,
-                size: 28,
-                color: AppColors.primaryText,
-              ),
-              onPressed: () => Scaffold.of(ctx).openDrawer(),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: 'Menu',
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              size: 28,
+              color: AppColors.primaryText,
             ),
+            onPressed: () => Navigator.of(context).maybePop(),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Retour',
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -299,7 +368,8 @@ class _NavButton extends StatelessWidget {
 
 /// Empty state : grand card avec cercle gris + icône doc + titre + message.
 class _EmptyReportCard extends StatelessWidget {
-  const _EmptyReportCard();
+  const _EmptyReportCard({this.childName});
+  final String? childName;
 
   @override
   Widget build(BuildContext context) {
@@ -343,7 +413,9 @@ class _EmptyReportCard extends StatelessWidget {
                 horizontal: AppSpacing.md,
               ),
               child: Text(
-                'Aucun rapport n\'a été envoyé pour cette journée.',
+                childName != null
+                    ? 'Aucun rapport n\'a été envoyé pour $childName pour cette journée.'
+                    : 'Aucun rapport n\'a été envoyé pour cette journée.',
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 style: AppTextStyles.bodyMedium.copyWith(

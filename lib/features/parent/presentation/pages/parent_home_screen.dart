@@ -18,6 +18,7 @@ import 'messages_page.dart';
 import 'payments_page.dart';
 import '../../../assmat/presentation/pages/assmat_legal_consultation_page.dart';
 import 'notifications_page.dart';
+import '../providers/parent_providers.dart';
 
 /// Dashboard du parent connecté.
 ///
@@ -181,18 +182,24 @@ class _WelcomeHeader extends StatelessWidget {
 }
 
 /// Grille 2x2 de [StatCard] : contrats / enfants / RDV / paiement.
-class _StatsGrid extends StatelessWidget {
+class _StatsGrid extends ConsumerWidget {
   const _StatsGrid();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final childrenCount = ref.watch(childrenProvider).when(
+          data: (list) => list.length.toString(),
+          loading: () => '...',
+          error: (_, __) => '0',
+        );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
-        children: const [
+        children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: StatCard(
                   icon: Icons.description_rounded,
                   iconBg: AppColors.secondary,
@@ -201,21 +208,21 @@ class _StatsGrid extends StatelessWidget {
                   label: 'Contrats actifs',
                 ),
               ),
-              SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: StatCard(
                   icon: Icons.face_rounded,
                   iconBg: AppColors.secondary,
                   iconColor: AppColors.primary,
-                  value: '0',
+                  value: childrenCount,
                   label: 'Enfants accueillis',
                 ),
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.md),
           Row(
-            children: [
+            children: const [
               Expanded(
                 child: StatCard(
                   icon: Icons.calendar_today_rounded,

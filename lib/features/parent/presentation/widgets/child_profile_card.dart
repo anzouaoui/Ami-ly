@@ -9,6 +9,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../data/models/child_model.dart';
 import 'interest_tag_chip.dart';
 import 'profile_form_field.dart';
+import '../pages/child_diary_page.dart';
 
 /// Carte éditable d'un enfant dans le profil parent.
 ///
@@ -222,6 +223,35 @@ class _ChildProfileCardState extends State<ChildProfileCard> {
                 ),
               _AddInterestButton(onTap: _addInterest),
             ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChildDiaryPage(
+                    childName: _nameCtrl.text.trim().isNotEmpty
+                        ? _nameCtrl.text.trim()
+                        : widget.child.firstName,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.menu_book_rounded, size: 18),
+            label: Text(
+              'Journal de ${_nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : widget.child.firstName}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.md),
+              ),
+            ),
           ),
         ],
       ),
