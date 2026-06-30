@@ -239,16 +239,35 @@ class _Header extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppColors.primaryText,
-            ),
-            onPressed: () => Navigator.of(context).maybePop(),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Retour',
+          Builder(
+            builder: (ctx) {
+              final canPop = Navigator.of(ctx).canPop();
+              if (canPop) {
+                return IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 28,
+                    color: AppColors.primaryText,
+                  ),
+                  onPressed: () => Navigator.of(ctx).maybePop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Retour',
+                );
+              } else {
+                return IconButton(
+                  icon: const Icon(
+                    Icons.menu_rounded,
+                    size: 28,
+                    color: AppColors.primaryText,
+                  ),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Menu',
+                );
+              }
+            },
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
