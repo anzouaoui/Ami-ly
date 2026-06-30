@@ -52,7 +52,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
   DateTime? _dateFrom;
   DateTime? _dateTo;
 
-  bool _showAdvancedFilters = true;
+  bool _showAdvancedFilters = false;
 
   // ── Favoris ────────────────────────────────────────────────────────────────
   bool _onlyFavorites = false;
