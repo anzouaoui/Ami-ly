@@ -117,6 +117,40 @@ class _ParentNavigationDrawerState
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 children: [
+                  // ── RECHERCHER UNE ASSISTANTE (accès rapide) ──
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Material(
+                      color: AppColors.primary.withAlpha(20),
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _go(const FindChildminderPage()),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Icon(Icons.search_rounded,
+                                  color: AppColors.primary, size: 22),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Rechercher une assistante',
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const Spacer(),
+                              Icon(Icons.arrow_forward_ios_rounded,
+                                  color: AppColors.primary, size: 14),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
                   // ── MON ENFANT ──
                   _SectionHeader(
                     label: 'MON ENFANT',
@@ -151,13 +185,6 @@ class _ParentNavigationDrawerState
                       onTap: () => _go(const BookYearPage()),
                     ),
                   ],
-
-                  // ── RECHERCHER UNE ASSISTANTE ──
-                  _DrawerItem(
-                    icon: Icons.search_rounded,
-                    label: 'Rechercher une assistante',
-                    onTap: () => _go(const FindChildminderPage()),
-                  ),
 
                   // ── GESTION ADMINISTRATIVE ──
                   _SectionHeader(
