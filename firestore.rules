@@ -63,10 +63,10 @@ service cloud.firestore {
     //   Lecture/Écriture : uniquement le parent ou l'assmat de la conversation.
     match /conversations/{convId} {
       function isParticipant() {
-        let data = resource.data;
         return isAuth() && (
-          request.auth.uid == data.parentUid ||
-          request.auth.uid == data.assmatUid
+          resource == null ||
+          request.auth.uid == resource.data.parentUid ||
+          request.auth.uid == resource.data.assmatUid
         );
       }
 
@@ -87,15 +87,20 @@ service cloud.firestore {
       // Messages du fil.
       //   Lecture/Écriture : uniquement les participants de la conversation parente.
       match /messages/{msgId} {
+        function convExists() {
+          return exists(/databases/$(database)/documents/conversations/$(convId));
+        }
+
         function convData() {
           return get(/databases/$(database)/documents/conversations/$(convId)).data;
         }
 
         function isConvParticipant() {
-          return isAuth() && (
-            request.auth.uid == convData().parentUid ||
-            request.auth.uid == convData().assmatUid
-          );
+          return isAuth() &&
+            convExists() && (
+              request.auth.uid == convData().parentUid ||
+              request.auth.uid == convData().assmatUid
+            );
         }
 
         allow read, create: if isConvParticipant();

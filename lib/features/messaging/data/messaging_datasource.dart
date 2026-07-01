@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/services/firebase_service.dart';
 import '../../../shared/models/conversation_model.dart';
@@ -51,18 +52,27 @@ class MessagingDatasource {
     final convId = ConversationModel.buildId(parentUid, assmatUid);
     final ref = _firebase.conversationDoc(convId);
 
+    try {
+      final snap = await ref.get();
+      if (snap.exists) {
+        return convId;
+      }
+    } catch (e) {
+      // Ce catch gère le cas où les règles Firestore bloquent le get() sur un document inexistant.
+      // Dans ce cas, on passe directement à la création/fusion.
+      debugPrint('[Chat] getOrCreateConversation get() exception: $e');
+    }
+
     // Crée le document avec les champs de base s'il n'existe pas.
-    // SetOptions(mergeFields: ...) ne touche pas les champs d'état existants
-    // (lastMessage, lastMessageAt, unreadParent, unreadAssmat).
+    // En limitant mergeFields aux champs d'identité et de date de création,
+    // on s'assure qu'on n'écrase pas l'état existant (unreadParent, lastMessage, etc.)
+    // si le document existait déjà (par exemple s'il a été créé en parallèle ou si le get() a échoué).
     await ref.set(
       {
         'parentUid': parentUid,
         'assmatUid': assmatUid,
         'parentName': parentName,
         'assmatName': assmatName,
-        'lastMessage': '',
-        'unreadParent': 0,
-        'unreadAssmat': 0,
         'createdAt': Timestamp.fromDate(DateTime.now()),
       },
       SetOptions(mergeFields: [
@@ -71,9 +81,6 @@ class MessagingDatasource {
         'parentName',
         'assmatName',
         'createdAt',
-        'lastMessage',
-        'unreadParent',
-        'unreadAssmat',
       ]),
     );
 

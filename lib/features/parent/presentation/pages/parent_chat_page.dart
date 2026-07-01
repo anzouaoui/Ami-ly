@@ -72,13 +72,20 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
       if (!mounted) return;
       setState(() => _convId = convId);
 
-      // Marque les messages comme lus à l'ouverture
-      await datasource.markAsRead(convId: convId, readerIsParent: true);
-    } catch (e) {
+      // Marque les messages comme lus à l'ouverture.
+      // On enveloppe dans un try-catch pour que l'ouverture de la conversation
+      // ne plante pas si l'update échoue (ex: latence, règle Firestore transitoire).
+      try {
+        await datasource.markAsRead(convId: convId, readerIsParent: true);
+      } catch (markError) {
+        debugPrint('[Chat] markAsRead warning: $markError');
+      }
+    } catch (e, stack) {
       debugPrint('[Chat] _initConversation error: $e');
+      debugPrint('[Chat] Stacktrace: $stack');
       if (!mounted) return;
       setState(() => _initError =
-          'Impossible d\'ouvrir la conversation.\nVérifiez votre connexion et réessayez.');
+          'Impossible d\'ouvrir la conversation.\nErreur : ${e.toString().split('\n').first}');
     }
   }
 
