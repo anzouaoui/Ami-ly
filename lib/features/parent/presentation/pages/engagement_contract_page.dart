@@ -72,12 +72,6 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
     }
   }
 
-  void _prev() {
-    if (_step > 1) {
-      setState(() => _step--);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,7 +92,6 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
               child: _buildStepContent(),
             ),
           ),
-          _buildBottomNav(),
         ],
       ),
     );
@@ -188,36 +181,6 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.md),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.divider, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (_step > 1)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _prev,
-                child: const Text('Précédent'),
-              ),
-            ),
-          if (_step > 1) const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: FilledButton(
-              onPressed: _step < 6 ? _next : () {},
-              child: Text(_step < 6 ? 'Suivant' : 'Finaliser'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─── Step 1 : Match confirmé ──────────────────────────────────────────────────
@@ -244,9 +207,10 @@ class _Step1 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.favorite, color: AppColors.primary, size: 24),
             const SizedBox(width: AppSpacing.sm),
@@ -264,6 +228,7 @@ class _Step1 extends StatelessWidget {
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.secondaryText,
           ),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.lg),
         // ── Carte récapitulatif assmat ──────────────────────────
@@ -275,10 +240,9 @@ class _Step1 extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadii.md),
             border: Border.all(color: AppColors.divider),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
                   // Photo / initiales
                   CircleAvatar(
                     radius: 28,
@@ -343,10 +307,8 @@ class _Step1 extends StatelessWidget {
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
+            ),
+          const SizedBox(height: AppSpacing.lg),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
