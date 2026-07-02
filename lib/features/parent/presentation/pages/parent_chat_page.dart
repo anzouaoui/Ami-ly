@@ -9,7 +9,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../../shared/models/message_model.dart';
-import 'contract_page.dart';
+import 'engagement_contract_page.dart';
 
 /// Page de chat côté parent — fil de messages avec une assmat donnée.
 ///
@@ -773,12 +773,12 @@ class _VisioCard extends ConsumerWidget {
                           const SizedBox(height: AppSpacing.md),
                           SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton.icon(
+                              child: ElevatedButton.icon(
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => const ContractPage(),
+                                    builder: (_) => const EngagementContractPage(),
                                   ),
                                 );
                               },
