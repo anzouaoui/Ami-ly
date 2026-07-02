@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../widgets/profile_form_field.dart';
 
 /// Écran de création de l'engagement réciproque en 6 étapes.
 class EngagementContractPage extends StatefulWidget {
-  const EngagementContractPage({super.key});
+  const EngagementContractPage({
+    super.key,
+    this.assmatName = 'Marie Lambert',
+    this.assmatPhotoUrl,
+  });
+
+  final String assmatName;
+  final String? assmatPhotoUrl;
 
   @override
   State<EngagementContractPage> createState() => _EngagementContractPageState();
@@ -33,6 +41,7 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
   final _periodeEssaiCtrl = TextEditingController();
   final _nomEnfantCtrl = TextEditingController();
   final _prenomEnfantCtrl = TextEditingController();
+  final _dateNaissanceEnfantCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -53,6 +62,7 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
     _periodeEssaiCtrl.dispose();
     _nomEnfantCtrl.dispose();
     _prenomEnfantCtrl.dispose();
+    _dateNaissanceEnfantCtrl.dispose();
     super.dispose();
   }
 
@@ -97,7 +107,13 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
   Widget _buildStepContent() {
     switch (_step) {
       case 1:
-        return _Step1(controllers: _Step1Controllers(
+        return _Step1(
+          assmatName: widget.assmatName,
+          assmatPhotoUrl: widget.assmatPhotoUrl,
+          onCreateEngagement: _next,
+        );
+      case 2:
+        return _Step2(controllers: _Step2Controllers(
           nom: _nomCtrl,
           prenom: _prenomCtrl,
           dateNaissance: _dateNaissanceCtrl,
@@ -108,20 +124,17 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
           email: _emailCtrl,
           nPajemploi: _nPajemploiCtrl,
         ));
-      case 2:
-        return _Step2(controllers: _Step2Controllers(
+      case 3:
+        return _Step3(controllers: _Step3Controllers(
           nom: _nomAmCtrl,
           prenom: _prenomAmCtrl,
           agrement: _agrementCtrl,
         ));
-      case 3:
-        return _Step3(controllers: _Step3Controllers(
-          nomEnfant: _nomEnfantCtrl,
-          prenomEnfant: _prenomEnfantCtrl,
-          dateNaissance: _dateNaissanceCtrl,
-        ));
       case 4:
         return _Step4(controllers: _Step4Controllers(
+          nomEnfant: _nomEnfantCtrl,
+          prenomEnfant: _prenomEnfantCtrl,
+          dateNaissance: _dateNaissanceEnfantCtrl,
           dateEmbauche: _dateEmbaucheCtrl,
           finContrat: _finContratCtrl,
           periodeEssai: _periodeEssaiCtrl,
@@ -207,10 +220,156 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
   }
 }
 
-// ─── Step 1 : Particulier employeur ──────────────────────────────────────────────
+// ─── Step 1 : Match confirmé ──────────────────────────────────────────────────
 
-class _Step1Controllers {
-  _Step1Controllers({
+class _Step1 extends StatelessWidget {
+  const _Step1({
+    required this.assmatName,
+    this.assmatPhotoUrl,
+    required this.onCreateEngagement,
+  });
+
+  final String assmatName;
+  final String? assmatPhotoUrl;
+  final VoidCallback onCreateEngagement;
+
+  String get _initials {
+    final parts = assmatName.split(' ');
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return assmatName.isNotEmpty ? assmatName[0].toUpperCase() : '?';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.favorite, color: AppColors.primary, size: 24),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              'Match confirmé !',
+              style: AppTextStyles.titleMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Vous et $assmatName avez validé la mise en relation.',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.secondaryText,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        // ── Carte récapitulatif assmat ──────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // Photo / initiales
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppColors.secondary,
+                    backgroundImage: assmatPhotoUrl != null
+                        ? NetworkImage(assmatPhotoUrl!)
+                        : null,
+                    child: assmatPhotoUrl == null
+                        ? Text(
+                            _initials,
+                            style: AppTextStyles.titleMedium.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          assmatName,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Assistante maternelle agréée',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Badge match validé
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppRadii.full),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle,
+                            size: 14, color: AppColors.success),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Match',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: onCreateEngagement,
+            icon: const Icon(Icons.handshake_outlined, size: 18),
+            label: const Text('Créer l\'engagement réciproque'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.sm),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Step 2 : Engagement — Particulier employeur ─────────────────────────────
+
+class _Step2Controllers {
+  _Step2Controllers({
     required this.nom,
     required this.prenom,
     required this.dateNaissance,
@@ -232,9 +391,9 @@ class _Step1Controllers {
   final TextEditingController nPajemploi;
 }
 
-class _Step1 extends StatelessWidget {
-  const _Step1({required this.controllers});
-  final _Step1Controllers controllers;
+class _Step2 extends StatelessWidget {
+  const _Step2({required this.controllers});
+  final _Step2Controllers controllers;
 
   @override
   Widget build(BuildContext context) {
@@ -325,10 +484,10 @@ class _Step1 extends StatelessWidget {
   }
 }
 
-// ─── Step 2 : Assistant maternel ───────────────────────────────────────────────
+// ─── Step 3 : Signature — Assistant maternel ──────────────────────────────────
 
-class _Step2Controllers {
-  _Step2Controllers({
+class _Step3Controllers {
+  _Step3Controllers({
     required this.nom,
     required this.prenom,
     required this.agrement,
@@ -338,9 +497,9 @@ class _Step2Controllers {
   final TextEditingController agrement;
 }
 
-class _Step2 extends StatelessWidget {
-  const _Step2({required this.controllers});
-  final _Step2Controllers controllers;
+class _Step3 extends StatelessWidget {
+  const _Step3({required this.controllers});
+  final _Step3Controllers controllers;
 
   @override
   Widget build(BuildContext context) {
@@ -383,22 +542,28 @@ class _Step2 extends StatelessWidget {
   }
 }
 
-// ─── Step 3 : Enfant & engagement ──────────────────────────────────────────────
+// ─── Step 4 : Contrat — Enfant & Dates ────────────────────────────────────────
 
-class _Step3Controllers {
-  _Step3Controllers({
+class _Step4Controllers {
+  _Step4Controllers({
     required this.nomEnfant,
     required this.prenomEnfant,
     required this.dateNaissance,
+    required this.dateEmbauche,
+    required this.finContrat,
+    required this.periodeEssai,
   });
   final TextEditingController nomEnfant;
   final TextEditingController prenomEnfant;
   final TextEditingController dateNaissance;
+  final TextEditingController dateEmbauche;
+  final TextEditingController finContrat;
+  final TextEditingController periodeEssai;
 }
 
-class _Step3 extends StatelessWidget {
-  const _Step3({required this.controllers});
-  final _Step3Controllers controllers;
+class _Step4 extends StatelessWidget {
+  const _Step4({required this.controllers});
+  final _Step4Controllers controllers;
 
   @override
   Widget build(BuildContext context) {
@@ -413,7 +578,7 @@ class _Step3 extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Identité de l\'enfant concerné par l\'engagement',
+          'Identité de l\'enfant et dates du contrat',
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.secondaryText,
           ),
@@ -436,47 +601,14 @@ class _Step3 extends StatelessWidget {
           label: 'Date de naissance',
           hintText: 'JJ/MM/AAAA',
         ),
-      ],
-    );
-  }
-}
-
-// ─── Step 4 : Dates du contrat ─────────────────────────────────────────────────
-
-class _Step4Controllers {
-  _Step4Controllers({
-    required this.dateEmbauche,
-    required this.finContrat,
-    required this.periodeEssai,
-  });
-  final TextEditingController dateEmbauche;
-  final TextEditingController finContrat;
-  final TextEditingController periodeEssai;
-}
-
-class _Step4 extends StatelessWidget {
-  const _Step4({required this.controllers});
-  final _Step4Controllers controllers;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        const SizedBox(height: AppSpacing.md),
         Text(
-          'Durée et horaires d\'accueil',
-          style: AppTextStyles.titleMedium.copyWith(
+          'Dates du contrat',
+          style: AppTextStyles.bodyMedium.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Dates et période d\'essai du contrat',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.secondaryText,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
         ProfileFormField(
           controller: controllers.dateEmbauche,
           label: "Date d'embauche",

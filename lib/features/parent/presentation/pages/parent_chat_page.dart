@@ -293,6 +293,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                                   isMe: msg.senderUid == myUid,
                                   convId: _convId,
                                   parentUid: myUid,
+                                  assmatName: widget.assmatName,
                                 );
                               }
                               if (msg.type == MessageType.visioResponse) {
@@ -522,6 +523,7 @@ class _VisioCard extends ConsumerWidget {
     this.reflectionDeadline,
     this.convId,
     this.parentUid,
+    this.assmatName,
   });
   final MessageModel message;
   final bool isMe;
@@ -529,6 +531,7 @@ class _VisioCard extends ConsumerWidget {
   final DateTime? reflectionDeadline;
   final String? convId;
   final String? parentUid;
+  final String? assmatName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -778,7 +781,9 @@ class _VisioCard extends ConsumerWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => const EngagementContractPage(),
+                                    builder: (_) => EngagementContractPage(
+                                      assmatName: assmatName ?? 'l\'assistante maternelle',
+                                    ),
                                   ),
                                 );
                               },
