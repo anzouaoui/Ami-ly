@@ -141,6 +141,85 @@ class MessagingDatasource {
     await batch.commit();
   }
 
+  /// Envoie une proposition de visio et met à jour le résumé de la conversation.
+  Future<void> sendVisioProposal({
+    required String convId,
+    required String senderUid,
+    required DateTime visioDate,
+    required bool senderIsParent,
+  }) async {
+    final now = DateTime.now();
+    final msgRef = _firebase.messagesCollection(convId).doc();
+    final convRef = _firebase.conversationDoc(convId);
+
+    final day = '${visioDate.day} ${_monthName(visioDate.month)} ${visioDate.year}';
+    final hour = '${visioDate.hour.toString().padLeft(2, '0')}:${visioDate.minute.toString().padLeft(2, '0')}';
+    final text = '📹 Visio proposée le $day à $hour';
+
+    final batch = _firebase.firestore.batch();
+
+    batch.set(msgRef, {
+      'senderUid': senderUid,
+      'text': text,
+      'sentAt': Timestamp.fromDate(now),
+      'type': 'visio_proposal',
+      'visioDate': Timestamp.fromDate(visioDate),
+      'visioStatus': 'pending',
+    });
+
+    batch.update(convRef, {
+      'lastMessage': text,
+      'lastMessageAt': Timestamp.fromDate(now),
+      if (senderIsParent)
+        'unreadAssmat': FieldValue.increment(1)
+      else
+        'unreadParent': FieldValue.increment(1),
+    });
+
+    await batch.commit();
+  }
+
+  /// Met à jour le statut d'une proposition de visio (acceptée / refusée).
+  Future<void> respondToVisio({
+    required String convId,
+    required String msgId,
+    required VisioStatus status,
+    required bool responderIsParent,
+  }) async {
+    final now = DateTime.now();
+    final msgRef = _firebase.messagesCollection(convId).doc(msgId);
+    final convRef = _firebase.conversationDoc(convId);
+
+    final label = status == VisioStatus.accepted ? 'acceptée' : 'refusée';
+    final text = 'Visio $label par ${responderIsParent ? "le parent" : "l\u0027assistante maternelle"}';
+
+    final batch = _firebase.firestore.batch();
+
+    batch.update(msgRef, {
+      'visioStatus': status.name,
+      'text': text,
+    });
+
+    batch.update(convRef, {
+      'lastMessage': text,
+      'lastMessageAt': Timestamp.fromDate(now),
+      if (responderIsParent)
+        'unreadAssmat': FieldValue.increment(1)
+      else
+        'unreadParent': FieldValue.increment(1),
+    });
+
+    await batch.commit();
+  }
+
+  String _monthName(int m) {
+    const months = [
+      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+    ];
+    return months[m - 1];
+  }
+
   /// Remet à zéro le compteur de non-lus pour l'utilisateur qui ouvre le fil.
   Future<void> markAsRead({
     required String convId,

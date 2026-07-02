@@ -202,10 +202,19 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.all(AppSpacing.md),
                             itemCount: messages.length,
-                            itemBuilder: (_, i) => _BubbleTile(
-                              msg: messages[i],
-                              isMe: messages[i].senderUid == myUid,
-                            ),
+                            itemBuilder: (_, i) {
+                              final msg = messages[i];
+                              if (msg.isVisioProposal) {
+                                return _AssmatVisioCard(
+                                  message: msg,
+                                  conversationId: widget.conversationId,
+                                );
+                              }
+                              return _BubbleTile(
+                                msg: msg,
+                                isMe: msg.senderUid == myUid,
+                              );
+                            },
                           ),
                         ),
                       );
@@ -270,6 +279,160 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
         ),
       ),
     );
+  }
+}
+
+/// Carte d'une proposition de visio côté assmat, avec boutons accepter/refuser.
+class _AssmatVisioCard extends ConsumerWidget {
+  const _AssmatVisioCard({
+    required this.message,
+    required this.conversationId,
+  });
+
+  final MessageModel message;
+  final String conversationId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final (Color bgColor, Color borderColor, String statusText) =
+        switch (message.visioStatus) {
+      VisioStatus.accepted => (
+          AppColors.secondary,
+          AppColors.primary,
+          'Vous avez accepté cette visio',
+        ),
+      VisioStatus.refused => (
+          AppColors.error.withValues(alpha: 0.08),
+          AppColors.error,
+          'Vous avez refusé cette visio',
+        ),
+      _ => (
+          AppColors.secondary,
+          AppColors.primary.withValues(alpha: 0.3),
+          'En attente de votre réponse',
+        ),
+    };
+
+    final bool canRespond = message.isVisioPending;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text('📹', style: TextStyle(fontSize: 18)),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Proposition de visio',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        message.text,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: borderColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(AppRadii.full),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: borderColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (canRespond) ...[
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _respond(context, ref, VisioStatus.refused),
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: const Text('Refuser'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _respond(context, ref, VisioStatus.accepted),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Accepter'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _respond(BuildContext context, WidgetRef ref, VisioStatus status) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    await ref.read(messagingDatasourceProvider).respondToVisio(
+          convId: conversationId,
+          msgId: message.id,
+          status: status,
+          responderIsParent: false,
+        );
   }
 }
 

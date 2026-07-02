@@ -117,6 +117,36 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
     });
   }
 
+  Future<void> _showVisioPicker() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+    );
+    if (!mounted || date == null) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 10, minute: 0),
+    );
+    if (!mounted || time == null) return;
+
+    final visioDate = DateTime(
+      date.year, date.month, date.day, time.hour, time.minute,
+    );
+
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null || _convId == null) return;
+
+    await ref.read(messagingDatasourceProvider).sendVisioProposal(
+          convId: _convId!,
+          senderUid: currentUser.uid,
+          visioDate: visioDate,
+          senderIsParent: true,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
@@ -167,7 +197,9 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: () {},
+                    onPressed: _convId != null
+                        ? () => _showVisioPicker()
+                        : null,
                     icon: const Icon(Icons.videocam_rounded, size: 18),
                     label: Text('Visio',
                         style: AppTextStyles.labelMedium),
@@ -247,9 +279,16 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                                   ],
                                 );
                               }
+                              final msg = messages[i - 1];
+                              if (msg.isVisioProposal) {
+                                return _VisioCard(
+                                  message: msg,
+                                  isMe: msg.senderUid == myUid,
+                                );
+                              }
                               return _BubbleTile(
-                                msg: messages[i - 1],
-                                isMe: messages[i - 1].senderUid == myUid,
+                                msg: msg,
+                                isMe: msg.senderUid == myUid,
                               );
                             },
                           );
@@ -449,6 +488,102 @@ class _UnlockCard extends StatelessWidget {
                     'Vous pouvez maintenant discuter et organiser une visio',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Carte affichant une proposition de visio (proposée, acceptée ou refusée).
+class _VisioCard extends StatelessWidget {
+  const _VisioCard({required this.message, required this.isMe});
+  final MessageModel message;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color bgColor, Color borderColor, String statusText) =
+        switch (message.visioStatus) {
+      VisioStatus.accepted => (
+          AppColors.secondary,
+          AppColors.primary,
+          'Accepté par l\'assistante maternelle',
+        ),
+      VisioStatus.refused => (
+          AppColors.error.withValues(alpha: 0.08),
+          AppColors.error,
+          'Refusé par l\'assistante maternelle',
+        ),
+      _ => (
+          AppColors.secondary,
+          AppColors.primary.withValues(alpha: 0.3),
+          'En attente d\'acceptation',
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Text('📹', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isMe
+                        ? 'Vous avez proposé une visio'
+                        : 'Proposition de visio',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    message.text,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: borderColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadii.full),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: borderColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
