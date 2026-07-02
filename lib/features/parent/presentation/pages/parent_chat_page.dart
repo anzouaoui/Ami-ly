@@ -38,8 +38,10 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
   /// Message d'erreur si la création de conversation échoue.
   String? _initError;
 
-  /// Vrai si la conversation vient d'être créée (premier message envoyé).
-  bool _isNewConversation = false;
+  /// Vrai si la carte déblocage doit être affichée en tête du fil.
+  /// Devient vrai à la création de la conversation ou à l'envoi du premier
+  /// message, et reste vrai pour toute la durée de vie de la page.
+  bool _showUnlockCard = false;
 
   @override
   void initState() {
@@ -75,7 +77,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
       if (!mounted) return;
       setState(() {
         _convId = result.convId;
-        _isNewConversation = result.isNew;
+        if (result.isNew) _showUnlockCard = true;
       });
 
       // Marque les messages comme lus à l'ouverture.
@@ -103,6 +105,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
     if (currentUser == null) return;
 
     _msgCtrl.clear();
+    if (!_showUnlockCard) _showUnlockCard = true;
     await ref.read(messagingDatasourceProvider).sendMessage(
           convId: _convId!,
           senderUid: currentUser.uid,
@@ -199,13 +202,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                           ),
                         ),
                         data: (messages) {
-                          // La carte déblocage s'affiche quand la conversation
-                          // est nouvelle (doc créé à l'instant) OU quand il
-                          // n'y a aucun message (conversation vierge).
-                          final showUnlockCard =
-                              messages.isEmpty || _isNewConversation;
-
-                          if (!showUnlockCard) {
+                          if (!_showUnlockCard) {
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (_scrollCtrl.hasClients) {
                                 _scrollCtrl.jumpTo(
@@ -224,10 +221,8 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                           }
 
                           final itemCount =
-                              messages.length + 1; // +1 pour la carte
+                              messages.length + 1;
 
-                          // Scroll en bas uniquement s'il y a des messages
-                          // (pas seulement la carte).
                           if (messages.isNotEmpty) {
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (_scrollCtrl.hasClients) {
