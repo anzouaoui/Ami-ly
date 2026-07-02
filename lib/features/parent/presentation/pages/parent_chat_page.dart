@@ -166,6 +166,18 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                           .copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
+                  TextButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.videocam_rounded, size: 18),
+                    label: Text('Visio',
+                        style: AppTextStyles.labelMedium),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm),
+                    ),
+                  ),
                 ],
               ),
             ),
