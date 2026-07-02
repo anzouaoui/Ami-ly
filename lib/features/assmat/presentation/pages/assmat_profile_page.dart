@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,11 +21,6 @@ import '../../../parent/presentation/widgets/personal_info_card.dart';
 import 'assmat_home_page.dart';
 
 /// Page "Mon profil" de l'Assistante Maternelle.
-///
-/// Les champs présents dans [AssmatProfileModel] (firstName, lastName,
-/// address, bio, isSearchable, maxChildren, availableSlots) sont wirés
-/// à Firestore. Les sections non encore modélisées (tabac, diplômes,
-/// spécialités…) conservent un état local en attendant l'extension du modèle.
 class AssMatProfilePage extends ConsumerStatefulWidget {
   const AssMatProfilePage({super.key});
 
@@ -41,6 +37,17 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   final _emailCtrl = TextEditingController();
   final _maxChildrenCtrl = TextEditingController();
   final _availableSlotsCtrl = TextEditingController();
+  final _parcoursProCtrl = TextEditingController();
+  final _accreditationNumberCtrl = TextEditingController();
+  final _pmiCodeCtrl = TextEditingController();
+  final _contactPmiNameCtrl = TextEditingController();
+  final _contactPmiPhoneCtrl = TextEditingController();
+  final _contactRpeNameCtrl = TextEditingController();
+  final _contactRpePhoneCtrl = TextEditingController();
+  final _contactAntipoisonPhoneCtrl = TextEditingController();
+  final _contactTiersNameCtrl = TextEditingController();
+  final _contactTiersPhoneCtrl = TextEditingController();
+  final _emergencyPhoneCustomCtrl = TextEditingController();
 
   // ── État booléen / géoloc / disponibilité ─────────────────────────────────
   bool _isSearchable = true;
@@ -66,6 +73,19 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     'Peut répondre aux accueils d\'urgence': false,
   };
 
+  // Nouveaux états réels
+  String _tobacco = 'Non fumeur';
+  String _firstAid = 'PSC1 validé';
+  String _pet = 'Pas d\'animal';
+  List<String> _diplomas = [];
+  List<String> _specialities = [];
+  List<String> _homePhotos = [];
+  DateTime? _accreditationExpiry;
+  String? _accreditationPhotoUrl;
+  bool _isAccreditationCertified = true;
+  bool _isIdentityVerified = false;
+  DateTime? _identityVerifiedAt;
+
   // ── Cycle de vie ──────────────────────────────────────────────────────────
   bool _initialized = false;
   AssmatProfileModel? _loadedProfile;
@@ -82,6 +102,17 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _emailCtrl.dispose();
     _maxChildrenCtrl.dispose();
     _availableSlotsCtrl.dispose();
+    _parcoursProCtrl.dispose();
+    _accreditationNumberCtrl.dispose();
+    _pmiCodeCtrl.dispose();
+    _contactPmiNameCtrl.dispose();
+    _contactPmiPhoneCtrl.dispose();
+    _contactRpeNameCtrl.dispose();
+    _contactRpePhoneCtrl.dispose();
+    _contactAntipoisonPhoneCtrl.dispose();
+    _contactTiersNameCtrl.dispose();
+    _contactTiersPhoneCtrl.dispose();
+    _emergencyPhoneCustomCtrl.dispose();
     super.dispose();
   }
 
@@ -109,6 +140,31 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     for (final key in _schedules.keys) {
       _schedules[key] = profile.schedules.contains(key);
     }
+
+    // Nouveaux champs
+    _tobacco = profile.tobacco;
+    _firstAid = profile.firstAid;
+    _pet = profile.pet;
+    _diplomas = List<String>.from(profile.diplomas);
+    _parcoursProCtrl.text = profile.parcoursProfessionnel;
+    _accreditationNumberCtrl.text = profile.accreditationNumber;
+    _accreditationExpiry = profile.accreditationExpiry;
+    _accreditationPhotoUrl = profile.accreditationPhotoUrl;
+    _pmiCodeCtrl.text = profile.pmiCode;
+    _isAccreditationCertified = profile.isAccreditationCertified;
+    _specialities = List<String>.from(profile.specialities);
+    _contactPmiNameCtrl.text = profile.contactPmiName;
+    _contactPmiPhoneCtrl.text = profile.contactPmiPhone;
+    _contactRpeNameCtrl.text = profile.contactRpeName;
+    _contactRpePhoneCtrl.text = profile.contactRpePhone;
+    _contactAntipoisonPhoneCtrl.text = profile.contactAntipoisonPhone;
+    _contactTiersNameCtrl.text = profile.contactTiersName;
+    _contactTiersPhoneCtrl.text = profile.contactTiersPhone;
+    _emergencyPhoneCustomCtrl.text = profile.emergencyPhoneCustom;
+    _isIdentityVerified = profile.isIdentityVerified;
+    _identityVerifiedAt = profile.identityVerifiedAt;
+    _homePhotos = List<String>.from(profile.homePhotos);
+
     _initialized = true;
   }
 
@@ -118,7 +174,6 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     } else {
-      // Contexte onglet : réinitialise depuis les dernières valeurs Firestore.
       final email = ref.read(currentUserProvider).valueOrNull?.email ?? '';
       if (_loadedProfile != null) {
         setState(() => _initFromProfile(_loadedProfile!, email));
@@ -159,10 +214,31 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             clearLocation: _locationCleared,
             availableFrom: _isSearchable ? _availableFrom : null,
             clearAvailableFrom: !_isSearchable,
+            // Nouveaux champs
+            tobacco: _tobacco,
+            firstAid: _firstAid,
+            pet: _pet,
+            diplomas: _diplomas,
+            parcoursProfessionnel: _parcoursProCtrl.text.trim(),
+            accreditationNumber: _accreditationNumberCtrl.text.trim(),
+            accreditationExpiry: _accreditationExpiry,
+            clearAccreditationExpiry: _accreditationExpiry == null,
+            accreditationPhotoUrl: _accreditationPhotoUrl,
+            clearAccreditationPhotoUrl: _accreditationPhotoUrl == null,
+            pmiCode: _pmiCodeCtrl.text.trim(),
+            isAccreditationCertified: _isAccreditationCertified,
+            specialities: _specialities,
+            contactPmiName: _contactPmiNameCtrl.text.trim(),
+            contactPmiPhone: _contactPmiPhoneCtrl.text.trim(),
+            contactRpeName: _contactRpeNameCtrl.text.trim(),
+            contactRpePhone: _contactRpePhoneCtrl.text.trim(),
+            contactAntipoisonPhone: _contactAntipoisonPhoneCtrl.text.trim(),
+            contactTiersName: _contactTiersNameCtrl.text.trim(),
+            contactTiersPhone: _contactTiersPhoneCtrl.text.trim(),
+            emergencyPhoneCustom: _emergencyPhoneCustomCtrl.text.trim(),
+            homePhotos: _homePhotos,
           );
 
-      // Mettre à jour _loadedProfile pour que "Annuler" revienne aux
-      // dernières valeurs enregistrées (et non à l'état initial du stream).
       _loadedProfile = _loadedProfile?.copyWith(
         firstName: _firstNameCtrl.text.trim(),
         lastName: _lastNameCtrl.text.trim(),
@@ -175,6 +251,28 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         clearLocation: _locationCleared,
         availableFrom: _isSearchable ? _availableFrom : null,
         clearAvailableFrom: !_isSearchable,
+        tobacco: _tobacco,
+        firstAid: _firstAid,
+        pet: _pet,
+        diplomas: _diplomas,
+        parcoursProfessionnel: _parcoursProCtrl.text.trim(),
+        accreditationNumber: _accreditationNumberCtrl.text.trim(),
+        accreditationExpiry: _accreditationExpiry,
+        clearAccreditationExpiry: _accreditationExpiry == null,
+        accreditationPhotoUrl: _accreditationPhotoUrl,
+        clearAccreditationPhotoUrl: _accreditationPhotoUrl == null,
+        pmiCode: _pmiCodeCtrl.text.trim(),
+        isAccreditationCertified: _isAccreditationCertified,
+        specialities: _specialities,
+        contactPmiName: _contactPmiNameCtrl.text.trim(),
+        contactPmiPhone: _contactPmiPhoneCtrl.text.trim(),
+        contactRpeName: _contactRpeNameCtrl.text.trim(),
+        contactRpePhone: _contactRpePhoneCtrl.text.trim(),
+        contactAntipoisonPhone: _contactAntipoisonPhoneCtrl.text.trim(),
+        contactTiersName: _contactTiersNameCtrl.text.trim(),
+        contactTiersPhone: _contactTiersPhoneCtrl.text.trim(),
+        emergencyPhoneCustom: _emergencyPhoneCustomCtrl.text.trim(),
+        homePhotos: _homePhotos,
       );
       _locationCleared = false;
 
@@ -286,6 +384,168 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     }
   }
 
+  Future<void> _changeAccreditationPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadAccreditationPhoto(user.uid, File(picked.path));
+      if (mounted) {
+        setState(() => _accreditationPhotoUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Photo de l'agrément mise à jour"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _addHomePhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadHomePhoto(user.uid, File(picked.path));
+      if (mounted) {
+        setState(() {
+          _homePhotos.add(url);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Photo du domicile ajoutée"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _removeHomePhoto(String url) {
+    setState(() {
+      _homePhotos.remove(url);
+    });
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -293,14 +553,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     final profileAsync = ref.watch(assmatProfileProvider);
     final email = ref.watch(currentUserProvider).valueOrNull?.email ?? '';
 
-    // Initialise les controllers à la première donnée disponible.
     if (!_initialized) {
       profileAsync.whenData((profile) {
         if (profile != null) _initFromProfile(profile, email);
       });
     }
 
-    // Écoute les changements futurs si pas encore initialisé.
     ref.listen<AsyncValue<AssmatProfileModel?>>(
       assmatProfileProvider,
       (_, next) {
@@ -364,14 +622,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           _TitleSection(onPassPro: () => _stub('Passer à Pro')),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Chips de statut ────────────────────────────────────────────────
           _StatusChips(
             availableSlots: availableSlots,
             isSearchable: _isSearchable,
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Infos personnelles + bio ───────────────────────────────────────
           PersonalInfoCard(
             firstName: _firstNameCtrl.text,
             lastName: _lastNameCtrl.text,
@@ -405,7 +661,6 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Disponibilité ──────────────────────────────────────────────────
           _AvailabilityCard(
             isAvailable: _isSearchable,
             availableFrom: _availableFrom,
@@ -414,14 +669,18 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Informations pratiques ─────────────────────────────────────────
           _PracticalInfoCard(
             maxChildrenController: _maxChildrenCtrl,
             availableSlotsController: _availableSlotsCtrl,
+            tobacco: _tobacco,
+            firstAid: _firstAid,
+            pet: _pet,
+            onTobaccoChanged: (v) => setState(() => _tobacco = v ?? _tobacco),
+            onFirstAidChanged: (v) => setState(() => _firstAid = v ?? _firstAid),
+            onPetChanged: (v) => setState(() => _pet = v ?? _pet),
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Services proposés ──────────────────────────────────────────────
           _ChecklistCard(
             icon: Icons.volunteer_activism_rounded,
             title: 'Services proposés',
@@ -431,7 +690,6 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Horaires & Flexibilité ─────────────────────────────────────────
           _ChecklistCard(
             icon: Icons.access_time_rounded,
             title: 'Horaires & Flexibilité',
@@ -441,35 +699,61 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Diplômes & Expérience ──────────────────────────────────────────
-          const _DiplomasCard(),
+          _DiplomasCard(
+            diplomas: _diplomas,
+            parcoursProController: _parcoursProCtrl,
+            onAddDiploma: (d) => setState(() => _diplomas.add(d)),
+            onRemoveDiploma: (d) => setState(() => _diplomas.remove(d)),
+          ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Photos du domicile ─────────────────────────────────────────────
-          const _HomePhotosCard(),
+          _HomePhotosCard(
+            homePhotos: _homePhotos,
+            onAddPhoto: _addHomePhoto,
+            onRemovePhoto: _removeHomePhoto,
+          ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Numéro d'agrément ──────────────────────────────────────────────
-          const _AccreditationCard(),
+          _AccreditationCard(
+            accreditationNumberController: _accreditationNumberCtrl,
+            accreditationExpiry: _accreditationExpiry,
+            onAccreditationExpiryChanged: (d) => setState(() => _accreditationExpiry = d),
+            accreditationPhotoUrl: _accreditationPhotoUrl,
+            onChangePhoto: _changeAccreditationPhoto,
+            pmiCodeController: _pmiCodeCtrl,
+            isCertified: _isAccreditationCertified,
+            onCertifiedChanged: (v) => setState(() => _isAccreditationCertified = v),
+          ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Contacts importants ────────────────────────────────────────────
-          const _ImportantContactsCard(),
+          _ImportantContactsCard(
+            contactPmiNameController: _contactPmiNameCtrl,
+            contactPmiPhoneController: _contactPmiPhoneCtrl,
+            contactRpeNameController: _contactRpeNameCtrl,
+            contactRpePhoneController: _contactRpePhoneCtrl,
+            contactAntipoisonPhoneController: _contactAntipoisonPhoneCtrl,
+            contactTiersNameController: _contactTiersNameCtrl,
+            contactTiersPhoneController: _contactTiersPhoneCtrl,
+            emergencyPhoneCustomController: _emergencyPhoneCustomCtrl,
+          ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Vérification d'identité ────────────────────────────────────────
-          const _IdentityVerificationCard(),
+          _IdentityVerificationCard(
+            isVerified: _isIdentityVerified,
+            verifiedAt: _identityVerifiedAt,
+          ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Spécialités & compétences ──────────────────────────────────────
-          const _SpecialitiesCard(),
+          _SpecialitiesCard(
+            tags: _specialities,
+            onAddTag: (tag) => setState(() => _specialities.add(tag)),
+            onRemoveTag: (tag) => setState(() => _specialities.remove(tag)),
+          ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Coffre-fort numérique ──────────────────────────────────────────
           const _DigitalVaultCard(),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Mes données personnelles ───────────────────────────────────────
           _PersonalDataCard(onStub: _stub),
           const SizedBox(height: AppSpacing.lg),
         ],
@@ -750,24 +1034,26 @@ class _AvailabilityCard extends StatelessWidget {
 
 // ─── Informations pratiques ───────────────────────────────────────────────────
 
-class _PracticalInfoCard extends StatefulWidget {
+class _PracticalInfoCard extends StatelessWidget {
   const _PracticalInfoCard({
     required this.maxChildrenController,
     required this.availableSlotsController,
+    required this.tobacco,
+    required this.firstAid,
+    required this.pet,
+    required this.onTobaccoChanged,
+    required this.onFirstAidChanged,
+    required this.onPetChanged,
   });
 
   final TextEditingController maxChildrenController;
   final TextEditingController availableSlotsController;
-
-  @override
-  State<_PracticalInfoCard> createState() => _PracticalInfoCardState();
-}
-
-class _PracticalInfoCardState extends State<_PracticalInfoCard> {
-  // Champs non encore dans le modèle → état local.
-  String _tobacco = 'Non fumeur';
-  String _firstAid = 'PSC1 validé';
-  String _pet = 'Pas d\'animal';
+  final String tobacco;
+  final String firstAid;
+  final String pet;
+  final ValueChanged<String?> onTobaccoChanged;
+  final ValueChanged<String?> onFirstAidChanged;
+  final ValueChanged<String?> onPetChanged;
 
   static const _tobaccoOptions = ['Non fumeur', 'Fumeur (extérieur)', 'Fumeur'];
   static const _firstAidOptions = ['PSC1 validé', 'SST validé', 'Aucune formation'];
@@ -803,38 +1089,37 @@ class _PracticalInfoCardState extends State<_PracticalInfoCard> {
           _IconLabeledDropdown(
             icon: Icons.smoking_rooms_rounded,
             label: 'Tabac au domicile',
-            value: _tobacco,
+            value: tobacco,
             options: _tobaccoOptions,
-            onChanged: (v) => setState(() => _tobacco = v ?? _tobacco),
+            onChanged: onTobaccoChanged,
           ),
           const SizedBox(height: AppSpacing.md),
           _IconLabeledDropdown(
             icon: Icons.monitor_heart_outlined,
             label: 'Formation 1ers secours',
-            value: _firstAid,
+            value: firstAid,
             options: _firstAidOptions,
-            onChanged: (v) => setState(() => _firstAid = v ?? _firstAid),
+            onChanged: onFirstAidChanged,
           ),
           const SizedBox(height: AppSpacing.md),
           _IconLabeledDropdown(
             icon: Icons.pets_rounded,
             label: 'Animal au domicile',
-            value: _pet,
+            value: pet,
             options: _petOptions,
-            onChanged: (v) => setState(() => _pet = v ?? _pet),
+            onChanged: onPetChanged,
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Champs wirés Firestore
           ProfileFormField(
             label: 'Places max (agrément)',
-            controller: widget.maxChildrenController,
+            controller: maxChildrenController,
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: AppSpacing.md),
           ProfileFormField(
             label: 'Enfants accueillis actuellement',
-            controller: widget.availableSlotsController,
+            controller: availableSlotsController,
             keyboardType: TextInputType.number,
           ),
         ],
@@ -874,7 +1159,7 @@ class _IconLabeledDropdown extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          value: value,
           items: [
             for (final opt in options)
               DropdownMenuItem(value: opt, child: Text(opt)),
@@ -944,29 +1229,54 @@ class _ChecklistCard extends StatelessWidget {
 
 // ─── Diplômes & Expérience ────────────────────────────────────────────────────
 
-class _DiplomasCard extends StatefulWidget {
-  const _DiplomasCard();
+class _DiplomasCard extends StatelessWidget {
+  const _DiplomasCard({
+    required this.diplomas,
+    required this.parcoursProController,
+    required this.onAddDiploma,
+    required this.onRemoveDiploma,
+  });
 
-  @override
-  State<_DiplomasCard> createState() => _DiplomasCardState();
-}
-
-class _DiplomasCardState extends State<_DiplomasCard> {
-  final List<String> _diplomas = ['CAP Petite Enfance', 'PSC1'];
-
-  void _onAdd() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ajouter un diplôme — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _removeDiploma(String d) => setState(() => _diplomas.remove(d));
+  final List<String> diplomas;
+  final TextEditingController parcoursProController;
+  final ValueChanged<String> onAddDiploma;
+  final ValueChanged<String> onRemoveDiploma;
 
   @override
   Widget build(BuildContext context) {
+    void _showAddDialog() {
+      final textCtrl = TextEditingController();
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ajouter un diplôme'),
+          content: TextField(
+            controller: textCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Nom du diplôme (ex: CAP Petite Enfance)',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final text = textCtrl.text.trim();
+                if (text.isNotEmpty) {
+                  onAddDiploma(text);
+                }
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Ajouter'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -991,19 +1301,28 @@ class _DiplomasCardState extends State<_DiplomasCard> {
               style:
                   AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              for (final d in _diplomas)
-                _DiplomaChip(label: d, onRemove: () => _removeDiploma(d)),
-            ],
-          ),
+          if (diplomas.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                'Aucun diplôme renseigné',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.secondaryText, fontStyle: FontStyle.italic),
+              ),
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                for (final d in diplomas)
+                  _DiplomaChip(label: d, onRemove: () => onRemoveDiploma(d)),
+              ],
+            ),
           const SizedBox(height: AppSpacing.sm),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
-              onPressed: _onAdd,
+              onPressed: _showAddDialog,
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Ajouter'),
               style: OutlinedButton.styleFrom(
@@ -1026,8 +1345,7 @@ class _DiplomasCardState extends State<_DiplomasCard> {
           ),
           const SizedBox(height: AppSpacing.sm),
           TextFormField(
-            initialValue:
-                '8 ans comme assistante maternelle agréée. Ancienne auxiliaire en crèche pendant 3 ans.',
+            controller: parcoursProController,
             maxLines: 4,
             decoration: const InputDecoration(
               hintText: 'Décrivez votre parcours professionnel…',
@@ -1077,34 +1395,16 @@ class _DiplomaChip extends StatelessWidget {
 
 // ─── Photos du domicile ───────────────────────────────────────────────────────
 
-class _PhotoData {
-  const _PhotoData({required this.label, required this.color});
-  final String label;
-  final Color color;
-}
+class _HomePhotosCard extends StatelessWidget {
+  const _HomePhotosCard({
+    required this.homePhotos,
+    required this.onAddPhoto,
+    required this.onRemovePhoto,
+  });
 
-class _HomePhotosCard extends StatefulWidget {
-  const _HomePhotosCard();
-
-  @override
-  State<_HomePhotosCard> createState() => _HomePhotosCardState();
-}
-
-class _HomePhotosCardState extends State<_HomePhotosCard> {
-  final List<_PhotoData> _photos = const [
-    _PhotoData(label: 'Espace de jeux principal', color: Color(0xFFE0E0E0)),
-    _PhotoData(label: 'Chambre sieste', color: Color(0xFFE0E0E0)),
-    _PhotoData(label: 'Jardin partagé', color: Color(0xFFE0E0E0)),
-  ];
-
-  void _addPhoto() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ajouter une photo — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  final List<String> homePhotos;
+  final VoidCallback onAddPhoto;
+  final ValueChanged<String> onRemovePhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -1137,15 +1437,16 @@ class _HomePhotosCardState extends State<_HomePhotosCard> {
               const spacing = AppSpacing.md;
               final tileWidth = (constraints.maxWidth - spacing) / 2;
               final tileHeight = tileWidth * 0.82;
-              final photoTiles = _photos
-                  .map((p) => _PhotoTile(
-                      label: p.label,
-                      bgColor: p.color,
-                      width: tileWidth,
-                      height: tileHeight))
+              final photoTiles = homePhotos
+                  .map((url) => _PhotoTile(
+                        url: url,
+                        width: tileWidth,
+                        height: tileHeight,
+                        onRemove: () => onRemovePhoto(url),
+                      ))
                   .toList();
               final addTile = _AddPhotoTile(
-                  width: tileWidth, height: tileHeight, onTap: _addPhoto);
+                  width: tileWidth, height: tileHeight, onTap: onAddPhoto);
               final allTiles = [...photoTiles, addTile];
               final rows = <Widget>[];
               for (var i = 0; i < allTiles.length; i += 2) {
@@ -1172,15 +1473,16 @@ class _HomePhotosCardState extends State<_HomePhotosCard> {
 
 class _PhotoTile extends StatelessWidget {
   const _PhotoTile({
-    required this.label,
-    required this.bgColor,
+    required this.url,
     required this.width,
     required this.height,
+    required this.onRemove,
   });
-  final String label;
-  final Color bgColor;
+
+  final String url;
   final double width;
   final double height;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -1192,32 +1494,28 @@ class _PhotoTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Container(
-              color: bgColor,
-              alignment: Alignment.center,
-              child: Icon(Icons.image_outlined,
-                  size: width * 0.18,
-                  color: Colors.white.withValues(alpha: 0.7)),
+            Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: AppColors.divider,
+                alignment: Alignment.center,
+                child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+              ),
             ),
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [Color(0xCC1A1A1A), Color(0x001A1A1A)],
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: onRemove,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
                 ),
-                child: Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.labelMedium.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1300,40 +1598,41 @@ class _DashedBorderPainter extends CustomPainter {
 
 // ─── Numéro d'agrément ────────────────────────────────────────────────────────
 
-class _AccreditationCard extends StatefulWidget {
-  const _AccreditationCard();
+class _AccreditationCard extends StatelessWidget {
+  const _AccreditationCard({
+    required this.accreditationNumberController,
+    required this.accreditationExpiry,
+    required this.onAccreditationExpiryChanged,
+    required this.accreditationPhotoUrl,
+    required this.onChangePhoto,
+    required this.pmiCodeController,
+    required this.isCertified,
+    required this.onCertifiedChanged,
+  });
 
-  @override
-  State<_AccreditationCard> createState() => _AccreditationCardState();
-}
-
-class _AccreditationCardState extends State<_AccreditationCard> {
-  DateTime _expiresOn = DateTime(2026, 12, 31);
-  bool _isCertified = true;
+  final TextEditingController accreditationNumberController;
+  final DateTime? accreditationExpiry;
+  final ValueChanged<DateTime> onAccreditationExpiryChanged;
+  final String? accreditationPhotoUrl;
+  final VoidCallback onChangePhoto;
+  final TextEditingController pmiCodeController;
+  final bool isCertified;
+  final ValueChanged<bool> onCertifiedChanged;
 
   String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
-  Future<void> _pickExpiry() async {
+  Future<void> _pickExpiry(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _expiresOn,
+      initialDate: accreditationExpiry ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2040, 12, 31),
       locale: const Locale('fr', 'FR'),
       cancelText: 'Annuler',
       confirmText: 'Valider',
     );
-    if (picked != null) setState(() => _expiresOn = picked);
-  }
-
-  void _changePhoto() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Changer la photo de l\'agrément — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (picked != null) onAccreditationExpiryChanged(picked);
   }
 
   @override
@@ -1359,14 +1658,14 @@ class _AccreditationCardState extends State<_AccreditationCard> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          const ProfileFormField(
+          ProfileFormField(
               label: 'Numéro d\'agrément',
-              initialValue: 'PMI-2024-75015-0042'),
+              controller: accreditationNumberController),
           const SizedBox(height: AppSpacing.md),
           _DatePickerField(
               label: 'Date d\'expiration',
-              value: _fmt(_expiresOn),
-              onTap: _pickExpiry),
+              value: accreditationExpiry != null ? _fmt(accreditationExpiry!) : 'Sélectionner une date',
+              onTap: () => _pickExpiry(context)),
           const SizedBox(height: AppSpacing.lg),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -1387,7 +1686,7 @@ class _AccreditationCardState extends State<_AccreditationCard> {
           ),
           const SizedBox(height: AppSpacing.md),
           GestureDetector(
-            onTap: _changePhoto,
+            onTap: onChangePhoto,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppRadii.md),
               child: SizedBox(
@@ -1395,12 +1694,23 @@ class _AccreditationCardState extends State<_AccreditationCard> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Container(
-                      color: const Color(0xFFD0CCCA),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.image_outlined,
-                          size: 48, color: Color(0xFFAAAAAA)),
-                    ),
+                    if (accreditationPhotoUrl != null && accreditationPhotoUrl!.isNotEmpty)
+                      Image.network(
+                        accreditationPhotoUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFFD0CCCA),
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.broken_image_rounded, size: 48, color: Color(0xFFAAAAAA)),
+                        ),
+                      )
+                    else
+                      Container(
+                        color: const Color(0xFFD0CCCA),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.image_outlined,
+                            size: 48, color: Color(0xFFAAAAAA)),
+                      ),
                     Positioned(
                       bottom: AppSpacing.md,
                       left: 0,
@@ -1439,7 +1749,7 @@ class _AccreditationCardState extends State<_AccreditationCard> {
           ),
           const SizedBox(height: AppSpacing.lg),
           InkWell(
-            onTap: () => setState(() => _isCertified = !_isCertified),
+            onTap: () => onCertifiedChanged(!isCertified),
             borderRadius: BorderRadius.circular(AppRadii.md),
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -1455,9 +1765,9 @@ class _AccreditationCardState extends State<_AccreditationCard> {
                     width: 24,
                     height: 24,
                     child: Checkbox(
-                      value: _isCertified,
+                      value: isCertified,
                       onChanged: (v) =>
-                          setState(() => _isCertified = v ?? false),
+                          onCertifiedChanged(v ?? false),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4)),
                       activeColor: AppColors.primary,
@@ -1493,7 +1803,7 @@ class _AccreditationCardState extends State<_AccreditationCard> {
               style: AppTextStyles.titleMedium
                   .copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSpacing.md),
-          const ProfileFormField(label: '', initialValue: 'PMI-75015'),
+          ProfileFormField(label: '', controller: pmiCodeController),
           const SizedBox(height: AppSpacing.xs),
           Text('Ce code vous rattache à votre PMI de secteur',
               style: AppTextStyles.bodySmall
@@ -1550,7 +1860,25 @@ class _DatePickerField extends StatelessWidget {
 // ─── Contacts importants ──────────────────────────────────────────────────────
 
 class _ImportantContactsCard extends StatelessWidget {
-  const _ImportantContactsCard();
+  const _ImportantContactsCard({
+    required this.contactPmiNameController,
+    required this.contactPmiPhoneController,
+    required this.contactRpeNameController,
+    required this.contactRpePhoneController,
+    required this.contactAntipoisonPhoneController,
+    required this.contactTiersNameController,
+    required this.contactTiersPhoneController,
+    required this.emergencyPhoneCustomController,
+  });
+
+  final TextEditingController contactPmiNameController;
+  final TextEditingController contactPmiPhoneController;
+  final TextEditingController contactRpeNameController;
+  final TextEditingController contactRpePhoneController;
+  final TextEditingController contactAntipoisonPhoneController;
+  final TextEditingController contactTiersNameController;
+  final TextEditingController contactTiersPhoneController;
+  final TextEditingController emergencyPhoneCustomController;
 
   void _stub(BuildContext context, String label) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1592,9 +1920,9 @@ class _ImportantContactsCard extends StatelessWidget {
             iconColor: AppColors.primary,
             label: 'PMI',
             firstFieldLabel: 'Nom',
-            firstFieldMock: 'PMI du 15ème arrondissement',
+            firstFieldController: contactPmiNameController,
             secondFieldLabel: 'Téléphone',
-            secondFieldMock: '01 45 67 89 00',
+            secondFieldController: contactPmiPhoneController,
             secondKeyboard: TextInputType.phone,
             callLabel: 'Contacter la PMI',
             onCall: () => _stub(context, 'Contacter la PMI'),
@@ -1603,47 +1931,49 @@ class _ImportantContactsCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-          const _ContactSection(
+          _ContactSection(
             icon: Icons.domain_outlined,
             iconColor: AppColors.accent,
             label: 'Relais Petite Enfance (RPE)',
             firstFieldLabel: 'Nom',
-            firstFieldMock: 'RPE Les Petits Pas',
+            firstFieldController: contactRpeNameController,
             secondFieldLabel: 'Téléphone',
-            secondFieldMock: '01 45 67 89 10',
+            secondFieldController: contactRpePhoneController,
             secondKeyboard: TextInputType.phone,
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-          const _ContactSection(
+          _ContactSection(
             icon: Icons.warning_amber_outlined,
             iconColor: AppColors.accent,
             label: 'Centre antipoison',
             firstFieldLabel: 'Numéro',
-            firstFieldMock: '01 40 05 48 48',
+            firstFieldController: contactAntipoisonPhoneController,
             firstKeyboard: TextInputType.phone,
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-          const _ContactSection(
+          _ContactSection(
             icon: Icons.person_outline_rounded,
             iconColor: AppColors.secondaryText,
             label: 'Tiers à contacter',
             firstFieldLabel: 'Nom',
-            firstFieldMock: 'Jean Lefèvre (conjoint)',
+            firstFieldController: contactTiersNameController,
             secondFieldLabel: 'Téléphone',
-            secondFieldMock: '06 98 76 54 32',
+            secondFieldController: contactTiersPhoneController,
             secondKeyboard: TextInputType.phone,
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-          const _EmergencyNumbersSection(),
+          _EmergencyNumbersSection(
+            emergencyPhoneCustomController: emergencyPhoneCustomController,
+          ),
         ],
       ),
     );
@@ -1651,7 +1981,9 @@ class _ImportantContactsCard extends StatelessWidget {
 }
 
 class _EmergencyNumbersSection extends StatelessWidget {
-  const _EmergencyNumbersSection();
+  const _EmergencyNumbersSection({required this.emergencyPhoneCustomController});
+
+  final TextEditingController emergencyPhoneCustomController;
 
   static const _rowBg = Color(0xFFFFF0EE);
   static const _numbers = [
@@ -1685,8 +2017,9 @@ class _EmergencyNumbersSection extends StatelessWidget {
             style:
                 AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText)),
         const SizedBox(height: AppSpacing.sm),
-        const ProfileFormField(
-            label: '', initialValue: '01 45 67 00 00',
+        ProfileFormField(
+            label: '',
+            controller: emergencyPhoneCustomController,
             keyboardType: TextInputType.phone),
       ],
     );
@@ -1732,11 +2065,11 @@ class _ContactSection extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.firstFieldLabel,
-    required this.firstFieldMock,
+    required this.firstFieldController,
     this.iconColor = AppColors.primary,
     this.firstKeyboard = TextInputType.text,
     this.secondFieldLabel,
-    this.secondFieldMock,
+    this.secondFieldController,
     this.secondKeyboard = TextInputType.text,
     this.callLabel,
     this.onCall,
@@ -1746,10 +2079,10 @@ class _ContactSection extends StatelessWidget {
   final Color iconColor;
   final String label;
   final String firstFieldLabel;
-  final String firstFieldMock;
+  final TextEditingController firstFieldController;
   final TextInputType firstKeyboard;
   final String? secondFieldLabel;
-  final String? secondFieldMock;
+  final TextEditingController? secondFieldController;
   final TextInputType secondKeyboard;
   final String? callLabel;
   final VoidCallback? onCall;
@@ -1774,13 +2107,13 @@ class _ContactSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         ProfileFormField(
             label: firstFieldLabel,
-            initialValue: firstFieldMock,
+            controller: firstFieldController,
             keyboardType: firstKeyboard),
-        if (secondFieldLabel != null && secondFieldMock != null) ...[
+        if (secondFieldLabel != null && secondFieldController != null) ...[
           const SizedBox(height: AppSpacing.md),
           ProfileFormField(
               label: secondFieldLabel!,
-              initialValue: secondFieldMock!,
+              controller: secondFieldController!,
               keyboardType: secondKeyboard),
         ],
         if (callLabel != null && onCall != null) ...[
@@ -1808,9 +2141,18 @@ class _ContactSection extends StatelessWidget {
 // ─── Vérification d'identité ──────────────────────────────────────────────────
 
 class _IdentityVerificationCard extends StatelessWidget {
-  const _IdentityVerificationCard();
+  const _IdentityVerificationCard({
+    required this.isVerified,
+    required this.verifiedAt,
+  });
+
+  final bool isVerified;
+  final DateTime? verifiedAt;
 
   static const _rgpdBg = Color(0xFFFFF8E1);
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -1845,21 +2187,30 @@ class _IdentityVerificationCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_outline_rounded,
-                    color: AppColors.primary, size: 28),
+                Icon(
+                  isVerified ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded,
+                  color: isVerified ? AppColors.primary : AppColors.secondaryText,
+                  size: 28,
+                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Identité vérifiée',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700)),
+                      Text(
+                        isVerified ? 'Identité vérifiée' : 'Identité non vérifiée',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                            color: isVerified ? AppColors.primary : AppColors.secondaryText,
+                            fontWeight: FontWeight.w700),
+                      ),
                       const SizedBox(height: AppSpacing.xs),
-                      Text('Vérification effectuée le 2024-01-15',
-                          style: AppTextStyles.bodySmall
-                              .copyWith(color: AppColors.secondaryText)),
+                      Text(
+                        isVerified && verifiedAt != null
+                            ? 'Vérification effectuée le ${_fmt(verifiedAt!)}'
+                            : 'Veuillez contacter le support pour valider votre pièce d\'identité.',
+                        style: AppTextStyles.bodySmall
+                            .copyWith(color: AppColors.secondaryText),
+                      ),
                     ],
                   ),
                 ),
@@ -1897,33 +2248,52 @@ class _IdentityVerificationCard extends StatelessWidget {
 
 // ─── Spécialités & compétences ────────────────────────────────────────────────
 
-class _SpecialitiesCard extends StatefulWidget {
-  const _SpecialitiesCard();
+class _SpecialitiesCard extends StatelessWidget {
+  const _SpecialitiesCard({
+    required this.tags,
+    required this.onAddTag,
+    required this.onRemoveTag,
+  });
 
-  @override
-  State<_SpecialitiesCard> createState() => _SpecialitiesCardState();
-}
-
-class _SpecialitiesCardState extends State<_SpecialitiesCard> {
-  final List<String> _tags = [
-    'Montessori',
-    'Éveil musical',
-    'Sorties nature',
-    'Cuisine avec les enfants',
-  ];
-
-  void _remove(String tag) => setState(() => _tags.remove(tag));
-
-  void _onAdd() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Ajouter une spécialité — à venir'),
-          behavior: SnackBarBehavior.floating),
-    );
-  }
+  final List<String> tags;
+  final ValueChanged<String> onAddTag;
+  final ValueChanged<String> onRemoveTag;
 
   @override
   Widget build(BuildContext context) {
+    void _showAddDialog() {
+      final textCtrl = TextEditingController();
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ajouter une spécialité'),
+          content: TextField(
+            controller: textCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Spécialité (ex: Éveil musical)',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final text = textCtrl.text.trim();
+                if (text.isNotEmpty) {
+                  onAddTag(text);
+                }
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Ajouter'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -1946,36 +2316,35 @@ class _SpecialitiesCardState extends State<_SpecialitiesCard> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              for (final tag in _tags)
-                _DiplomaChip(label: tag, onRemove: () => _remove(tag)),
-              InkWell(
-                onTap: _onAdd,
-                borderRadius: BorderRadius.circular(AppRadii.full),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.divider),
-                    borderRadius: BorderRadius.circular(AppRadii.full),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add_rounded,
-                          size: 16, color: AppColors.primaryText),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text('Ajouter',
-                          style: AppTextStyles.labelMedium
-                              .copyWith(color: AppColors.primaryText)),
-                    ],
-                  ),
-                ),
+          if (tags.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                'Aucune spécialité renseignée',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.secondaryText, fontStyle: FontStyle.italic),
               ),
-            ],
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                for (final tag in tags)
+                  _DiplomaChip(label: tag, onRemove: () => onRemoveTag(tag)),
+              ],
+            ),
+          const SizedBox(height: AppSpacing.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _showAddDialog,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Ajouter'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              ),
+            ),
           ),
         ],
       ),
@@ -1985,70 +2354,8 @@ class _SpecialitiesCardState extends State<_SpecialitiesCard> {
 
 // ─── Coffre-fort numérique ────────────────────────────────────────────────────
 
-class _VaultDoc {
-  const _VaultDoc(
-      {required this.title,
-      required this.signedOn,
-      required this.signers,
-      required this.icon});
-  final String title;
-  final String signedOn;
-  final String signers;
-  final IconData icon;
-}
-
-class _FamilyVaultData {
-  const _FamilyVaultData(
-      {required this.name, required this.subtitle, required this.docs});
-  final String name;
-  final String subtitle;
-  final List<_VaultDoc> docs;
-  int get docCount => docs.length;
-}
-
-class _DigitalVaultCard extends StatefulWidget {
+class _DigitalVaultCard extends StatelessWidget {
   const _DigitalVaultCard();
-
-  @override
-  State<_DigitalVaultCard> createState() => _DigitalVaultCardState();
-}
-
-class _DigitalVaultCardState extends State<_DigitalVaultCard> {
-  int? _expandedIndex = 0;
-
-  static final List<_FamilyVaultData> _families = [
-    const _FamilyVaultData(
-      name: 'Famille Dupont',
-      subtitle: 'Lucas & Chloé',
-      docs: [
-        _VaultDoc(title: 'Contrat de garde', signedOn: '01/09/2025', signers: 'Sophie Dupont, Marie Lefèvre', icon: Icons.description_outlined),
-        _VaultDoc(title: 'Engagement qualité', signedOn: '20/08/2025', signers: 'Sophie Dupont, Marie Lefèvre', icon: Icons.task_outlined),
-        _VaultDoc(title: 'Droit à l\'image', signedOn: '01/09/2025', signers: 'Sophie Dupont', icon: Icons.visibility_outlined),
-        _VaultDoc(title: 'Fiche de paie Mars', signedOn: '05/03/2026', signers: 'Sophie Dupont', icon: Icons.receipt_long_outlined),
-      ],
-    ),
-    const _FamilyVaultData(
-      name: 'Famille Martin',
-      subtitle: 'Emma',
-      docs: [
-        _VaultDoc(title: 'Contrat de garde', signedOn: '15/01/2026', signers: 'Julie Martin, Marie Lefèvre', icon: Icons.description_outlined),
-        _VaultDoc(title: 'Fiche de paie Mars', signedOn: '05/03/2026', signers: 'Julie Martin', icon: Icons.receipt_long_outlined),
-      ],
-    ),
-  ];
-
-  int get _totalDocs => _families.fold(0, (s, f) => s + f.docCount);
-
-  void _toggle(int index) =>
-      setState(() => _expandedIndex = _expandedIndex == index ? null : index);
-
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text('$label — à venir'),
-          behavior: SnackBarBehavior.floating),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2094,9 +2401,7 @@ class _DigitalVaultCardState extends State<_DigitalVaultCard> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Stockage chiffré • Conforme RGPD • '
-                    '$_totalDocs document(s) archivé(s) • '
-                    '${_families.length} famille(s)',
+                    'Stockage chiffré • Conforme RGPD • 0 document archivé',
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.secondaryText),
                   ),
@@ -2105,231 +2410,22 @@ class _DigitalVaultCardState extends State<_DigitalVaultCard> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          for (var i = 0; i < _families.length; i++) ...[
-            _FamilyVaultRow(
-              family: _families[i],
-              isExpanded: i == _expandedIndex,
-              onTap: () => _toggle(i),
-              onDocAction: _stub,
-            ),
-            if (i < _families.length - 1) const SizedBox(height: AppSpacing.sm),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _FamilyVaultRow extends StatefulWidget {
-  const _FamilyVaultRow({
-    required this.family,
-    required this.isExpanded,
-    required this.onTap,
-    required this.onDocAction,
-  });
-  final _FamilyVaultData family;
-  final bool isExpanded;
-  final VoidCallback onTap;
-  final void Function(String) onDocAction;
-
-  @override
-  State<_FamilyVaultRow> createState() => _FamilyVaultRowState();
-}
-
-class _FamilyVaultRowState extends State<_FamilyVaultRow> {
-  int? _selectedDoc;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Row(
-              children: [
-                AnimatedRotation(
-                  turns: widget.isExpanded ? 0.25 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.chevron_right_rounded,
-                      size: 22, color: AppColors.primaryText),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                      color: AppColors.assmatIconBg, shape: BoxShape.circle),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.child_care_rounded,
-                      size: 22, color: AppColors.accent),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${widget.family.name} —\n${widget.family.subtitle}',
-                        style: AppTextStyles.bodyLarge
-                            .copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      Text('${widget.family.docCount} document(s)',
-                          style: AppTextStyles.bodySmall
-                              .copyWith(color: AppColors.secondaryText)),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(AppRadii.full),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Text('${widget.family.docCount}',
-                      style: AppTextStyles.labelMedium
-                          .copyWith(fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-          ),
-        ),
-        AnimatedCrossFade(
-          duration: const Duration(milliseconds: 200),
-          crossFadeState: widget.isExpanded
-              ? CrossFadeState.showFirst
-              : CrossFadeState.showSecond,
-          firstChild: Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.lg),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                      width: 2,
-                      margin: const EdgeInsets.only(right: AppSpacing.md),
-                      color: AppColors.divider),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < widget.family.docs.length; i++) ...[
-                          _VaultDocRow(
-                            doc: widget.family.docs[i],
-                            isSelected: i == _selectedDoc,
-                            onTap: () => setState(() =>
-                                _selectedDoc = _selectedDoc == i ? null : i),
-                            onView: () => widget.onDocAction(
-                                'Voir ${widget.family.docs[i].title}'),
-                            onDownload: () => widget.onDocAction(
-                                'Télécharger ${widget.family.docs[i].title}'),
-                          ),
-                          if (i < widget.family.docs.length - 1)
-                            const SizedBox(height: AppSpacing.sm),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          secondChild: const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-}
-
-class _VaultDocRow extends StatelessWidget {
-  const _VaultDocRow({
-    required this.doc,
-    required this.isSelected,
-    required this.onTap,
-    required this.onView,
-    required this.onDownload,
-  });
-  final _VaultDoc doc;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final VoidCallback onView;
-  final VoidCallback onDownload;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.background : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.secondary,
-                borderRadius: BorderRadius.circular(AppRadii.sm),
-              ),
-              alignment: Alignment.center,
-              child: Icon(doc.icon, size: 18, color: AppColors.primary),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(doc.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.bodyMedium
-                          .copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text('Signé le ${doc.signedOn} •\n${doc.signers}',
-                      style: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.secondaryText)),
+                  const Icon(Icons.folder_open_rounded, size: 48, color: AppColors.secondaryText),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Aucun document archivé pour le moment',
+                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.secondaryText, fontStyle: FontStyle.italic),
+                  ),
                 ],
               ),
             ),
-            if (isSelected) ...[
-              const SizedBox(width: AppSpacing.sm),
-              IconButton(
-                onPressed: onView,
-                icon: const Icon(Icons.visibility_outlined,
-                    color: AppColors.primaryText, size: 20),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              GestureDetector(
-                onTap: onDownload,
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.file_download_outlined,
-                      color: Colors.white, size: 20),
-                ),
-              ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2362,7 +2458,28 @@ class _PersonalDataCard extends StatelessWidget {
         ],
       ),
     );
-    if (ok == true && context.mounted) onStub('Compte supprimé');
+    if (ok == true && context.mounted) {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final uid = user.uid;
+          await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('assmats').doc(uid).delete();
+          await user.delete();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Compte supprimé définitivement')),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur lors de la suppression du compte : $e')),
+          );
+        }
+      }
+    }
   }
 
   @override

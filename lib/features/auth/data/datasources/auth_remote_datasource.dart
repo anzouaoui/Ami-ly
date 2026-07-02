@@ -225,6 +225,29 @@ class AuthRemoteDataSource {
     bool clearLocation = false,
     DateTime? availableFrom,
     bool clearAvailableFrom = false,
+    // Nouveaux champs
+    required String tobacco,
+    required String firstAid,
+    required String pet,
+    required List<String> diplomas,
+    required String parcoursProfessionnel,
+    required String accreditationNumber,
+    DateTime? accreditationExpiry,
+    bool clearAccreditationExpiry = false,
+    String? accreditationPhotoUrl,
+    bool clearAccreditationPhotoUrl = false,
+    required String pmiCode,
+    required bool isAccreditationCertified,
+    required List<String> specialities,
+    required String contactPmiName,
+    required String contactPmiPhone,
+    required String contactRpeName,
+    required String contactRpePhone,
+    required String contactAntipoisonPhone,
+    required String contactTiersName,
+    required String contactTiersPhone,
+    required String emergencyPhoneCustom,
+    required List<String> homePhotos,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -246,6 +269,33 @@ class AuthRemoteDataSource {
         else if (availableFrom != null)
           'availableFrom': Timestamp.fromDate(availableFrom),
         'updatedAt': DateTime.now(),
+        // Nouveaux champs
+        'tobacco': tobacco,
+        'firstAid': firstAid,
+        'pet': pet,
+        'diplomas': diplomas,
+        'parcoursProfessionnel': parcoursProfessionnel,
+        'accreditationNumber': accreditationNumber,
+        if (clearAccreditationExpiry)
+          'accreditationExpiry': FieldValue.delete()
+        else if (accreditationExpiry != null)
+          'accreditationExpiry': Timestamp.fromDate(accreditationExpiry),
+        if (clearAccreditationPhotoUrl)
+          'accreditationPhotoUrl': FieldValue.delete()
+        else if (accreditationPhotoUrl != null)
+          'accreditationPhotoUrl': accreditationPhotoUrl,
+        'pmiCode': pmiCode,
+        'isAccreditationCertified': isAccreditationCertified,
+        'specialities': specialities,
+        'contactPmiName': contactPmiName,
+        'contactPmiPhone': contactPmiPhone,
+        'contactRpeName': contactRpeName,
+        'contactRpePhone': contactRpePhone,
+        'contactAntipoisonPhone': contactAntipoisonPhone,
+        'contactTiersName': contactTiersName,
+        'contactTiersPhone': contactTiersPhone,
+        'emergencyPhoneCustom': emergencyPhoneCustom,
+        'homePhotos': homePhotos,
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(
@@ -279,6 +329,40 @@ class AuthRemoteDataSource {
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(e.message ?? 'Erreur lors de la mise à jour de la photo.');
+    }
+  }
+
+  /// Upload une photo d'agrément assmat dans Firebase Storage et retourne l'URL publique.
+  Future<String> uploadAccreditationPhoto(String uid, File imageFile) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('assmats/$uid/accreditation.jpg');
+      final task = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return await task.ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de l\'upload de la photo d\'agrément.');
+    }
+  }
+
+  /// Upload une photo de domicile assmat dans Firebase Storage et retourne l'URL publique.
+  Future<String> uploadHomePhoto(String uid, File imageFile) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('assmats/$uid/home_photos/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final task = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return await task.ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de l\'upload de la photo de domicile.');
     }
   }
 

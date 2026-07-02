@@ -26,6 +26,29 @@ class AssmatProfileModel {
     this.availableFrom,
     this.updatedAt,
     this.photoUrl,
+    // Nouveaux champs
+    this.tobacco = 'Non fumeur',
+    this.firstAid = 'PSC1 validé',
+    this.pet = 'Pas d\'animal',
+    this.diplomas = const [],
+    this.parcoursProfessionnel = '',
+    this.accreditationNumber = '',
+    this.accreditationExpiry,
+    this.accreditationPhotoUrl,
+    this.pmiCode = '',
+    this.isAccreditationCertified = true,
+    this.specialities = const [],
+    this.contactPmiName = '',
+    this.contactPmiPhone = '',
+    this.contactRpeName = '',
+    this.contactRpePhone = '',
+    this.contactAntipoisonPhone = '',
+    this.contactTiersName = '',
+    this.contactTiersPhone = '',
+    this.emergencyPhoneCustom = '',
+    this.isIdentityVerified = false,
+    this.identityVerifiedAt,
+    this.homePhotos = const [],
   });
 
   final String uid;
@@ -74,6 +97,30 @@ class AssmatProfileModel {
   /// Null si l'assistante n'a pas encore défini de photo.
   final String? photoUrl;
 
+  // Nouveaux champs
+  final String tobacco;
+  final String firstAid;
+  final String pet;
+  final List<String> diplomas;
+  final String parcoursProfessionnel;
+  final String accreditationNumber;
+  final DateTime? accreditationExpiry;
+  final String? accreditationPhotoUrl;
+  final String pmiCode;
+  final bool isAccreditationCertified;
+  final List<String> specialities;
+  final String contactPmiName;
+  final String contactPmiPhone;
+  final String contactRpeName;
+  final String contactRpePhone;
+  final String contactAntipoisonPhone;
+  final String contactTiersName;
+  final String contactTiersPhone;
+  final String emergencyPhoneCustom;
+  final bool isIdentityVerified;
+  final DateTime? identityVerifiedAt;
+  final List<String> homePhotos;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -102,6 +149,30 @@ class AssmatProfileModel {
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       photoUrl: data['photoUrl'] as String?,
+      
+      // Nouveaux champs
+      tobacco: data['tobacco'] as String? ?? 'Non fumeur',
+      firstAid: data['firstAid'] as String? ?? 'PSC1 validé',
+      pet: data['pet'] as String? ?? 'Pas d\'animal',
+      diplomas: List<String>.from(data['diplomas'] as List? ?? []),
+      parcoursProfessionnel: data['parcoursProfessionnel'] as String? ?? '',
+      accreditationNumber: data['accreditationNumber'] as String? ?? '',
+      accreditationExpiry: (data['accreditationExpiry'] as Timestamp?)?.toDate(),
+      accreditationPhotoUrl: data['accreditationPhotoUrl'] as String?,
+      pmiCode: data['pmiCode'] as String? ?? '',
+      isAccreditationCertified: data['isAccreditationCertified'] as bool? ?? true,
+      specialities: List<String>.from(data['specialities'] as List? ?? []),
+      contactPmiName: data['contactPmiName'] as String? ?? '',
+      contactPmiPhone: data['contactPmiPhone'] as String? ?? '',
+      contactRpeName: data['contactRpeName'] as String? ?? '',
+      contactRpePhone: data['contactRpePhone'] as String? ?? '',
+      contactAntipoisonPhone: data['contactAntipoisonPhone'] as String? ?? '',
+      contactTiersName: data['contactTiersName'] as String? ?? '',
+      contactTiersPhone: data['contactTiersPhone'] as String? ?? '',
+      emergencyPhoneCustom: data['emergencyPhoneCustom'] as String? ?? '',
+      isIdentityVerified: data['isIdentityVerified'] as bool? ?? false,
+      identityVerifiedAt: (data['identityVerifiedAt'] as Timestamp?)?.toDate(),
+      homePhotos: List<String>.from(data['homePhotos'] as List? ?? []),
     );
   }
 
@@ -126,6 +197,33 @@ class AssmatProfileModel {
         'createdAt': Timestamp.fromDate(createdAt),
         if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
         if (photoUrl != null) 'photoUrl': photoUrl,
+        
+        // Nouveaux champs
+        'tobacco': tobacco,
+        'firstAid': firstAid,
+        'pet': pet,
+        'diplomas': diplomas,
+        'parcoursProfessionnel': parcoursProfessionnel,
+        'accreditationNumber': accreditationNumber,
+        if (accreditationExpiry != null)
+          'accreditationExpiry': Timestamp.fromDate(accreditationExpiry!),
+        if (accreditationPhotoUrl != null)
+          'accreditationPhotoUrl': accreditationPhotoUrl,
+        'pmiCode': pmiCode,
+        'isAccreditationCertified': isAccreditationCertified,
+        'specialities': specialities,
+        'contactPmiName': contactPmiName,
+        'contactPmiPhone': contactPmiPhone,
+        'contactRpeName': contactRpeName,
+        'contactRpePhone': contactRpePhone,
+        'contactAntipoisonPhone': contactAntipoisonPhone,
+        'contactTiersName': contactTiersName,
+        'contactTiersPhone': contactTiersPhone,
+        'emergencyPhoneCustom': emergencyPhoneCustom,
+        'isIdentityVerified': isIdentityVerified,
+        if (identityVerifiedAt != null)
+          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt!),
+        'homePhotos': homePhotos,
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -165,6 +263,33 @@ class AssmatProfileModel {
     bool clearAvailableFrom = false,
     String? photoUrl,
     bool clearPhotoUrl = false,
+    
+    // Nouveaux champs
+    String? tobacco,
+    String? firstAid,
+    String? pet,
+    List<String>? diplomas,
+    String? parcoursProfessionnel,
+    String? accreditationNumber,
+    DateTime? accreditationExpiry,
+    bool clearAccreditationExpiry = false,
+    String? accreditationPhotoUrl,
+    bool clearAccreditationPhotoUrl = false,
+    String? pmiCode,
+    bool? isAccreditationCertified,
+    List<String>? specialities,
+    String? contactPmiName,
+    String? contactPmiPhone,
+    String? contactRpeName,
+    String? contactRpePhone,
+    String? contactAntipoisonPhone,
+    String? contactTiersName,
+    String? contactTiersPhone,
+    String? emergencyPhoneCustom,
+    bool? isIdentityVerified,
+    DateTime? identityVerifiedAt,
+    bool clearIdentityVerifiedAt = false,
+    List<String>? homePhotos,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -189,5 +314,35 @@ class AssmatProfileModel {
             : (availableFrom ?? this.availableFrom),
         updatedAt: updatedAt ?? this.updatedAt,
         photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
+        
+        // Nouveaux champs
+        tobacco: tobacco ?? this.tobacco,
+        firstAid: firstAid ?? this.firstAid,
+        pet: pet ?? this.pet,
+        diplomas: diplomas ?? this.diplomas,
+        parcoursProfessionnel: parcoursProfessionnel ?? this.parcoursProfessionnel,
+        accreditationNumber: accreditationNumber ?? this.accreditationNumber,
+        accreditationExpiry: clearAccreditationExpiry
+            ? null
+            : (accreditationExpiry ?? this.accreditationExpiry),
+        accreditationPhotoUrl: clearAccreditationPhotoUrl
+            ? null
+            : (accreditationPhotoUrl ?? this.accreditationPhotoUrl),
+        pmiCode: pmiCode ?? this.pmiCode,
+        isAccreditationCertified: isAccreditationCertified ?? this.isAccreditationCertified,
+        specialities: specialities ?? this.specialities,
+        contactPmiName: contactPmiName ?? this.contactPmiName,
+        contactPmiPhone: contactPmiPhone ?? this.contactPmiPhone,
+        contactRpeName: contactRpeName ?? this.contactRpeName,
+        contactRpePhone: contactRpePhone ?? this.contactRpePhone,
+        contactAntipoisonPhone: contactAntipoisonPhone ?? this.contactAntipoisonPhone,
+        contactTiersName: contactTiersName ?? this.contactTiersName,
+        contactTiersPhone: contactTiersPhone ?? this.contactTiersPhone,
+        emergencyPhoneCustom: emergencyPhoneCustom ?? this.emergencyPhoneCustom,
+        isIdentityVerified: isIdentityVerified ?? this.isIdentityVerified,
+        identityVerifiedAt: clearIdentityVerifiedAt
+            ? null
+            : (identityVerifiedAt ?? this.identityVerifiedAt),
+        homePhotos: homePhotos ?? this.homePhotos,
       );
 }
