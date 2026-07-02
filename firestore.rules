@@ -104,7 +104,8 @@ service cloud.firestore {
         }
 
         allow read, create: if isConvParticipant();
-        allow update, delete: if false;
+        allow update: if isConvParticipant();
+        allow delete: if false;
       }
     }
 

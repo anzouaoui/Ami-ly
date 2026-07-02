@@ -126,6 +126,7 @@ class MessagingDatasource {
       'senderUid': senderUid,
       'text': text,
       'sentAt': Timestamp.fromDate(now),
+      'type': 'text',
     });
 
     // 2. Résumé conversation : lastMessage + incrément non-lus du destinataire
@@ -179,27 +180,57 @@ class MessagingDatasource {
     await batch.commit();
   }
 
-  /// Met à jour le statut d'une proposition de visio (acceptée / refusée).
+  /// Crée un message de réponse à une proposition de visio (acceptée / refusée).
+  /// On ne modifie PAS le message original (interdit par les règles Firestore),
+  /// on crée un nouveau message de type `visio_response` lié via [visioProposalId].
   Future<void> respondToVisio({
     required String convId,
     required String msgId,
     required VisioStatus status,
     required bool responderIsParent,
+    required String responderUid,
   }) async {
     final now = DateTime.now();
-    final msgRef = _firebase.messagesCollection(convId).doc(msgId);
+    final newMsgRef = _firebase.messagesCollection(convId).doc();
     final convRef = _firebase.conversationDoc(convId);
 
-    final label = status == VisioStatus.accepted ? 'acceptée' : 'refusée';
-    final text = 'Visio $label par ${responderIsParent ? "le parent" : "l\u0027assistante maternelle"}';
+    final actor = responderIsParent ? 'le parent' : "l\u0027assistante maternelle";
+    final String text;
+    switch (status) {
+      case VisioStatus.accepted:
+        text = 'Visio acceptée par $actor';
+      case VisioStatus.refused:
+        text = 'Visio refusée par $actor';
+      case VisioStatus.completed:
+        text = 'Visio terminée par $actor';
+      case VisioStatus.match:
+        text = 'Match validé par $actor';
+      case VisioStatus.reflection:
+        text = 'En réflexion par $actor';
+      case VisioStatus.rejected:
+        text = 'Match refusé par $actor';
+      default:
+        text = 'Visio : $status';
+    }
 
     final batch = _firebase.firestore.batch();
 
-    batch.update(msgRef, {
-      'visioStatus': status.name,
+    // 1. Nouveau message de réponse (type visio_response)
+    final Map<String, dynamic> msgData = {
+      'senderUid': responderUid,
       'text': text,
-    });
+      'sentAt': Timestamp.fromDate(now),
+      'type': 'visio_response',
+      'visioStatus': status.name,
+      'visioProposalId': msgId,
+    };
+    if (status == VisioStatus.reflection) {
+      msgData['reflectionDeadline'] =
+          Timestamp.fromDate(now.add(const Duration(days: 10)));
+    }
+    batch.set(newMsgRef, msgData);
 
+    // 2. Résumé conversation
     batch.update(convRef, {
       'lastMessage': text,
       'lastMessageAt': Timestamp.fromDate(now),

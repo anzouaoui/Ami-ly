@@ -9,6 +9,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../../shared/models/message_model.dart';
+import 'contract_page.dart';
 
 /// Page de chat côté parent — fil de messages avec une assmat donnée.
 ///
@@ -281,10 +282,21 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                               }
                               final msg = messages[i - 1];
                               if (msg.isVisioProposal) {
+                                final responses = messages.where(
+                                  (m) => m.type == MessageType.visioResponse && m.visioProposalId == msg.id,
+                                ).toList();
+                                final lastResponse = responses.isNotEmpty ? responses.last : null;
                                 return _VisioCard(
                                   message: msg,
+                                  responseStatus: lastResponse?.visioStatus,
+                                  reflectionDeadline: lastResponse?.reflectionDeadline,
                                   isMe: msg.senderUid == myUid,
+                                  convId: _convId,
+                                  parentUid: myUid,
                                 );
+                              }
+                              if (msg.type == MessageType.visioResponse) {
+                                return const SizedBox.shrink();
                               }
                               return _BubbleTile(
                                 msg: msg,
@@ -500,20 +512,56 @@ class _UnlockCard extends StatelessWidget {
   }
 }
 
-/// Carte affichant une proposition de visio (proposée, acceptée ou refusée).
-class _VisioCard extends StatelessWidget {
-  const _VisioCard({required this.message, required this.isMe});
+/// Carte affichant une proposition de visio avec son cycle de vie :
+/// attente → acceptée (+ rejoindre/terminée) → terminée (+ suivi décision) → décision prise.
+class _VisioCard extends ConsumerWidget {
+  const _VisioCard({
+    required this.message,
+    required this.isMe,
+    this.responseStatus,
+    this.reflectionDeadline,
+    this.convId,
+    this.parentUid,
+  });
   final MessageModel message;
   final bool isMe;
+  final VisioStatus? responseStatus;
+  final DateTime? reflectionDeadline;
+  final String? convId;
+  final String? parentUid;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveStatus = responseStatus ?? message.visioStatus;
+    final bool isAccepted = effectiveStatus == VisioStatus.accepted;
+    final bool isCompleted = effectiveStatus == VisioStatus.completed;
+
     final (Color bgColor, Color borderColor, String statusText) =
-        switch (message.visioStatus) {
+        switch (effectiveStatus) {
       VisioStatus.accepted => (
           AppColors.secondary,
           AppColors.primary,
           'Accepté par l\'assistante maternelle',
+        ),
+      VisioStatus.completed => (
+          AppColors.primary.withValues(alpha: 0.08),
+          AppColors.primary,
+          'Visio terminée',
+        ),
+      VisioStatus.match => (
+          AppColors.success.withValues(alpha: 0.08),
+          AppColors.success,
+          'Match validé',
+        ),
+      VisioStatus.reflection => (
+          AppColors.accent.withValues(alpha: 0.08),
+          AppColors.accent,
+          'En réflexion',
+        ),
+      VisioStatus.rejected => (
+          AppColors.error.withValues(alpha: 0.08),
+          AppColors.error,
+          'Match refusé',
         ),
       VisioStatus.refused => (
           AppColors.error.withValues(alpha: 0.08),
@@ -586,8 +634,483 @@ class _VisioCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // ── Visio acceptée : rejoindre / terminer ──────────────
+                  if (isAccepted) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: convId != null
+                                ? () => _joinVisio(context)
+                                : null,
+                            icon: const Icon(Icons.videocam_rounded, size: 16),
+                            label: const Text('Rejoindre la visio'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppRadii.sm),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: convId != null
+                                ? () => _markCompleted(context, ref)
+                                : null,
+                            icon: const Icon(Icons.check_circle_outline, size: 16),
+                            label: const Text('Visio terminée'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.success,
+                              side: BorderSide.none,
+                              backgroundColor: AppColors.success.withValues(alpha: 0.08),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppRadii.sm),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  // ── Visio terminée : suivi décision ────────────────────
+                  if (isCompleted) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'La visio est terminée — quelle suite donner ?',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Choisissez une option pour continuer le parcours',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DecisionBtn(
+                                  icon: Icons.favorite,
+                                  label: 'Match validé',
+                                  color: AppColors.success,
+                                  enabled: convId != null,
+                                  onTap: () => _makeDecision(context, ref, VisioStatus.match),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _DecisionBtn(
+                                  icon: Icons.schedule,
+                                  label: 'Réflexion',
+                                  color: AppColors.accent,
+                                  enabled: convId != null,
+                                  onTap: () => _makeDecision(context, ref, VisioStatus.reflection),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _DecisionBtn(
+                                  icon: Icons.close,
+                                  label: 'Refuser',
+                                  color: AppColors.error,
+                                  enabled: convId != null,
+                                  onTap: () => _makeDecision(context, ref, VisioStatus.rejected),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  // ── Match validé : engagement réciproque ──────────────
+                  if (effectiveStatus == VisioStatus.match) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                        border: Border.all(
+                          color: AppColors.success.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🎉 Match validé !',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Vous pouvez maintenant passer à l\'étape suivante : la signature de l\'engagement réciproque',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ContractPage(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.description_outlined, size: 18),
+                              label: const Text('Créer l\'engagement réciproque'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  // ── Réflexion : compte à rebours ──────────────────────
+                  if (effectiveStatus == VisioStatus.reflection) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _ReflectionCard(
+                      deadline: reflectionDeadline,
+                      onValidateMatch: () => _makeDecision(context, ref, VisioStatus.match),
+                      onReject: () => _makeDecision(context, ref, VisioStatus.rejected),
+                    ),
+                  ],
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _joinVisio(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('La visioconférence arrivera bientôt !')),
+    );
+  }
+
+  Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {
+    final datasource = ref.read(messagingDatasourceProvider);
+    try {
+      await datasource.respondToVisio(
+        convId: convId!,
+        msgId: message.id,
+        status: VisioStatus.completed,
+        responderIsParent: true,
+        responderUid: parentUid!,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _makeDecision(
+      BuildContext context, WidgetRef ref, VisioStatus status) async {
+    final datasource = ref.read(messagingDatasourceProvider);
+    try {
+      await datasource.respondToVisio(
+        convId: convId!,
+        msgId: message.id,
+        status: status,
+        responderIsParent: true,
+        responderUid: parentUid!,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
+  }
+}
+
+/// Suivi des rappels déjà affichés dans la session en cours.
+final Set<String> _shownReflectionReminders = {};
+
+/// Carte de réflexion avec compte à rebours sur 10 jours et rappels.
+class _ReflectionCard extends StatelessWidget {
+  const _ReflectionCard({
+    this.deadline,
+    required this.onValidateMatch,
+    required this.onReject,
+  });
+
+  final DateTime? deadline;
+  final VoidCallback onValidateMatch;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final remaining = deadline != null
+        ? deadline!.difference(now)
+        : const Duration(days: 10);
+    final daysLeft = remaining.inDays;
+    final isExpired = daysLeft < 0;
+
+    final String countdownText;
+    if (deadline == null) {
+      countdownText = 'J-10';
+    } else if (isExpired) {
+      countdownText = 'Délai expiré';
+    } else if (daysLeft == 0) {
+      countdownText = 'Dernier jour';
+    } else {
+      countdownText = 'J-$daysLeft';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(
+          color: AppColors.accent.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '⏳ En attente de réflexion',
+            style: AppTextStyles.bodyMedium.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Vous avez 10 jours pour prendre votre décision',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Icon(
+                Icons.schedule,
+                size: 16,
+                color: isExpired
+                    ? AppColors.error
+                    : daysLeft <= 2
+                        ? AppColors.error
+                        : AppColors.accent,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                countdownText,
+                style: AppTextStyles.labelSmall.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: isExpired
+                      ? AppColors.error
+                      : daysLeft <= 2
+                          ? AppColors.error
+                          : AppColors.accent,
+                ),
+              ),
+            ],
+          ),
+          // ── Rappels in-app ──────────────────────────────────────
+          if (deadline != null && !isExpired) ...[
+            if (daysLeft <= 5 && daysLeft > 2 && _shownReflectionReminders.add('${deadline!.millisecondsSinceEpoch}_5'))
+              const _ReminderBanner(
+                icon: Icons.info_outline,
+                text: '⏰ J-5 : Pensez à prendre votre décision !',
+                color: AppColors.primary,
+              ),
+            if (daysLeft <= 2 && daysLeft > 1 && _shownReflectionReminders.add('${deadline!.millisecondsSinceEpoch}_2'))
+              const _ReminderBanner(
+                icon: Icons.warning_amber_rounded,
+                text: '⚠️ J-2 : Il ne vous reste plus que 2 jours !',
+                color: AppColors.accent,
+              ),
+            if (daysLeft <= 1 && _shownReflectionReminders.add('${deadline!.millisecondsSinceEpoch}_1'))
+              const _ReminderBanner(
+                icon: Icons.error_outline,
+                text: '🚨 J-1 : Dernier jour pour prendre votre décision !',
+                color: AppColors.error,
+              ),
+          ],
+          if (isExpired)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Text(
+                'Le délai de réflexion est expiré',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isExpired ? null : onValidateMatch,
+                  icon: const Icon(Icons.favorite, size: 16),
+                  label: const Text('Valider le match'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.success,
+                    side: BorderSide(
+                      color: isExpired
+                          ? AppColors.success.withValues(alpha: 0.3)
+                          : AppColors.success,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.sm),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isExpired ? null : onReject,
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Refuser'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: BorderSide(
+                      color: isExpired
+                          ? AppColors.error.withValues(alpha: 0.3)
+                          : AppColors.error,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.sm),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bannière de rappel colorée.
+class _ReminderBanner extends StatelessWidget {
+  const _ReminderBanner({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                text,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Petit bouton carré pour les décisions post-visio.
+class _DecisionBtn extends StatelessWidget {
+  const _DecisionBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

@@ -202,19 +202,25 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.all(AppSpacing.md),
                             itemCount: messages.length,
-                            itemBuilder: (_, i) {
-                              final msg = messages[i];
-                              if (msg.isVisioProposal) {
-                                return _AssmatVisioCard(
-                                  message: msg,
-                                  conversationId: widget.conversationId,
-                                );
-                              }
-                              return _BubbleTile(
-                                msg: msg,
-                                isMe: msg.senderUid == myUid,
-                              );
-                            },
+                              itemBuilder: (_, i) {
+                                final msg = messages[i];
+                                if (msg.isVisioProposal) {
+                                  final responses = messages.where(
+                                    (m) => m.type == MessageType.visioResponse && m.visioProposalId == msg.id,
+                                  ).toList();
+                                  final lastResponse = responses.isNotEmpty ? responses.last : null;
+                                  return _AssmatVisioCard(
+                                    message: msg,
+                                    responseStatus: lastResponse?.visioStatus,
+                                    conversationId: widget.conversationId,
+                                  );
+                                }
+                                if (msg.type == MessageType.visioResponse) {
+                                  return const SizedBox.shrink();
+                                }
+                                final isMe = msg.senderUid == myUid;
+                                return _BubbleTile(msg: msg, isMe: isMe);
+                              },
                           ),
                         ),
                       );
@@ -287,19 +293,42 @@ class _AssmatVisioCard extends ConsumerWidget {
   const _AssmatVisioCard({
     required this.message,
     required this.conversationId,
+    this.responseStatus,
   });
 
   final MessageModel message;
   final String conversationId;
+  final VisioStatus? responseStatus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveStatus = responseStatus ?? message.visioStatus;
     final (Color bgColor, Color borderColor, String statusText) =
-        switch (message.visioStatus) {
+        switch (effectiveStatus) {
       VisioStatus.accepted => (
           AppColors.secondary,
           AppColors.primary,
           'Vous avez accepté cette visio',
+        ),
+      VisioStatus.completed => (
+          AppColors.primary.withValues(alpha: 0.08),
+          AppColors.primary,
+          'Visio terminée par le parent',
+        ),
+      VisioStatus.match => (
+          AppColors.success.withValues(alpha: 0.08),
+          AppColors.success,
+          'Match validé par le parent',
+        ),
+      VisioStatus.reflection => (
+          AppColors.accent.withValues(alpha: 0.08),
+          AppColors.accent,
+          'En réflexion par le parent',
+        ),
+      VisioStatus.rejected => (
+          AppColors.error.withValues(alpha: 0.08),
+          AppColors.error,
+          'Match refusé par le parent',
         ),
       VisioStatus.refused => (
           AppColors.error.withValues(alpha: 0.08),
@@ -313,7 +342,7 @@ class _AssmatVisioCard extends ConsumerWidget {
         ),
     };
 
-    final bool canRespond = message.isVisioPending;
+    final bool canRespond = effectiveStatus == VisioStatus.pending;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -432,6 +461,7 @@ class _AssmatVisioCard extends ConsumerWidget {
           msgId: message.id,
           status: status,
           responderIsParent: false,
+          responderUid: currentUser.uid,
         );
   }
 }
