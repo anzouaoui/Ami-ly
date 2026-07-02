@@ -163,10 +163,10 @@ class _AssMatHolidaysPageState extends State<AssMatHolidaysPage> {
 class _CompteurContent extends StatelessWidget {
   const _CompteurContent();
 
-  static const int _acquis = 27;
-  static const int _pris = 12;
-  static const int _enAttente = 5;
-  static const int _restants = 10;
+  static const int _acquis = 0;
+  static const int _pris = 0;
+  static const int _enAttente = 0;
+  static const int _restants = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -986,36 +986,7 @@ class _SimLabel extends StatelessWidget {
 class _HistoriqueContent extends StatelessWidget {
   const _HistoriqueContent();
 
-  static const _items = [
-    _HistEntry(
-      du: '21 juil. 2026',
-      au: '4 août 2026',
-      jours: 11,
-      statut: 'En attente',
-      type: 'Congé payé',
-    ),
-    _HistEntry(
-      du: '23 déc. 2025',
-      au: '2 janv. 2026',
-      jours: 7,
-      statut: 'Accepté',
-      type: 'Congé payé',
-    ),
-    _HistEntry(
-      du: '14 juil. 2025',
-      au: '25 juil. 2025',
-      jours: 10,
-      statut: 'Accepté',
-      type: 'Congé payé',
-    ),
-    _HistEntry(
-      du: '12 mai 2025',
-      au: '16 mai 2025',
-      jours: 5,
-      statut: 'Refusé',
-      type: 'Congé sans solde',
-    ),
-  ];
+  static const _items = <_HistEntry>[];
 
   @override
   Widget build(BuildContext context) {

@@ -268,40 +268,7 @@ class _StatCard extends StatelessWidget {
 class _FacturesContent extends StatelessWidget {
   const _FacturesContent();
 
-  static const _factures = [
-    _FactureData(
-      famille: 'Famille Dupont',
-      enfant: 'Lucas',
-      mois: 'Mars 2026',
-      montant: '780 €',
-      statut: _FactureStatut.payee,
-      datePaiement: '01/04/2026',
-    ),
-    _FactureData(
-      famille: 'Famille Leroy',
-      enfant: 'Emma',
-      mois: 'Mars 2026',
-      montant: '588 €',
-      statut: _FactureStatut.payee,
-      datePaiement: '01/04/2026',
-    ),
-    _FactureData(
-      famille: 'Famille Dupont',
-      enfant: 'Lucas',
-      mois: 'Février 2026',
-      montant: '756 €',
-      statut: _FactureStatut.payee,
-      datePaiement: '01/03/2026',
-    ),
-    _FactureData(
-      famille: 'Famille Leroy',
-      enfant: 'Emma',
-      mois: 'Février 2026',
-      montant: '588 €',
-      statut: _FactureStatut.enAttente,
-      datePaiement: null,
-    ),
-  ];
+  static const _factures = <_FactureData>[];
 
   @override
   Widget build(BuildContext context) {
@@ -470,15 +437,7 @@ class _PromesseData {
 class _PromessesContent extends StatelessWidget {
   const _PromessesContent();
 
-  static const _promesses = [
-    _PromesseData(
-      famille: 'Famille Bernard',
-      enfant: 'Léa',
-      debutPrevu: '01/09/2026',
-      heures: '38h/sem',
-      statut: _PromesseStatut.signee,
-    ),
-  ];
+  static const _promesses = <_PromesseData>[];
 
   @override
   Widget build(BuildContext context) {
@@ -602,20 +561,7 @@ class _ContratData {
 class _ContratsContent extends StatelessWidget {
   const _ContratsContent();
 
-  static const _contrats = [
-    _ContratData(
-      famille: 'Famille Dupont',
-      nomEnfant: 'Lucas Dupont',
-      creeLe: '01/09/2025',
-      statut: 'Actif',
-    ),
-    _ContratData(
-      famille: 'Famille Leroy',
-      nomEnfant: 'Emma Leroy',
-      creeLe: '15/10/2025',
-      statut: 'Actif',
-    ),
-  ];
+  static const _contrats = <_ContratData>[];
 
   @override
   Widget build(BuildContext context) {

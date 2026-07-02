@@ -238,7 +238,7 @@ class _StatsGrid extends StatelessWidget {
                   icon: Icons.description_rounded,
                   iconBg: AppColors.secondary,
                   iconColor: AppColors.primary,
-                  value: '2',
+                  value: '-',
                   label: 'Contrats actifs',
                 ),
               ),
@@ -248,7 +248,7 @@ class _StatsGrid extends StatelessWidget {
                   icon: Icons.euro_rounded,
                   iconBg: AppColors.secondary,
                   iconColor: AppColors.primary,
-                  value: '2 340 €',
+                  value: '-',
                   label: 'Revenu mensuel',
                 ),
               ),
@@ -262,7 +262,7 @@ class _StatsGrid extends StatelessWidget {
                   icon: Icons.groups_rounded,
                   iconBg: AppColors.statBlueBg,
                   iconColor: AppColors.statBlueColor,
-                  value: '2',
+                  value: '-',
                   label: 'Enfants accueillis',
                 ),
               ),
@@ -272,7 +272,7 @@ class _StatsGrid extends StatelessWidget {
                   icon: Icons.calendar_month_rounded,
                   iconBg: AppColors.assmatIconBg,
                   iconColor: AppColors.assmatIconColor,
-                  value: '168h',
+                  value: '-',
                   label: 'Heures ce mois',
                 ),
               ),
@@ -298,10 +298,7 @@ class _ChildData {
 class _ChildrenCard extends StatelessWidget {
   const _ChildrenCard();
 
-  static const _children = <_ChildData>[
-    _ChildData(name: 'Lucas Dupont', status: 'Contrat actif'),
-    _ChildData(name: 'Emma Leroy', status: 'Contrat actif'),
-  ];
+  static const _children = <_ChildData>[];
 
   @override
   Widget build(BuildContext context) {
@@ -480,33 +477,7 @@ class _ActivityItem {
 class _RecentActivityCard extends StatelessWidget {
   const _RecentActivityCard();
 
-  static const _items = <_ActivityItem>[
-    _ActivityItem(
-      emoji: '📄',
-      label: 'Journal de Lucas envoyé à Marie Dupont',
-      timestamp: 'Aujourd\'hui, 17:45',
-    ),
-    _ActivityItem(
-      emoji: '💬',
-      label: 'Nouveau message de Julie Leroy',
-      timestamp: 'Aujourd\'hui, 14:20',
-    ),
-    _ActivityItem(
-      emoji: '✅',
-      label: 'Facture mars 2026 validée — Famille Dupont',
-      timestamp: 'Hier, 09:30',
-    ),
-    _ActivityItem(
-      emoji: '📸',
-      label: '3 photos ajoutées au journal d\'Emma',
-      timestamp: 'Hier, 16:00',
-    ),
-    _ActivityItem(
-      emoji: '📅',
-      label: 'Congés d\'été posés (06/07 – 24/07)',
-      timestamp: '05/04/2026',
-    ),
-  ];
+  static const _items = <_ActivityItem>[];
 
   @override
   Widget build(BuildContext context) {
@@ -615,23 +586,7 @@ class _InvitationData {
 class _InviteParentCard extends StatelessWidget {
   const _InviteParentCard();
 
-  static const _invitations = <_InvitationData>[
-    _InvitationData(
-      name: 'Marie Dupont …',
-      subtitle: 'marie@email.com',
-      status: _InvitationStatus.contratActif,
-    ),
-    _InvitationData(
-      name: 'Julie Leroy — Emma',
-      subtitle: '06 12 34 56 78',
-      status: _InvitationStatus.inscrit,
-    ),
-    _InvitationData(
-      name: 'Sophie Martin',
-      subtitle: 'sophie@email.com',
-      status: _InvitationStatus.expire,
-    ),
-  ];
+  static const _invitations = <_InvitationData>[];
 
   void _stub(BuildContext context, String label) {
     ScaffoldMessenger.of(context).showSnackBar(

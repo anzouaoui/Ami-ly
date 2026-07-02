@@ -1671,7 +1671,7 @@ class _AddHolidaysSheetState extends State<_AddHolidaysSheet> {
     'Autre',
   ];
 
-  static const int _joursRestants = -2;
+  static const int _joursRestants = 0;
 
   @override
   void dispose() {
