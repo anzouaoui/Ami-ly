@@ -17,6 +17,17 @@ class MessagingDatasource {
   const MessagingDatasource(this._firebase);
   final FirebaseService _firebase;
 
+  /// Vérifie si une conversation existe entre un parent et une assmat.
+  Future<bool> conversationExists(String parentUid, String assmatUid) async {
+    final convId = ConversationModel.buildId(parentUid, assmatUid);
+    try {
+      final snap = await _firebase.conversationDoc(convId).get();
+      return snap.exists;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ── Conversations ──────────────────────────────────────────────────────────
 
   Stream<List<ConversationModel>> watchConversationsForParent(

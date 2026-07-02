@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../messaging/providers/messaging_providers.dart';
 import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
 import 'parent_chat_page.dart';
@@ -66,6 +67,32 @@ class ChildminderProfilePage extends ConsumerStatefulWidget {
 
 class _ChildminderProfilePageState
     extends ConsumerState<ChildminderProfilePage> {
+  bool _hasContacted = false;
+  bool _checkingContact = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkContacted();
+  }
+
+  Future<void> _checkContacted() async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      if (!mounted) return;
+      setState(() => _checkingContact = false);
+      return;
+    }
+    final exists = await ref
+        .read(messagingDatasourceProvider)
+        .conversationExists(currentUser.uid, widget.data.uid);
+    if (!mounted) return;
+    setState(() {
+      _hasContacted = exists;
+      _checkingContact = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncProfile =
@@ -160,6 +187,10 @@ class _ChildminderProfilePageState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (!_hasContacted && !_checkingContact) ...[
+                    _UnlockBanner(),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
@@ -171,9 +202,17 @@ class _ChildminderProfilePageState
                           ),
                         ),
                       ),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded,
-                          size: 18),
-                      label: const Text('Envoyer un message'),
+                      icon: Icon(
+                        _hasContacted
+                            ? Icons.chat_bubble_outline_rounded
+                            : Icons.lock_open_rounded,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _hasContacted
+                            ? 'Envoyer un message'
+                            : 'Débloquer et contacter',
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -715,6 +754,62 @@ class _ServiceRow extends StatelessWidget {
             child: Text(label,
                 style: AppTextStyles.bodySmall
                     .copyWith(color: AppColors.primaryText)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Carte "Débloquez ce profil" affichée avant le bouton CTA.
+class _UnlockBanner extends StatelessWidget {
+  const _UnlockBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.lock_open_rounded,
+                size: 18, color: AppColors.primary),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Débloquez ce profil pour contacter\nl\'assistante maternelle',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Messagerie, visio et prise de rendez-vous. Le nom complet '
+                  'et l\'adresse précise restent confidentiels jusqu\'à votre '
+                  'accord mutuel.',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
