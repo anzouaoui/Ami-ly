@@ -38,10 +38,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
   /// Message d'erreur si la création de conversation échoue.
   String? _initError;
 
-  /// Vrai si la carte déblocage doit être affichée en tête du fil.
-  /// Devient vrai à la création de la conversation ou à l'envoi du premier
-  /// message, et reste vrai pour toute la durée de vie de la page.
-  bool _showUnlockCard = false;
+
 
   @override
   void initState() {
@@ -75,10 +72,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
       );
 
       if (!mounted) return;
-      setState(() {
-        _convId = result.convId;
-        if (result.isNew) _showUnlockCard = true;
-      });
+      setState(() => _convId = result.convId);
 
       // Marque les messages comme lus à l'ouverture.
       // On enveloppe dans un try-catch pour que l'ouverture de la conversation
@@ -105,7 +99,6 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
     if (currentUser == null) return;
 
     _msgCtrl.clear();
-    if (!_showUnlockCard) _showUnlockCard = true;
     await ref.read(messagingDatasourceProvider).sendMessage(
           convId: _convId!,
           senderUid: currentUser.uid,
@@ -202,24 +195,6 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                           ),
                         ),
                         data: (messages) {
-                          if (!_showUnlockCard) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (_scrollCtrl.hasClients) {
-                                _scrollCtrl.jumpTo(
-                                    _scrollCtrl.position.maxScrollExtent);
-                              }
-                            });
-                            return ListView.builder(
-                              controller: _scrollCtrl,
-                              padding: const EdgeInsets.all(AppSpacing.md),
-                              itemCount: messages.length,
-                              itemBuilder: (_, i) => _BubbleTile(
-                                msg: messages[i],
-                                isMe: messages[i].senderUid == myUid,
-                              ),
-                            );
-                          }
-
                           final itemCount =
                               messages.length + 1;
 
