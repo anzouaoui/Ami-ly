@@ -58,6 +58,7 @@ class _ParentNavigationDrawerState
 
   @override
   Widget build(BuildContext context) {
+    final currentTab = ref.watch(parentShellIndexProvider);
     return Drawer(
       backgroundColor: AppColors.background,
       width: 300,
@@ -161,12 +162,13 @@ class _ParentNavigationDrawerState
                     _DrawerItem(
                       icon: Icons.grid_view_rounded,
                       label: 'Tableau de bord',
-                      isActive: true,
+                      isActive: currentTab == 0,
                       onTap: () => _goTab(0),
                     ),
                     _DrawerItem(
                       icon: Icons.assignment_outlined,
                       label: 'Journal quotidien',
+                      isActive: currentTab == 1,
                       onTap: () => _goTab(1),
                     ),
                     _DrawerItem(
