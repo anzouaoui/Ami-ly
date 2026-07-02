@@ -162,7 +162,7 @@ class _ParentNavigationDrawerState
                       icon: Icons.grid_view_rounded,
                       label: 'Tableau de bord',
                       isActive: true,
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () => _goTab(0),
                     ),
                     _DrawerItem(
                       icon: Icons.assignment_outlined,
