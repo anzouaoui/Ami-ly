@@ -199,44 +199,75 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                           ),
                         ),
                         data: (messages) {
-                          if (messages.isEmpty && !_isNewConversation) {
-                            return Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.all(AppSpacing.xl),
-                                child: Text(
-                                  'Envoyez votre premier message\nà ${widget.assmatName} !',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                      color: AppColors.secondaryText),
-                                  textAlign: TextAlign.center,
-                                ),
+                          // La carte déblocage s'affiche quand la conversation
+                          // est nouvelle (doc créé à l'instant) OU quand il
+                          // n'y a aucun message (conversation vierge).
+                          final showUnlockCard =
+                              messages.isEmpty || _isNewConversation;
+
+                          if (!showUnlockCard) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (_scrollCtrl.hasClients) {
+                                _scrollCtrl.jumpTo(
+                                    _scrollCtrl.position.maxScrollExtent);
+                              }
+                            });
+                            return ListView.builder(
+                              controller: _scrollCtrl,
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              itemCount: messages.length,
+                              itemBuilder: (_, i) => _BubbleTile(
+                                msg: messages[i],
+                                isMe: messages[i].senderUid == myUid,
                               ),
                             );
                           }
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_scrollCtrl.hasClients) {
-                              _scrollCtrl.jumpTo(
-                                  _scrollCtrl.position.maxScrollExtent);
-                            }
-                          });
-                          final itemCount = messages.length +
-                              (_isNewConversation ? 1 : 0);
+
+                          final itemCount =
+                              messages.length + 1; // +1 pour la carte
+
+                          // Scroll en bas uniquement s'il y a des messages
+                          // (pas seulement la carte).
+                          if (messages.isNotEmpty) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (_scrollCtrl.hasClients) {
+                                _scrollCtrl.jumpTo(
+                                    _scrollCtrl.position.maxScrollExtent);
+                              }
+                            });
+                          }
+
                           return ListView.builder(
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.all(AppSpacing.md),
                             itemCount: itemCount,
                             itemBuilder: (_, i) {
-                              if (_isNewConversation && i == 0) {
-                                return _UnlockCard(
-                                  assmatName: widget.assmatName,
+                              if (i == 0) {
+                                return Column(
+                                  children: [
+                                    _UnlockCard(
+                                      assmatName: widget.assmatName,
+                                    ),
+                                    if (messages.isEmpty)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(
+                                                bottom: AppSpacing.xl),
+                                        child: Text(
+                                          'Envoyez votre premier message\nà ${widget.assmatName} !',
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                  color: AppColors
+                                                      .secondaryText),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                  ],
                                 );
                               }
-                              final msgIndex =
-                                  _isNewConversation ? i - 1 : i;
                               return _BubbleTile(
-                                msg: messages[msgIndex],
-                                isMe:
-                                    messages[msgIndex].senderUid == myUid,
+                                msg: messages[i - 1],
+                                isMe: messages[i - 1].senderUid == myUid,
                               );
                             },
                           );
