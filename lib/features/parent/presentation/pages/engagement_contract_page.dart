@@ -10,11 +10,11 @@ import '../widgets/profile_form_field.dart';
 class EngagementContractPage extends StatefulWidget {
   const EngagementContractPage({
     super.key,
-    this.assmatName = 'Marie Lambert',
+    this.assmatName,
     this.assmatPhotoUrl,
   });
 
-  final String assmatName;
+  final String? assmatName;
   final String? assmatPhotoUrl;
 
   @override
@@ -108,7 +108,7 @@ class _EngagementContractPageState extends State<EngagementContractPage> {
     switch (_step) {
       case 1:
         return _Step1(
-          assmatName: widget.assmatName,
+          assmatName: widget.assmatName ?? 'l\'assistante maternelle',
           assmatPhotoUrl: widget.assmatPhotoUrl,
           onCreateEngagement: _next,
         );
