@@ -6,8 +6,6 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
 const _kMonthsFull = [
   'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
   'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
@@ -257,13 +255,7 @@ class _PendingItem {
   final String total;
 }
 
-const _kPendingItems = [
-  _PendingItem(
-    childName: 'Lucas Martin',
-    weekLabel: 'Semaine du 13 avr. 2026',
-    total: '38h',
-  ),
-];
+const _kPendingItems = <_PendingItem>[];
 
 class _PendingSignatureSection extends StatelessWidget {
   const _PendingSignatureSection({required this.onSendForSignature});
@@ -378,13 +370,7 @@ class _SignedItem {
   final String total;
 }
 
-const _kSignedItems = [
-  _SignedItem(
-    childName: 'Emma Dubois',
-    weekLabel: 'Semaine du 6 avr. 2026',
-    total: '35h',
-  ),
-];
+const _kSignedItems = <_SignedItem>[];
 
 class _SignedSection extends StatelessWidget {
   const _SignedSection();

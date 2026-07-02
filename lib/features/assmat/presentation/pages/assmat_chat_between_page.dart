@@ -15,22 +15,6 @@ class _Msg {
   final bool read;
 }
 
-// ─── Mock threads ─────────────────────────────────────────────────────────────
-
-final _kThreads = <String, List<_Msg>>{
-  'Nathalie Moreau': [
-    _Msg(text: 'Salut Nathalie ! Tu es dispo demain matin pour une sortie au parc ?', isMe: true, time: '14:30'),
-    _Msg(text: 'Oui avec plaisir ! J\'amène les petits vers 10h ?', isMe: false, time: '14:45'),
-    _Msg(text: 'Parfait, on se retrouve au parc André Citroën 😊', isMe: true, time: '15:00'),
-    _Msg(text: 'Super, on se retrouve au parc demain ?', isMe: false, time: '15:20'),
-  ],
-  'Isabelle Roux': [
-    _Msg(text: 'Tu as une bonne recette de purée pour les bébés ?', isMe: true, time: '10:00'),
-    _Msg(text: 'Oui ! Patate douce + carotte, c\'est super apprécié.', isMe: false, time: '10:05'),
-    _Msg(text: 'Merci pour le conseil !', isMe: true, time: '10:10', read: true),
-  ],
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 class AssMatChatBetweenPage extends StatefulWidget {
@@ -51,13 +35,7 @@ class AssMatChatBetweenPage extends StatefulWidget {
 class _AssMatChatBetweenPageState extends State<AssMatChatBetweenPage> {
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  late final List<_Msg> _messages;
-
-  @override
-  void initState() {
-    super.initState();
-    _messages = List.of(_kThreads[widget.peerName] ?? []);
-  }
+  final List<_Msg> _messages = [];
 
   @override
   void dispose() {
@@ -211,12 +189,18 @@ class _AssMatChatBetweenPageState extends State<AssMatChatBetweenPage> {
 
                   // Messages
                   Expanded(
-                    child: ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      itemCount: _messages.length,
-                      itemBuilder: (_, i) => _BubbleTile(msg: _messages[i]),
-                    ),
+                    child: _messages.isEmpty
+                        ? Center(
+                            child: Text('Aucun message',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.secondaryText)),
+                          )
+                        : ListView.builder(
+                            controller: _scrollCtrl,
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            itemCount: _messages.length,
+                            itemBuilder: (_, i) => _BubbleTile(msg: _messages[i]),
+                          ),
                   ),
                 ],
               ),

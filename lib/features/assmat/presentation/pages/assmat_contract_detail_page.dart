@@ -542,7 +542,7 @@ class _SuiviMensuelTabState extends State<_SuiviMensuelTab> {
           const SizedBox(height: AppSpacing.lg),
 
           // ── Historique des mois ───────────────────────────────────────
-          _HistorySection(history: _mockHistory),
+          _HistorySection(history: []),
 
           const SizedBox(height: AppSpacing.lg),
         ],
@@ -550,11 +550,7 @@ class _SuiviMensuelTabState extends State<_SuiviMensuelTab> {
     );
   }
 
-  static const _mockHistory = [
-    _MonthHistory(month: 'Mars',    year: 2026, hours: 168, validated: false),
-    _MonthHistory(month: 'Février', year: 2026, hours: 160, adjustment: -36, validated: true),
-    _MonthHistory(month: 'Janvier', year: 2026, hours: 176, adjustment: 12,  validated: true),
-  ];
+  static const _history = <_MonthHistory>[];
 }
 
 // Month picker bottom sheet
@@ -1225,12 +1221,7 @@ class _PajemploiTabState extends State<_PajemploiTab> {
     );
   }
 
-  static const _mockDeclarations = [
-    _PajemploiDeclaration(
-        month: 'Février', year: 2026, hours: 160, total: 744.0),
-    _PajemploiDeclaration(
-        month: 'Janvier', year: 2026, hours: 176, total: 792.0),
-  ];
+  static const _mockDeclarations = <_PajemploiDeclaration>[];
 }
 
 class _PajemploiDeclaration {

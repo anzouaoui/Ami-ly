@@ -26,70 +26,11 @@ class _Document {
   final String? date;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Data (Firestore) ─────────────────────────────────────────────────────────
 
-const _kToPrepare = [
-  _Document(
-    title: 'Contrat de garde',
-    subtitle: 'Contrat d\'accueil entre l\'assistante et les parents',
-    emoji: '📋',
-    status: _DocStatus.brouillon,
-  ),
-  _Document(
-    title: 'Copie vaccination',
-    subtitle: 'Photos du carnet de santé et vaccinations',
-    emoji: '💉',
-    status: _DocStatus.brouillon,
-  ),
-  _Document(
-    title: 'Autorisation droit image',
-    subtitle: 'Autorisation parentale pour les photos de l\'enfant',
-    emoji: '📷',
-    status: _DocStatus.brouillon,
-  ),
-  _Document(
-    title: 'Fiche santé enfant',
-    subtitle: 'Informations médicales et contacts urgence',
-    emoji: '🏥',
-    status: _DocStatus.brouillon,
-  ),
-];
-
-const _kSigned = [
-  _Document(
-    title: 'Contrat CDI — Lucas Dupont',
-    subtitle: 'Signé le 12 jan. 2026',
-    emoji: '📄',
-    status: _DocStatus.signe,
-    childName: 'Lucas Dupont',
-    date: '12 jan. 2026',
-  ),
-  _Document(
-    title: 'Avenant congés 2025',
-    subtitle: 'Signé le 3 oct. 2025',
-    emoji: '📝',
-    status: _DocStatus.signe,
-    childName: 'Lucas Dupont',
-    date: '3 oct. 2025',
-  ),
-];
-
-const _kReceived = [
-  _Document(
-    title: 'Attestation Pajemploi',
-    subtitle: 'Reçu le 15 fév. 2026',
-    emoji: '🧾',
-    status: _DocStatus.recu,
-    date: '15 fév. 2026',
-  ),
-  _Document(
-    title: 'Avis d\'imposition 2025',
-    subtitle: 'Reçu le 10 jan. 2026',
-    emoji: '📊',
-    status: _DocStatus.recu,
-    date: '10 jan. 2026',
-  ),
-];
+const _kToPrepare = <_Document>[];
+const _kSigned = <_Document>[];
+const _kReceived = <_Document>[];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

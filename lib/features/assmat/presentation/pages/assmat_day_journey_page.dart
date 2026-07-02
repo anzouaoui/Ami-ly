@@ -9,16 +9,9 @@ import 'assmat_time_sheet_page.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
-class _MockPhoto {
-  const _MockPhoto(this.label, this.color, this.icon);
-  final String label;
-  final Color color;
-  final IconData icon;
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const _kChildren = ['Lucas', 'Emma', 'Léa', 'Hugo'];
+const _kChildren = <String>[];
 
 const _kWeekdays = [
   'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'
@@ -38,7 +31,7 @@ class AssMatDayJourneyPage extends StatefulWidget {
 }
 
 class _AssMatDayJourneyPageState extends State<AssMatDayJourneyPage> {
-  DateTime _date = DateTime(2026, 4, 23);
+  DateTime _date = DateTime.now();
   int _childIndex = 0;
 
   void _prevDay() => setState(() => _date = _date.subtract(const Duration(days: 1)));
@@ -272,12 +265,7 @@ class _DayJourneyContentState extends State<_DayJourneyContent> {
   ];
 
   // Fournitures
-  final Map<String, double> _fournitures = {
-    'Couches': 1.0,
-    'Lingettes': 1.0,
-    'Lait en poudre': 1.0,
-    'Liniment': 1.0,
-  };
+  final Map<String, double> _fournitures = {};
   static const _fournituresIcons = {
     'Couches': '🩹',
     'Lingettes': '🧻',
@@ -286,11 +274,7 @@ class _DayJourneyContentState extends State<_DayJourneyContent> {
   };
 
   // Photos
-  final List<_MockPhoto> _photos = [
-    _MockPhoto('Jeux calmes d\'int.', const Color(0xFF8BA5C8), Icons.sports_esports_outlined),
-    _MockPhoto('Bonhomme de nei.', const Color(0xFF3B4A6B), Icons.ac_unit_rounded),
-    _MockPhoto('Jardinage en pot', const Color(0xFF6BAB6E), Icons.eco_outlined),
-  ];
+  final List<Map<String, dynamic>> _photos = [];
 
   // Feuille de présence – commentaire
   final _presenceCommentCtrl = TextEditingController();
@@ -741,44 +725,7 @@ class _DayJourneyContentState extends State<_DayJourneyContent> {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              // Thumbnails row
-              SizedBox(
-                height: 140,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _photos.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(width: AppSpacing.sm),
-                  itemBuilder: (_, i) {
-                    final p = _photos[i];
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(AppRadii.sm),
-                          child: Container(
-                            width: 110,
-                            height: 110,
-                            color: p.color,
-                            child: Icon(p.icon,
-                                size: 36, color: Colors.white.withValues(alpha: 0.7)),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: 110,
-                          child: Text(
-                            '${p.label}...',
-                            style: AppTextStyles.bodySmall.copyWith(
-                                color: AppColors.secondaryText, fontSize: 11),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
+              // Upload zone
               const SizedBox(height: AppSpacing.sm),
               // Upload zone
               GestureDetector(

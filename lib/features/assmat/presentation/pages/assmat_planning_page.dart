@@ -358,16 +358,8 @@ class _PlanningSemaineContent extends StatelessWidget {
     'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'
   ];
 
-  // Mock schedule: list of (childName, start, end) per day
-  static const _schedule = [
-    [('Lucas', '08:00', '18:00')],  // Lun 10h
-    [('Lucas', '08:00', '18:00')],  // Mar 10h
-    [('Lucas', '09:00', '17:00')],  // Mer  8h
-    [('Lucas', '08:00', '18:00')],  // Jeu 10h
-    [('Lucas', '08:00', '17:00')],  // Ven  9h
-    <(String, String, String)>[],
-    <(String, String, String)>[],
-  ];
+  // Schedule: list of (childName, start, end) per day (from Firebase)
+  static const _schedule = <List<(String, String, String)>>[];
 
   double _slotHours(String start, String end) {
     final s = start.split(':');
@@ -1005,10 +997,7 @@ class _StatistiquesContent extends StatelessWidget {
 class _MonthlyBarChart extends StatelessWidget {
   _MonthlyBarChart();
 
-  final _data = const [
-    ('Jan', 180.0), ('Fév', 160.0), ('Mar', 195.0), ('Avr', 204.0),
-    ('Mai', 0.0),   ('Jun', 0.0),
-  ];
+  final _data = const <(String, double)>[];
 
   @override
   Widget build(BuildContext context) {

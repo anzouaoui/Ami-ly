@@ -1081,13 +1081,8 @@ class _RemunerationBodyState extends State<_RemunerationBody> {
   // Minimum légal net/h assmat 2026
   static const double _minLegal = 3.18;
 
-  // Mock heures/sem et semaines/an (liés à la section Horaires)
-  static const int _mockHeures = 54;
-  static const int _mockSemaines = 52;
-
-  double get _salaireBrut =>
-      _brutFor(_ratioClassique) * _mockHeures * _mockSemaines / 12;
-  double get _salaireNet => _salaireBrut * _ratioClassique;
+  double get _salaireBrut => 0;
+  double get _salaireNet => 0;
 
   @override
   void initState() {
@@ -1331,8 +1326,7 @@ class _RemunerationBodyState extends State<_RemunerationBody> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_brutFor(_ratioClassique).toStringAsFixed(0)} € × ${_mockHeures}h'
-                  ' × $_mockSemaines sem ÷ 12 mois',
+                  '${_brutFor(_ratioClassique).toStringAsFixed(0)} € taux horaire',
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.secondaryText),
                 ),

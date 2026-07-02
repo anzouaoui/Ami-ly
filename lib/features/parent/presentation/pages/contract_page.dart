@@ -1588,26 +1588,7 @@ class _PajemploiStepPlaceholder extends StatelessWidget {
 class _DeclarationHistorySection extends StatelessWidget {
   const _DeclarationHistorySection();
 
-  static const _declarations = <_DeclarationData>[
-    _DeclarationData(
-      month: 'Février 2026',
-      assmat: 'Sophie Martin',
-      hours: '156.67h',
-      days: '20j',
-      brut: '705,02 €',
-      net: '545,43 €',
-      total: '719,23 €',
-    ),
-    _DeclarationData(
-      month: 'Janvier 2026',
-      assmat: 'Sophie Martin',
-      hours: '156.67h',
-      days: '19j',
-      brut: '705,02 €',
-      net: '545,43 €',
-      total: '715,54 €',
-    ),
-  ];
+  static const _declarations = <_DeclarationData>[];
 
   @override
   Widget build(BuildContext context) {
@@ -1646,7 +1627,7 @@ class _DeclarationHistorySection extends StatelessWidget {
   }
 }
 
-/// Données d'une déclaration Pajemploi passée (mock UI).
+/// Données d'une déclaration Pajemploi passée.
 class _DeclarationData {
   const _DeclarationData({
     required this.month,
@@ -3552,7 +3533,7 @@ class _SubSectionHeader extends StatelessWidget {
 // Carte "Durée et horaires d'accueil"
 // -----------------------------------------------------------------
 
-/// Modèle d'un créneau journalier (mock UI).
+/// Modèle d'un créneau journalier.
 class _DaySchedule {
   const _DaySchedule({
     required this.active,
@@ -3599,11 +3580,10 @@ class _HorairesFormState extends State<_HorairesForm> {
     'Dimanche',
   ];
 
-  // Défaut : lundi-vendredi 08:00-18:00 actifs, weekend inactif.
   late final Map<String, _DaySchedule> _schedule = {
     for (final d in _dayNames)
       d: _DaySchedule(
-        active: !(d == 'Samedi' || d == 'Dimanche'),
+        active: false,
         start: const TimeOfDay(hour: 8, minute: 0),
         end: const TimeOfDay(hour: 18, minute: 0),
       ),

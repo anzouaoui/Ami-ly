@@ -25,34 +25,6 @@ class _Peer {
   final Color? avatarColor;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const _kPeers = [
-  _Peer(
-    name: 'Nathalie Moreau',
-    initials: 'NM',
-    lastMessage: 'Super, on se retrouve au parc demain ?',
-    time: '15:20',
-    unread: 1,
-    avatarColor: Color(0xFF8B7355),
-  ),
-  _Peer(
-    name: 'Isabelle Roux',
-    initials: 'IR',
-    lastMessage: 'Merci pour le conseil !',
-    time: 'Hier',
-    unread: 0,
-  ),
-  _Peer(
-    name: 'Caroline Petit',
-    initials: 'CP',
-    lastMessage: 'Tu connais une bonne formation AFAPEL ?',
-    time: 'Lun',
-    unread: 0,
-    avatarColor: Color(0xFF9B59B6),
-  ),
-];
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 class AssMatBetweenPage extends StatefulWidget {
@@ -65,6 +37,7 @@ class AssMatBetweenPage extends StatefulWidget {
 class _AssMatBetweenPageState extends State<AssMatBetweenPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  final List<_Peer> _peers = [];
 
   @override
   void dispose() {
@@ -72,7 +45,7 @@ class _AssMatBetweenPageState extends State<AssMatBetweenPage> {
     super.dispose();
   }
 
-  List<_Peer> get _filtered => _kPeers
+  List<_Peer> get _filtered => _peers
       .where((p) =>
           _query.isEmpty ||
           p.name.toLowerCase().contains(_query.toLowerCase()))
