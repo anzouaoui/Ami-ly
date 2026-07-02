@@ -159,72 +159,83 @@ class _AssMatDayJourneyPageState extends State<AssMatDayJourneyPage> {
             const SizedBox(height: AppSpacing.md),
 
             // ── Child selector ───────────────────────────
-            SizedBox(
-              height: 110,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _kChildren.length,
-                separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-                itemBuilder: (_, i) {
-                  final selected = i == _childIndex;
-                  return GestureDetector(
-                    onTap: () => setState(() => _childIndex = i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      width: 88,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(AppRadii.md),
-                        border: Border.all(
-                          color: selected ? AppColors.primary : AppColors.divider,
-                          width: selected ? 2 : 1,
+            if (_kChildren.isNotEmpty) ...[
+              SizedBox(
+                height: 110,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _kChildren.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+                  itemBuilder: (_, i) {
+                    final selected = i == _childIndex;
+                    return GestureDetector(
+                      onTap: () => setState(() => _childIndex = i),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 88,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                          border: Border.all(
+                            color: selected ? AppColors.primary : AppColors.divider,
+                            width: selected ? 2 : 1,
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: selected
-                                ? AppColors.primary
-                                : AppColors.divider.withValues(alpha: 0.5),
-                            child: Text(
-                              _kChildren[i][0],
-                              style: AppTextStyles.titleMedium.copyWith(
-                                color: selected
-                                    ? AppColors.onPrimary
-                                    : AppColors.secondaryText,
-                                fontWeight: FontWeight.w700,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor: selected
+                                  ? AppColors.primary
+                                  : AppColors.divider.withValues(alpha: 0.5),
+                              child: Text(
+                                _kChildren[i][0],
+                                style: AppTextStyles.titleMedium.copyWith(
+                                  color: selected
+                                      ? AppColors.onPrimary
+                                      : AppColors.secondaryText,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _kChildren[i],
-                            style: AppTextStyles.bodySmall.copyWith(
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                              color: selected
-                                  ? AppColors.primaryText
-                                  : AppColors.secondaryText,
+                            const SizedBox(height: 6),
+                            Text(
+                              _kChildren[i],
+                              style: AppTextStyles.bodySmall.copyWith(
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: selected
+                                    ? AppColors.primaryText
+                                    : AppColors.secondaryText,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Content for selected child ───────────────
-            _DayJourneyContent(
-              childName: _kChildren[_childIndex],
-              date: _date,
-            ),
+              const SizedBox(height: AppSpacing.md),
+              _DayJourneyContent(
+                childName: _kChildren[_childIndex],
+                date: _date,
+              ),
+            ] else
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl * 2),
+                  child: Text(
+                    'Aucun enfant pour le moment',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
