@@ -38,6 +38,9 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
   /// Message d'erreur si la création de conversation échoue.
   String? _initError;
 
+  /// Vrai si la conversation vient d'être créée (premier message envoyé).
+  bool _isNewConversation = false;
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +65,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
           : currentUser.displayName ?? 'Parent';
 
       final datasource = ref.read(messagingDatasourceProvider);
-      final convId = await datasource.getOrCreateConversation(
+      final result = await datasource.getOrCreateConversation(
         parentUid: currentUser.uid,
         assmatUid: widget.assmatUid,
         parentName: parentName,
@@ -70,13 +73,16 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
       );
 
       if (!mounted) return;
-      setState(() => _convId = convId);
+      setState(() {
+        _convId = result.convId;
+        _isNewConversation = result.isNew;
+      });
 
       // Marque les messages comme lus à l'ouverture.
       // On enveloppe dans un try-catch pour que l'ouverture de la conversation
       // ne plante pas si l'update échoue (ex: latence, règle Firestore transitoire).
       try {
-        await datasource.markAsRead(convId: convId, readerIsParent: true);
+        await datasource.markAsRead(convId: result.convId, readerIsParent: true);
       } catch (markError) {
         debugPrint('[Chat] markAsRead warning: $markError');
       }
@@ -193,7 +199,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                           ),
                         ),
                         data: (messages) {
-                          if (messages.isEmpty) {
+                          if (messages.isEmpty && !_isNewConversation) {
                             return Center(
                               child: Padding(
                                 padding:
@@ -213,14 +219,26 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                                   _scrollCtrl.position.maxScrollExtent);
                             }
                           });
+                          final itemCount = messages.length +
+                              (_isNewConversation ? 1 : 0);
                           return ListView.builder(
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.all(AppSpacing.md),
-                            itemCount: messages.length,
-                            itemBuilder: (_, i) => _BubbleTile(
-                              msg: messages[i],
-                              isMe: messages[i].senderUid == myUid,
-                            ),
+                            itemCount: itemCount,
+                            itemBuilder: (_, i) {
+                              if (_isNewConversation && i == 0) {
+                                return _UnlockCard(
+                                  assmatName: widget.assmatName,
+                                );
+                              }
+                              final msgIndex =
+                                  _isNewConversation ? i - 1 : i;
+                              return _BubbleTile(
+                                msg: messages[msgIndex],
+                                isMe:
+                                    messages[msgIndex].senderUid == myUid,
+                              );
+                            },
                           );
                         },
                       ),
@@ -367,6 +385,66 @@ class _BubbleTile extends StatelessWidget {
       return 'Hier $h:$m';
     }
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} $h:$m';
+  }
+}
+
+/// Carte système affichée en haut d'une nouvelle conversation pour indiquer
+/// que le profil de l'assmat est débloqué.
+class _UnlockCard extends StatelessWidget {
+  const _UnlockCard({required this.assmatName});
+
+  final String assmatName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.secondary,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Text('🔓', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Profil de $assmatName débloqué !',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Vous pouvez maintenant discuter et organiser une visio',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

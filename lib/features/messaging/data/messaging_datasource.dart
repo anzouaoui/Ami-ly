@@ -37,13 +37,13 @@ class MessagingDatasource {
         .map((s) => s.docs.map(ConversationModel.fromFirestore).toList());
   }
 
-  /// Retourne l'ID de conversation, en créant le document s'il n'existe pas.
+  /// Retourne l'ID de conversation et un booléen indiquant si elle vient d'être créée.
   ///
   /// N'utilise pas de `get()` préalable pour éviter une erreur de règle Firestore
   /// sur les documents inexistants (`resource == null`).
   /// `mergeFields` garantit que les champs d'état (unreadAssmat, lastMessage…)
   /// ne sont pas écrasés si la conversation existe déjà.
-  Future<String> getOrCreateConversation({
+  Future<({String convId, bool isNew})> getOrCreateConversation({
     required String parentUid,
     required String assmatUid,
     required String parentName,
@@ -55,7 +55,7 @@ class MessagingDatasource {
     try {
       final snap = await ref.get();
       if (snap.exists) {
-        return convId;
+        return (convId: convId, isNew: false);
       }
     } catch (e) {
       // Ce catch gère le cas où les règles Firestore bloquent le get() sur un document inexistant.
@@ -84,7 +84,7 @@ class MessagingDatasource {
       ]),
     );
 
-    return convId;
+    return (convId: convId, isNew: true);
   }
 
   // ── Messages ───────────────────────────────────────────────────────────────
