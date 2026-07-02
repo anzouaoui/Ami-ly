@@ -21,7 +21,7 @@ class AuthMethodButton extends StatelessWidget {
   /// Icône libre (Icon, SvgPicture, Image, etc.) — le parent gère sa taille.
   final Widget icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

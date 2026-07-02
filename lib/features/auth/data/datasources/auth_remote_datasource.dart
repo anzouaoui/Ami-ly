@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/services/firebase_service.dart';
@@ -16,6 +17,8 @@ import '../models/user_model.dart';
 class AuthRemoteDataSource {
   AuthRemoteDataSource(this._firebase);
   final FirebaseService _firebase;
+
+  final _googleSignIn = GoogleSignIn();
 
   Stream<User?> authStateChanges() => _firebase.authStateChanges;
 
@@ -388,6 +391,52 @@ class AuthRemoteDataSource {
     }
   }
 
+  /// Connexion via Google : ouvre le sélecteur de compte, échange les tokens
+  /// contre une credential Firebase, puis crée le document Firestore si
+  /// l'utilisateur est nouveau (première connexion Google).
+  ///
+  /// Retourne le [UserModel] si le profil Firestore existe déjà, ou `null`
+  /// si l'utilisateur doit encore choisir son rôle.
+  Future<UserModel?> signInWithGoogle() async {
+    try {
+      // 1. Affiche le sélecteur de compte Google.
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        // L'utilisateur a annulé la sélection de compte.
+        throw AuthException('Connexion annulée.');
+      }
+
+      // 2. Récupère les tokens OAuth2.
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 3. Authentification Firebase.
+      final cred = await _firebase.auth.signInWithCredential(credential);
+      final user = cred.user;
+      if (user == null) throw AuthException('Connexion Google échouée.');
+
+      // 4. Vérifie si un profil Firestore existe déjà.
+      final doc = await _firebase.userDoc(user.uid).get();
+      if (doc.exists) {
+        // Utilisateur connu → retourne son profil.
+        return UserModel.fromFirestore(doc);
+      }
+
+      // 5. Nouvel utilisateur Google → pas encore de rôle choisi.
+      //    On retourne null : la couche presentation redirigera vers WelcomePage.
+      return null;
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapAuthError(e));
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException('Erreur lors de la connexion Google : $e');
+    }
+  }
+
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _firebase.auth.sendPasswordResetEmail(email: email);
@@ -396,7 +445,14 @@ class AuthRemoteDataSource {
     }
   }
 
-  Future<void> signOut() => _firebase.auth.signOut();
+  Future<void> signOut() async {
+    await Future.wait([
+      _firebase.auth.signOut(),
+      // Déconnecte aussi du compte Google pour forcer le sélecteur
+      // au prochain signIn (évite la reconnexion silencieuse).
+      _googleSignIn.signOut(),
+    ]);
+  }
 
   /// Traduit les codes Firebase en messages lisibles côté UI.
   String _mapAuthError(FirebaseAuthException e) {

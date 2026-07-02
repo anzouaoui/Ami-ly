@@ -95,6 +95,22 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, AppUser?>> signInWithGoogle() async {
+    await _simulateLatency();
+    // Stub : simule une connexion Google avec un user parent fictif.
+    final user = AppUser(
+      uid: 'fake-google-user',
+      email: 'google.user@gmail.com',
+      role: UserRole.parent,
+      createdAt: DateTime(2024, 1, 1),
+      displayName: 'Utilisateur Google',
+      isProfileComplete: false,
+    );
+    _emit(user);
+    return Right(user);
+  }
+
+  @override
   Future<Either<Failure, AppUser>> signUpWithEmail({
     required String email,
     required String password,

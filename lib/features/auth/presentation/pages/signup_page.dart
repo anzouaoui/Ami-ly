@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
-import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
@@ -173,7 +172,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel('Prénom'),
+                              const _FieldLabel('Prénom'),
                               const SizedBox(height: AppSpacing.sm),
                               TextFormField(
                                 controller: _firstNameCtrl,
@@ -198,7 +197,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel('Nom'),
+                              const _FieldLabel('Nom'),
                               const SizedBox(height: AppSpacing.sm),
                               TextFormField(
                                 controller: _lastNameCtrl,
@@ -223,7 +222,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     const SizedBox(height: AppSpacing.md),
 
                     // Email
-                    _FieldLabel('Email'),
+                    const _FieldLabel('Email'),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
                       controller: _emailCtrl,
@@ -240,7 +239,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     const SizedBox(height: AppSpacing.md),
 
                     // Mot de passe
-                    _FieldLabel('Mot de passe'),
+                    const _FieldLabel('Mot de passe'),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
                       controller: _passwordCtrl,

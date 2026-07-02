@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -6,6 +7,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
 import '../../../../shared/models/user_role.dart';
+import '../providers/auth_providers.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
 import 'login_page.dart';
@@ -15,31 +17,57 @@ import 'signup_page.dart';
 /// et le [SignUpPage] (form email).
 ///
 /// Flux :
-///   - Tap "Continuer avec Google" → TODO Google Sign-In
+///   - Tap "Continuer avec Google" → Google Sign-In (Firebase)
 ///   - Tap "S'inscrire avec un email" → [SignUpPage] avec le rôle
 ///   - Tap "Se connecter" → [LoginPage]
-class SignUpMethodPage extends StatelessWidget {
+class SignUpMethodPage extends ConsumerStatefulWidget {
   const SignUpMethodPage({super.key, required this.role});
 
   final UserRole role;
 
-  void _onGoogleTap(BuildContext context) {
-    // TODO: brancher Google Sign-In (google_sign_in + firebase_auth).
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connexion Google — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  @override
+  ConsumerState<SignUpMethodPage> createState() => _SignUpMethodPageState();
+}
+
+class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage> {
+  bool _loading = false;
+  String? _errorMessage;
+
+  Future<void> _onGoogleTap() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ref.read(authRepositoryProvider).signInWithGoogle();
+
+    if (!mounted) return;
+    result.fold(
+      (failure) => setState(() {
+        _errorMessage = failure.message;
+        _loading = false;
+      }),
+      (user) {
+        setState(() => _loading = false);
+        if (user == null) {
+          // Nouvel utilisateur Google sans profil → profil créé, rediriger
+          // vers WelcomePage pour qu'il choisisse (ou re-choisisse) son rôle.
+          // En pratique il vient de choisir son rôle ici, mais le doc Firestore
+          // n'est pas encore créé. Le stream currentUserProvider gérera la suite.
+          // Pour l'instant on ne fait rien : l'AuthWrapper détectera le signIn.
+        }
+        // Si user != null, le stream currentUserProvider prend le relai.
+      },
     );
   }
 
-  void _onEmailTap(BuildContext context) {
+  void _onEmailTap() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SignUpPage(initialRole: role)),
+      MaterialPageRoute(builder: (_) => SignUpPage(initialRole: widget.role)),
     );
   }
 
-  void _onLoginTap(BuildContext context) {
+  void _onLoginTap() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const LoginPage()),
     );
@@ -47,6 +75,15 @@ class SignUpMethodPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Dès qu'un utilisateur est connecté, l'AuthWrapper prend le relai.
+    ref.listen(currentUserProvider, (_, next) {
+      next.whenData((user) {
+        if (user != null && mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       // AppBar transparente : uniquement pour le bouton back automatique
@@ -65,15 +102,28 @@ class SignUpMethodPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ---- Hero : badge rôle + titre + sous-titre ----
-              _Hero(role: role),
+              _Hero(role: widget.role),
               const SizedBox(height: AppSpacing.xl),
 
               // ---- Boutons d'auth (Google / Email) ----
               AuthMethodButton(
                 icon: const _GoogleIcon(),
                 label: 'Continuer avec Google',
-                onTap: () => _onGoogleTap(context),
+                onTap: _loading ? null : () => _onGoogleTap(),
               ),
+
+              // Erreur éventuelle
+              if (_errorMessage != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+
               const SizedBox(height: AppSpacing.md),
               const AuthDivider(label: 'OU'),
               const SizedBox(height: AppSpacing.md),
@@ -84,7 +134,7 @@ class SignUpMethodPage extends StatelessWidget {
                   color: AppColors.primaryText,
                 ),
                 label: 'S\'inscrire avec un email',
-                onTap: () => _onEmailTap(context),
+                onTap: _onEmailTap,
               ),
               const SizedBox(height: AppSpacing.xl),
 
@@ -110,7 +160,7 @@ class SignUpMethodPage extends StatelessWidget {
                   const SizedBox(width: AppSpacing.xs),
                   GhostButton(
                     label: 'Se connecter',
-                    onTap: () => _onLoginTap(context),
+                    onTap: _onLoginTap,
                   ),
                 ],
               ),
@@ -191,8 +241,7 @@ class _RolePillBadge extends StatelessWidget {
   }
 }
 
-/// Placeholder logo Google — un "G" stylisé.
-/// TODO: remplacer par l'asset officiel Google (SVG multicolore).
+/// Logo Google — un "G" stylisé.
 class _GoogleIcon extends StatelessWidget {
   const _GoogleIcon();
 

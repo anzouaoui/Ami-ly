@@ -19,6 +19,13 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Connexion via compte Google.
+  ///
+  /// Retourne [Right(AppUser)] si l'utilisateur a déjà un profil Firestore,
+  /// ou [Right(null)] s'il s'agit d'un nouvel utilisateur qui doit encore
+  /// choisir son rôle (redirection vers WelcomePage attendue côté UI).
+  Future<Either<Failure, AppUser?>> signInWithGoogle();
+
   Future<Either<Failure, AppUser>> signUpWithEmail({
     required String email,
     required String password,

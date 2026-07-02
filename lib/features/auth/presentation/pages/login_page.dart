@@ -16,7 +16,7 @@ import 'forgot_password_page.dart';
 ///
 /// Correspond à la frame "Login Screen" du design system :
 ///   - Hero : "Bon retour !" + "Connectez-vous à votre compte AMiLY"
-///   - Bouton Google (placeholder tant que Firebase n'est pas branché)
+///   - Bouton Google
 ///   - Divider "OU PAR EMAIL"
 ///   - Form : email + mot de passe (toggle visibilité) + "Mot de passe oublié ?"
 ///     + bouton primary "Se connecter"
@@ -66,13 +66,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  void _onGoogleTap() {
-    // TODO: brancher Google Sign-In.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connexion Google — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _onGoogleTap() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ref.read(authRepositoryProvider).signInWithGoogle();
+
+    if (!mounted) return;
+    result.fold(
+      (failure) => setState(() {
+        _errorMessage = failure.message;
+        _loading = false;
+      }),
+      (user) {
+        setState(() => _loading = false);
+        if (user == null) {
+          // Nouvel utilisateur Google : doit choisir son rôle.
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const WelcomePage()),
+            (route) => false,
+          );
+        }
+        // Si user != null, le stream currentUserProvider prend le relai.
+      },
     );
   }
 
@@ -126,7 +144,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               AuthMethodButton(
                 icon: const _GoogleIcon(),
                 label: 'Continuer avec Google',
-                onTap: _onGoogleTap,
+                onTap: _loading ? null : () => _onGoogleTap(),
               ),
               const SizedBox(height: AppSpacing.md),
               const AuthDivider(label: 'OU PAR EMAIL'),
@@ -139,7 +157,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Email
-                    _FieldLabel('Email'),
+                    const _FieldLabel('Email'),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
                       controller: _emailCtrl,
@@ -155,7 +173,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: AppSpacing.md),
 
                     // Password
-                    _FieldLabel('Mot de passe'),
+                    const _FieldLabel('Mot de passe'),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
                       controller: _passwordCtrl,
@@ -308,8 +326,7 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-/// Placeholder logo Google — un "G" stylisé.
-/// TODO: remplacer par l'asset officiel Google (SVG multicolore).
+/// Logo Google — un "G" stylisé.
 class _GoogleIcon extends StatelessWidget {
   const _GoogleIcon();
 
