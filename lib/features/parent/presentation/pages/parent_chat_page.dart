@@ -286,15 +286,16 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                                   (m) => m.type == MessageType.visioResponse && m.visioProposalId == msg.id,
                                 ).toList();
                                 final lastResponse = responses.isNotEmpty ? responses.last : null;
-                                return _VisioCard(
-                                  message: msg,
-                                  responseStatus: lastResponse?.visioStatus,
-                                  reflectionDeadline: lastResponse?.reflectionDeadline,
-                                  isMe: msg.senderUid == myUid,
-                                  convId: _convId,
-                                  parentUid: myUid,
-                                  assmatName: widget.assmatName,
-                                );
+                                 return _VisioCard(
+                                   message: msg,
+                                   responseStatus: lastResponse?.visioStatus,
+                                   reflectionDeadline: lastResponse?.reflectionDeadline,
+                                   isMe: msg.senderUid == myUid,
+                                   convId: _convId,
+                                   parentUid: myUid,
+                                   assmatName: widget.assmatName,
+                                   assmatUid: widget.assmatUid,
+                                 );
                               }
                               if (msg.type == MessageType.visioResponse) {
                                 return const SizedBox.shrink();
@@ -524,6 +525,7 @@ class _VisioCard extends ConsumerWidget {
     this.convId,
     this.parentUid,
     this.assmatName,
+    this.assmatUid,
   });
   final MessageModel message;
   final bool isMe;
@@ -532,6 +534,7 @@ class _VisioCard extends ConsumerWidget {
   final String? convId;
   final String? parentUid;
   final String? assmatName;
+  final String? assmatUid;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -774,21 +777,22 @@ class _VisioCard extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          SizedBox(
-                            width: double.infinity,
+                            SizedBox(
+                              width: double.infinity,
                               child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EngagementContractPage(
-                                      assmatName: assmatName ?? 'l\'assistante maternelle',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => EngagementContractPage(
+                                        assmatUid: assmatUid ?? '',
+                                        assmatName: assmatName ?? 'l\'assistante maternelle',
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.description_outlined, size: 18),
-                              label: const Text('Créer l\'engagement réciproque'),
+                                  );
+                                },
+                                icon: const Icon(Icons.description_outlined, size: 18),
+                                label: const Text('Créer l\'engagement réciproque'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.success,
                                 foregroundColor: Colors.white,
