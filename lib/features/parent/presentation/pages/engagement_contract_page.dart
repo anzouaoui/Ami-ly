@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -67,9 +68,6 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
   final _telCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _nPajemploiCtrl = TextEditingController();
-  final _nomAmCtrl = TextEditingController();
-  final _prenomAmCtrl = TextEditingController();
-  final _agrementCtrl = TextEditingController();
   final _dateEmbaucheCtrl = TextEditingController();
   final _finContratCtrl = TextEditingController();
   final _periodeEssaiCtrl = TextEditingController();
@@ -88,9 +86,6 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     _telCtrl.dispose();
     _emailCtrl.dispose();
     _nPajemploiCtrl.dispose();
-    _nomAmCtrl.dispose();
-    _prenomAmCtrl.dispose();
-    _agrementCtrl.dispose();
     _dateEmbaucheCtrl.dispose();
     _finContratCtrl.dispose();
     _periodeEssaiCtrl.dispose();
@@ -101,6 +96,17 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
   }
 
   void _next() {
+    if (_step < 6) {
+      setState(() => _step++);
+    }
+  }
+
+  Future<void> _onSignEngagement() async {
+    const docusignUrl = 'https://demo.docusign.net/';
+    final uri = Uri.tryParse(docusignUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
     if (_step < 6) {
       setState(() => _step++);
     }
@@ -198,11 +204,10 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
           ),
         );
       case 3:
-        return _Step3(controllers: _Step3Controllers(
-          nom: _nomAmCtrl,
-          prenom: _prenomAmCtrl,
-          agrement: _agrementCtrl,
-        ));
+        return _Step3(
+          assmatName: widget.assmatName ?? 'l\'assistante maternelle',
+          onSign: _onSignEngagement,
+        );
       case 4:
         return _Step4(controllers: _Step4Controllers(
           nomEnfant: _nomEnfantCtrl,
@@ -1111,58 +1116,92 @@ class _Step2State extends State<_Step2> {
   }
 }
 
-// ─── Step 3 : Signature — Assistant maternel ──────────────────────────────────
-
-class _Step3Controllers {
-  _Step3Controllers({
-    required this.nom,
-    required this.prenom,
-    required this.agrement,
-  });
-  final TextEditingController nom;
-  final TextEditingController prenom;
-  final TextEditingController agrement;
-}
+// ─── Step 3 : Signature électronique ──────────────────────────────────────────
 
 class _Step3 extends StatelessWidget {
-  const _Step3({required this.controllers});
-  final _Step3Controllers controllers;
+  const _Step3({
+    required this.assmatName,
+    required this.onSign,
+  });
+
+  final String assmatName;
+  final VoidCallback onSign;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Assistant maternel',
-          style: AppTextStyles.titleMedium.copyWith(
-            fontWeight: FontWeight.w700,
+        // ── Carte d'information DocuSign ─────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified_outlined, color: AppColors.primary, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Signature électronique sécurisée — DocuSign',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryText,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Informations de l\'assistante maternelle',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.secondaryText,
+        const SizedBox(height: AppSpacing.xl),
+        // ── Carte Signature centrée ──────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
           ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        ProfileFormField(
-          controller: controllers.nom,
-          label: 'Nom',
-          required: true,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.prenom,
-          label: 'Prénom',
-          required: true,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.agrement,
-          label: "Numéro d'agrément",
-          hintText: 'Ex: 12345',
+          child: Column(
+            children: [
+              Icon(Icons.edit_note_rounded, size: 64, color: AppColors.primary),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Signature du parent',
+                style: AppTextStyles.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'En signant, vous acceptez les termes de l\'engagement '
+                'réciproque avec $assmatName.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.secondaryText,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onSign,
+                  icon: const Icon(Icons.draw_outlined, size: 20),
+                  label: const Text('Signer l\'engagement'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.sm),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
