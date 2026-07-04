@@ -109,6 +109,49 @@ service cloud.firestore {
       }
     }
 
+    // ── contracts/{contractId} ────────────────────────────────────────────────
+    // Contrat d'engagement réciproque entre un parent et une assmat.
+    //   Lecture : le parent ou l'assmat concerné.
+    //   Création : tout utilisateur authentifié.
+    //   Mise à jour : le parent ou l'assmat concerné.
+    match /contracts/{contractId} {
+      function isParticipantOnCreate() {
+        let data = request.resource.data;
+        return isAuth() && (
+          request.auth.uid == data.parentUid ||
+          request.auth.uid == data.assmatUid
+        );
+      }
+
+      function isParticipant() {
+        return isAuth() && (
+          resource.data.parentUid == request.auth.uid ||
+          resource.data.assmatUid == request.auth.uid
+        );
+      }
+
+      allow read:   if isParticipant();
+      allow create: if isParticipantOnCreate();
+      allow update: if isParticipant();
+      allow delete: if false;
+
+      // ── contracts/{contractId}/signatures/{signatureId} ────────────────────
+      // Piste d'audit des signatures (parent puis assmat).
+      match /signatures/{signatureId} {
+        function isContractParticipant() {
+          return isAuth() &&
+            exists(/databases/$(database)/documents/contracts/$(contractId)) && (
+            request.auth.uid ==
+              get(/databases/$(database)/documents/contracts/$(contractId)).data.parentUid ||
+            request.auth.uid ==
+              get(/databases/$(database)/documents/contracts/$(contractId)).data.assmatUid
+          );
+        }
+        allow read, create: if isContractParticipant();
+        allow update, delete: if false;
+      }
+    }
+
     // ── Blocage par défaut ───────────────────────────────────────────────────
     // Toute collection non listée ci-dessus est refusée.
     match /{document=**} {
