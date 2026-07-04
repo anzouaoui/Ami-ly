@@ -10,6 +10,7 @@ import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/domain/entities/app_user.dart';
@@ -127,6 +128,28 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         consentText: result.consentText,
       );
       await service.saveSignature(contractId: contractId, audit: audit);
+
+      // Notification à l'assmat
+      try {
+        final notifService = ref.read(notificationServiceProvider);
+        final currentUser = ref.read(currentUserProvider).valueOrNull;
+        final childName = _contractFormData!.childFirstName.isNotEmpty
+            ? _contractFormData!.childFirstName
+            : _contractFormData!.prenomEnfant.isNotEmpty
+                ? _contractFormData!.prenomEnfant
+                : 'l\'enfant';
+        await notifService.createNotification(
+          recipientUid: widget.assmatUid,
+          senderUid: currentUser?.uid ?? '',
+          type: 'contract_signature',
+          contractId: contractId,
+          title: 'Contrat à signer',
+          body: 'Un contrat pour l\'accueil de $childName '
+              'est en attente de votre signature.',
+        );
+      } catch (_) {
+        // Échec notification non bloquant
+      }
 
       if (mounted) {
         setState(() => _isSigning = false);

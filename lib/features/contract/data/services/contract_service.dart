@@ -266,6 +266,29 @@ class ContractService {
     });
   }
 
+  /// Récupère un contrat par son ID.
+  Future<Map<String, dynamic>?> getContractById(String contractId) async {
+    final doc = await _contracts.doc(contractId).get();
+    if (!doc.exists) return null;
+    return doc.data();
+  }
+
+  /// Met à jour le statut du contrat après signature assmat.
+  Future<void> finalizeAssmatSignature({
+    required String contractId,
+    required String signedName,
+    String? ipAddress,
+  }) async {
+    final now = DateTime.now().toIso8601String();
+    await _contracts.doc(contractId).update({
+      'status': ContractStatus.active.name,
+      'assmatSignedAt': now,
+      'assmatSignedName': signedName,
+      'assmatSignatureIp': ipAddress,
+      'updatedAt': now,
+    });
+  }
+
   /// Récupère l'adresse IP approximative via un service externe.
   static Future<String?> getPublicIp() async {
     try {
