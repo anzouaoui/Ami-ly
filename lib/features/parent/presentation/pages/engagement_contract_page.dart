@@ -65,39 +65,8 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
   bool _isSigning = false;
   ContractFormData? _contractFormData;
 
-  final _nomCtrl = TextEditingController();
-  final _prenomCtrl = TextEditingController();
-  final _dateNaissanceCtrl = TextEditingController();
-  final _adresseCtrl = TextEditingController();
-  final _cpCtrl = TextEditingController();
-  final _villeCtrl = TextEditingController();
-  final _telCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _nPajemploiCtrl = TextEditingController();
-  final _dateEmbaucheCtrl = TextEditingController();
-  final _finContratCtrl = TextEditingController();
-  final _periodeEssaiCtrl = TextEditingController();
-  final _nomEnfantCtrl = TextEditingController();
-  final _prenomEnfantCtrl = TextEditingController();
-  final _dateNaissanceEnfantCtrl = TextEditingController();
-
   @override
   void dispose() {
-    _nomCtrl.dispose();
-    _prenomCtrl.dispose();
-    _dateNaissanceCtrl.dispose();
-    _adresseCtrl.dispose();
-    _cpCtrl.dispose();
-    _villeCtrl.dispose();
-    _telCtrl.dispose();
-    _emailCtrl.dispose();
-    _nPajemploiCtrl.dispose();
-    _dateEmbaucheCtrl.dispose();
-    _finContratCtrl.dispose();
-    _periodeEssaiCtrl.dispose();
-    _nomEnfantCtrl.dispose();
-    _prenomEnfantCtrl.dispose();
-    _dateNaissanceEnfantCtrl.dispose();
     super.dispose();
   }
 
@@ -309,14 +278,11 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
                 ),
         );
       case 4:
-        return _Step4(controllers: _Step4Controllers(
-          nomEnfant: _nomEnfantCtrl,
-          prenomEnfant: _prenomEnfantCtrl,
-          dateNaissance: _dateNaissanceEnfantCtrl,
-          dateEmbauche: _dateEmbaucheCtrl,
-          finContrat: _finContratCtrl,
-          periodeEssai: _periodeEssaiCtrl,
-        ));
+        return _Step4(
+          contractData: _contractFormData,
+          assmatName: widget.assmatName ?? "l'assistante maternelle",
+          onSign: _next,
+        );
       case 5:
         return _Step5();
       case 6:
@@ -1255,92 +1221,285 @@ class _Step2State extends State<_Step2> {
 // ─── Step 3 : Signature électronique ──────────────────────────────────────────
 // Remplacé par InAppSignatureWidget (voir le builder case 3 ci-dessus)
 
-// ─── Step 4 : Contrat — Enfant & Dates ────────────────────────────────────────
-
-class _Step4Controllers {
-  _Step4Controllers({
-    required this.nomEnfant,
-    required this.prenomEnfant,
-    required this.dateNaissance,
-    required this.dateEmbauche,
-    required this.finContrat,
-    required this.periodeEssai,
-  });
-  final TextEditingController nomEnfant;
-  final TextEditingController prenomEnfant;
-  final TextEditingController dateNaissance;
-  final TextEditingController dateEmbauche;
-  final TextEditingController finContrat;
-  final TextEditingController periodeEssai;
-}
+// ─── Step 4 : Contrat de travail ──────────────────────────────────────────────
 
 class _Step4 extends StatelessWidget {
-  const _Step4({required this.controllers});
-  final _Step4Controllers controllers;
+  const _Step4({
+    required this.contractData,
+    required this.assmatName,
+    required this.onSign,
+  });
+
+  final ContractFormData? contractData;
+  final String assmatName;
+  final VoidCallback onSign;
 
   @override
   Widget build(BuildContext context) {
+    final data = contractData;
+    if (data == null) {
+      return Center(
+        child: Text(
+          'Données de l\'engagement introuvables.',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoBanner(context),
+        const SizedBox(height: AppSpacing.md),
+        _buildContractCard(context, data),
+        const SizedBox(height: AppSpacing.lg),
+        _buildSignButton(context),
+      ],
+    );
+  }
+
+  Widget _buildInfoBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              'Toutes les données ont été reprises automatiquement '
+              'de l\'engagement réciproque.',
+              style: AppTextStyles.bodySmall.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryText,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContractCard(BuildContext context, ContractFormData data) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Titre
+          Text(
+            'Contrat de travail CDI',
+            style: AppTextStyles.titleMedium.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Convention collective IDCC 3239',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          // Carte Employeur
+          _buildPersonCard(
+            icon: Icons.business_outlined,
+            title: 'Employeur',
+            name: '${data.prenomEmployeur} ${data.nomEmployeur}'.trim(),
+            address: [
+              data.adresseEmployeur,
+              if (data.villeEmployeur.isNotEmpty || data.cpEmployeur.isNotEmpty)
+                '${data.cpEmployeur} ${data.villeEmployeur}'.trim(),
+            ].where((s) => s.isNotEmpty).join('\n'),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // Carte Salarié
+          _buildPersonCard(
+            icon: Icons.badge_outlined,
+            title: 'Salarié(e)',
+            name: '${data.prenomSalarie} ${data.nomSalarie}'.trim(),
+            address: [
+              data.adresseSalarie,
+              if (data.villeSalarie.isNotEmpty || data.cpSalarie.isNotEmpty)
+                '${data.cpSalarie} ${data.villeSalarie}'.trim(),
+            ].where((s) => s.isNotEmpty).join('\n'),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // Infos contrat
+          _buildInfoRow('Date de début', data.dateDebut),
+          _buildInfoRow('Type de contrat', 'CDI'),
+          _buildInfoRow('Heures / Semaine', '${data.heuresSemaine} h'),
+          _buildInfoRow('Heures / Mois', '${data.heuresMois} h'),
+          const SizedBox(height: AppSpacing.md),
+          // Carte Salaire
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Salaire',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSalaryItem(
+                        label: 'Horaire brut',
+                        value: '${data.salaireHoraire} €',
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: _buildSalaryItem(
+                        label: 'Mensuel brut',
+                        value: '${data.salaireMensuel} €',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonCard({
+    required IconData icon,
+    required String title,
+    required String name,
+    required String address,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                title,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            name,
+            style: AppTextStyles.bodySmall.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (address.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              address,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.secondaryText,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.secondaryText,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: AppTextStyles.bodySmall.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalaryItem({required String label, required String value}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Enfant & engagement',
-          style: AppTextStyles.titleMedium.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Identité de l\'enfant et dates du contrat',
-          style: AppTextStyles.bodySmall.copyWith(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
             color: AppColors.secondaryText,
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        ProfileFormField(
-          controller: controllers.nomEnfant,
-          label: "Nom de l'enfant",
-          required: true,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.prenomEnfant,
-          label: "Prénom de l'enfant",
-          required: true,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.dateNaissance,
-          label: 'Date de naissance',
-          hintText: 'JJ/MM/AAAA',
-        ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: 4),
         Text(
-          'Dates du contrat',
+          value,
           style: AppTextStyles.bodyMedium.copyWith(
             fontWeight: FontWeight.w700,
+            color: AppColors.primary,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.dateEmbauche,
-          label: "Date d'embauche",
-          hintText: 'JJ/MM/AAAA',
-          required: true,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.finContrat,
-          label: 'Fin prévue',
-          hintText: 'JJ/MM/AAAA (optionnel)',
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileFormField(
-          controller: controllers.periodeEssai,
-          label: 'Durée période d\'essai',
-          hintText: 'Ex: 3 mois',
-        ),
       ],
+    );
+  }
+
+  Widget _buildSignButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: onSign,
+        icon: const Icon(Icons.draw_outlined, size: 20),
+        label: const Text('Signer le contrat'),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.sm),
+          ),
+        ),
+      ),
     );
   }
 }
