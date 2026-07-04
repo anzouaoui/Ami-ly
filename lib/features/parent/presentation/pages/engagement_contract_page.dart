@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../contract/data/models/contract_form_data.dart';
+import '../../../contract/data/models/signature_audit_model.dart';
+import '../../../contract/data/services/contract_service.dart';
+import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
+import '../../../../core/services/firebase_service.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/domain/entities/app_user.dart';
@@ -58,6 +62,8 @@ class EngagementContractPage extends ConsumerStatefulWidget {
 
 class _EngagementContractPageState extends ConsumerState<EngagementContractPage> {
   int _step = 1;
+  bool _isSigning = false;
+  ContractFormData? _contractFormData;
 
   final _nomCtrl = TextEditingController();
   final _prenomCtrl = TextEditingController();
@@ -101,15 +107,80 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     }
   }
 
-  Future<void> _onSignEngagement() async {
-    const docusignUrl = 'https://demo.docusign.net/';
-    final uri = Uri.tryParse(docusignUrl);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  void _onStep2Preview(ContractFormData data) {
+    _contractFormData = data;
+    _next();
+  }
+
+  Future<void> _onSignatureComplete(SignatureResult result) async {
+    if (_contractFormData == null) return;
+    setState(() => _isSigning = true);
+
+    try {
+      final firebaseService = ref.read(firebaseServiceProvider);
+      final service = ContractService(firebaseService: firebaseService);
+
+      final pdfBytes = await service.generateContractPdf(_contractFormData!);
+      final pdfHash = service.computePdfHash(pdfBytes);
+      final ip = await ContractService.getPublicIp();
+
+      final contractId = await service.getOrCreateContract(
+        parentUid: ref.read(currentUserProvider).valueOrNull?.uid ?? '',
+        assmatUid: widget.assmatUid,
+      );
+
+      String? pdfUrl;
+      try {
+        pdfUrl = await service.uploadPdf(
+          contractId: contractId,
+          pdfBytes: pdfBytes,
+        );
+      } catch (_) {
+        // Storage désactivé — le PDF sera uploadé plus tard
+      }
+
+      await service.finalizeParentSignature(
+        contractId: contractId,
+        formData: _contractFormData!,
+        signedName: result.signedName,
+        pdfUrl: pdfUrl ?? '',
+        pdfHash: pdfHash,
+        ipAddress: ip,
+      );
+
+      final audit = SignatureAuditModel(
+        uid: ref.read(currentUserProvider).valueOrNull?.uid ?? '',
+        role: 'parent',
+        signedName: result.signedName,
+        ipAddress: ip,
+        method: result.smsVerified ? 'sms' : 'typed_name',
+        consentText: result.consentText,
+      );
+      await service.saveSignature(contractId: contractId, audit: audit);
+
+      if (mounted) {
+        setState(() => _isSigning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Contrat signé avec succès !'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _next();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSigning = false);
+        _showError('Erreur lors de la signature : $e');
+      }
     }
-    if (_step < 6) {
-      setState(() => _step++);
-    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.accent),
+    );
   }
 
   String _loadingError(
@@ -190,7 +261,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
 
         return _Step2(
           assmatName: widget.assmatName ?? 'l\'assistante maternelle',
-          onPreview: _next,
+          onPreview: _onStep2Preview,
           initialData: _Step2InitialData(
             parentFirstName: parentProfile.firstName,
             parentLastName: parentProfile.lastName,
@@ -204,9 +275,38 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
           ),
         );
       case 3:
-        return _Step3(
-          assmatName: widget.assmatName ?? 'l\'assistante maternelle',
-          onSign: _onSignEngagement,
+        final parentProfile = ref.read(parentProfileProvider).valueOrNull;
+        final currentUser = ref.read(currentUserProvider).valueOrNull;
+        if (parentProfile == null || currentUser == null || _contractFormData == null) {
+          return Center(
+            child: Text(
+              'Données du contrat introuvables.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: _isSigning
+              ? const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Signature en cours…'),
+                    ],
+                  ),
+                )
+              : InAppSignatureWidget(
+                  parentFirstName: parentProfile.firstName,
+                  parentLastName: parentProfile.lastName,
+                  parentUid: currentUser.uid,
+                  assmatName: widget.assmatName ?? 'l\'assistante maternelle',
+                  contractFormData: _contractFormData!,
+                  onSigned: _onSignatureComplete,
+                  onError: _showError,
+                ),
         );
       case 4:
         return _Step4(controllers: _Step4Controllers(
@@ -423,7 +523,7 @@ class _Step2 extends StatefulWidget {
   });
 
   final String assmatName;
-  final VoidCallback onPreview;
+  final ValueChanged<ContractFormData> onPreview;
   final _Step2InitialData? initialData;
 
   @override
@@ -527,21 +627,21 @@ class _Step2State extends State<_Step2> {
         ),
         const SizedBox(height: 4),
         InputDecorator(
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            border: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(AppRadii.sm)),
-              borderSide: BorderSide(color: AppColors.divider),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              border: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(AppRadii.sm)),
+                borderSide: BorderSide(color: AppColors.divider),
+              ),
+              filled: true,
+              fillColor: AppColors.surface,
             ),
-            filled: true,
-            fillColor: AppColors.surface,
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isDense: true,
-              isExpanded: true,
-              items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: AppTextStyles.bodySmall))).toList(),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                isDense: true,
+                isExpanded: true,
+                items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: AppTextStyles.bodySmall))).toList(),
               onChanged: onChanged,
             ),
           ),
@@ -1028,7 +1128,7 @@ class _Step2State extends State<_Step2> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: widget.onPreview,
+              onPressed: _onSign,
               icon: const Icon(Icons.draw_outlined, size: 18),
               label: const Text('Signer l\'engagement'),
               style: FilledButton.styleFrom(
@@ -1042,6 +1142,42 @@ class _Step2State extends State<_Step2> {
         ],
       ),
     );
+  }
+
+  void _onSign() {
+    final selectedChild = _selectedChild != null
+        ? _children.where((c) => c.id == _selectedChild).firstOrNull
+        : null;
+
+    final data = ContractFormData(
+      civiliteEmployeur: _civiliteEmployeur,
+      typeEmployeur: _typeEmployeur,
+      nomEmployeur: _nomCtrl.text,
+      prenomEmployeur: _prenomCtrl.text,
+      adresseEmployeur: _adresseCtrl.text,
+      villeEmployeur: _villeCtrl.text,
+      cpEmployeur: _cpCtrl.text,
+      telEmployeur: _telCtrl.text,
+      emailEmployeur: _emailCtrl.text,
+      civiliteSalarie: _civiliteSalarie,
+      nomSalarie: _nomSalarieCtrl.text,
+      prenomSalarie: _prenomSalarieCtrl.text,
+      adresseSalarie: _adresseSalarieCtrl.text,
+      villeSalarie: _villeSalarieCtrl.text,
+      cpSalarie: _cpSalarieCtrl.text,
+      telSalarie: _telSalarieCtrl.text,
+      emailSalarie: _emailSalarieCtrl.text,
+      childId: _selectedChild,
+      childFirstName: selectedChild?.firstName ?? '',
+      dateDebut: _dateDebutCtrl.text,
+      heuresSemaine: _heuresSemaineCtrl.text,
+      heuresMois: _heuresMoisCtrl.text,
+      semainesAn: _semainesAnCtrl.text,
+      salaireMensuel: _salaireMensuelCtrl.text,
+      salaireHoraire: _salaireHoraireCtrl.text,
+    );
+
+    widget.onPreview(data);
   }
 
   Widget _buildPreviewSection({
@@ -1117,96 +1253,7 @@ class _Step2State extends State<_Step2> {
 }
 
 // ─── Step 3 : Signature électronique ──────────────────────────────────────────
-
-class _Step3 extends StatelessWidget {
-  const _Step3({
-    required this.assmatName,
-    required this.onSign,
-  });
-
-  final String assmatName;
-  final VoidCallback onSign;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // ── Carte d'information DocuSign ─────────────────────────
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.verified_outlined, color: AppColors.primary, size: 20),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Signature électronique sécurisée — DocuSign',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        // ── Carte Signature centrée ──────────────────────────────
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Column(
-            children: [
-              Icon(Icons.edit_note_rounded, size: 64, color: AppColors.primary),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Signature du parent',
-                style: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'En signant, vous acceptez les termes de l\'engagement '
-                'réciproque avec $assmatName.',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.secondaryText,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onSign,
-                  icon: const Icon(Icons.draw_outlined, size: 20),
-                  label: const Text('Signer l\'engagement'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadii.sm),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+// Remplacé par InAppSignatureWidget (voir le builder case 3 ci-dessus)
 
 // ─── Step 4 : Contrat — Enfant & Dates ────────────────────────────────────────
 
@@ -1423,3 +1470,6 @@ class _Step6 extends StatelessWidget {
     );
   }
 }
+
+// ─── Yousign API Service ──────────────────────────────────────────────────────────
+// Supprimé — remplacé par la signature in-app via InAppSignatureWidget + ContractService
