@@ -284,7 +284,25 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
           onSign: _next,
         );
       case 5:
-        return _Step5();
+        final parentProfile = ref.read(parentProfileProvider).valueOrNull;
+        final currentUser = ref.read(currentUserProvider).valueOrNull;
+        if (parentProfile == null || currentUser == null || _contractFormData == null) {
+          return Center(
+            child: Text(
+              'Données du contrat introuvables.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+            ),
+          );
+        }
+        return _Step5(
+          contractData: _contractFormData!,
+          assmatName: widget.assmatName ?? "l'assistante maternelle",
+          parentFirstName: parentProfile.firstName,
+          parentLastName: parentProfile.lastName,
+          parentUid: currentUser.uid,
+          onSigned: _onSignatureComplete,
+          onError: _showError,
+        );
       case 6:
         return _Step6();
       default:
@@ -1504,25 +1522,92 @@ class _Step4 extends StatelessWidget {
   }
 }
 
-// ─── Step 5 : Rémunération ─────────────────────────────────────────────────────
+// ─── Step 5 : Signature du contrat (parent) ─────────────────────────────────────
 
 class _Step5 extends StatelessWidget {
+  const _Step5({
+    required this.contractData,
+    required this.assmatName,
+    required this.parentFirstName,
+    required this.parentLastName,
+    required this.parentUid,
+    required this.onSigned,
+    this.onError,
+  });
+
+  final ContractFormData contractData;
+  final String assmatName;
+  final String parentFirstName;
+  final String parentLastName;
+  final String parentUid;
+  final ValueChanged<SignatureResult> onSigned;
+  final void Function(String message)? onError;
+
   @override
   Widget build(BuildContext context) {
+    final childName = contractData.childFirstName.isNotEmpty
+        ? contractData.childFirstName
+        : contractData.prenomEnfant.isNotEmpty
+            ? contractData.prenomEnfant
+            : 'l\'enfant';
+
+    final employerName =
+        '${contractData.prenomEmployeur} ${contractData.nomEmployeur}'.trim();
+    final employeeName =
+        '${contractData.prenomSalarie} ${contractData.nomSalarie}'.trim();
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Rémunération',
-          style: AppTextStyles.titleMedium.copyWith(
-            fontWeight: FontWeight.w700,
+        // ── Carte d'information DocuSign ──────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified_outlined, color: AppColors.primary, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Signature du contrat — DocuSign',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryText,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Les informations de rémunération seront disponibles dans une prochaine version',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.secondaryText,
+        const SizedBox(height: AppSpacing.lg),
+        // ── Carte Signature centrée ────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.xl,
+            horizontal: AppSpacing.lg,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: InAppSignatureWidget(
+            parentFirstName: parentFirstName,
+            parentLastName: parentLastName,
+            parentUid: parentUid,
+            assmatName: assmatName,
+            contractFormData: contractData,
+            onSigned: onSigned,
+            onError: onError,
+            customTitle: 'Signature du contrat',
+            customDescription:
+                'Contrat CDI entre $employerName et $employeeName '
+                'pour l\'accueil de $childName.',
           ),
         ),
       ],
