@@ -27,6 +27,8 @@ class InAppSignatureWidget extends StatefulWidget {
     required this.contractFormData,
     required this.onSigned,
     this.onError,
+    this.customTitle,
+    this.customDescription,
   });
 
   final String parentFirstName;
@@ -36,6 +38,8 @@ class InAppSignatureWidget extends StatefulWidget {
   final ContractFormData contractFormData;
   final ValueChanged<SignatureResult> onSigned;
   final void Function(String message)? onError;
+  final String? customTitle;
+  final String? customDescription;
 
   @override
   State<InAppSignatureWidget> createState() => _InAppSignatureWidgetState();
@@ -88,15 +92,16 @@ class _InAppSignatureWidgetState extends State<InAppSignatureWidget> {
               const Icon(Icons.edit_note_rounded, size: 64, color: AppColors.primary),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Signature du parent',
+                widget.customTitle ?? 'Signature du parent',
                 style: AppTextStyles.titleMedium.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                "En signant, vous acceptez les termes de l'engagement "
-                'réciproque avec ${widget.assmatName}.',
+                widget.customDescription ??
+                    "En signant, vous acceptez les termes de l'engagement "
+                    'réciproque avec ${widget.assmatName}.',
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.secondaryText,
                 ),
