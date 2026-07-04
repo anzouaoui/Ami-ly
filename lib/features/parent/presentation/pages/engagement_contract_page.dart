@@ -17,6 +17,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../parent/data/models/child_model.dart';
 import '../../presentation/providers/parent_providers.dart';
 import '../widgets/profile_form_field.dart';
+import 'documents_page.dart';
 
 /// Données initiales pour pré-remplir le formulaire de l'étape 2.
 class _Step2InitialData {
@@ -304,7 +305,18 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
           onError: _showError,
         );
       case 6:
-        return _Step6();
+        if (_contractFormData == null) {
+          return Center(
+            child: Text(
+              'Données du contrat introuvables.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+            ),
+          );
+        }
+        return _Step6(
+          contractData: _contractFormData!,
+          assmatName: widget.assmatName ?? "l'assistante maternelle",
+        );
       default:
         return const SizedBox.shrink();
     }
@@ -1692,22 +1704,127 @@ class _StepCircle extends StatelessWidget {
 }
 
 class _Step6 extends StatelessWidget {
+  const _Step6({
+    required this.contractData,
+    required this.assmatName,
+  });
+
+  final ContractFormData contractData;
+  final String assmatName;
+
   @override
   Widget build(BuildContext context) {
+    final childName = contractData.childFirstName.isNotEmpty
+        ? contractData.childFirstName
+        : contractData.prenomEnfant.isNotEmpty
+            ? contractData.prenomEnfant
+            : 'l\'enfant';
+
+    final employeeName =
+        '${contractData.prenomSalarie} ${contractData.nomSalarie}'.trim();
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Récapitulatif',
-          style: AppTextStyles.titleMedium.copyWith(
-            fontWeight: FontWeight.w700,
+        // ── Carte succès ──────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            children: [
+              const Icon(Icons.check_circle_rounded,
+                  size: 64, color: AppColors.success),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Contrat actif !',
+                style: AppTextStyles.titleLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Le contrat CDI entre vous et $employeeName '
+                'pour l\'accueil de $childName est désormais actif.',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.primaryText,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.lg),
+        // ── Carte récapitulatif ────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Récapitulatif du dossier',
+                style: AppTextStyles.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const _StepItem(label: 'Match confirmé'),
+              const SizedBox(height: AppSpacing.sm),
+              const _StepItem(label: 'Engagement réciproque signé'),
+              const SizedBox(height: AppSpacing.sm),
+              const _StepItem(label: 'Contrat CDI signé'),
+              const SizedBox(height: AppSpacing.sm),
+              const _StepItem(label: 'Contrat actif'),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        // ── Bouton ────────────────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const DocumentsPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.description_outlined),
+            label: const Text('Mon contrat'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepItem extends StatelessWidget {
+  const _StepItem({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.check_circle_rounded,
+            size: 20, color: AppColors.success),
+        const SizedBox(width: AppSpacing.sm),
         Text(
-          'Vérifiez vos informations avant de finaliser l\'engagement',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.secondaryText,
+          label,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.primaryText,
           ),
         ),
       ],
