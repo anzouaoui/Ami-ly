@@ -17,6 +17,7 @@ import 'assmat_day_journey_page.dart';
 import 'assmat_between_page.dart';
 import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
+import 'assmat_sign_contract_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_converter_page.dart';
 import 'assmat_legal_consultation_page.dart';
@@ -1158,6 +1159,11 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                       icon: Icons.article_outlined,
                       label: 'Contrats',
                       onTap: () => _go(const AssMatContractPage()),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.edit_note_rounded,
+                      label: 'Signature en attente',
+                      onTap: () => _go(const AssmatSignContractPage()),
                     ),
                     _DrawerItem(
                       icon: Icons.request_quote_outlined,

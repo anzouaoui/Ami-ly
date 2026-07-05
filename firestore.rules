@@ -152,6 +152,24 @@ service cloud.firestore {
       }
     }
 
+    // ── notifications/{notificationId} ─────────────────────────────────────────
+    // Notifications in-app (signature, message, etc.).
+    //   Création : tout utilisateur authentifié (envoyeur = auth.uid).
+    //   Lecture : uniquement le destinataire (recipientUid).
+    //   Mise à jour : uniquement le destinataire (marquer comme lu).
+    //   Suppression : interdite.
+    match /notifications/{notificationId} {
+      function isRecipient() {
+        return isAuth() &&
+          resource.data.recipientUid == request.auth.uid;
+      }
+
+      allow create: if isAuth();
+      allow read:   if isRecipient();
+      allow update: if isRecipient();
+      allow delete: if false;
+    }
+
     // ── Blocage par défaut ───────────────────────────────────────────────────
     // Toute collection non listée ci-dessus est refusée.
     match /{document=**} {

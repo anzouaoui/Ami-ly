@@ -254,14 +254,41 @@ class ContractService {
     final now = DateTime.now().toIso8601String();
     final data = formData.toJson();
 
+    final doc = await _contracts.doc(contractId).get();
+    final currentStatus = doc.data()?['status'] as String?;
+
     await _contracts.doc(contractId).update({
-      'status': ContractStatus.pendingAssmat.name,
+      if (currentStatus != ContractStatus.active.name)
+        'status': ContractStatus.pendingAssmat.name,
       'pdfUrl': pdfUrl,
       'pdfHash': pdfHash,
       'contractData': data,
       'parentSignedAt': now,
       'parentSignedName': signedName,
       'parentSignatureIp': ipAddress,
+      'updatedAt': now,
+    });
+  }
+
+  /// Récupère un contrat par son ID.
+  Future<Map<String, dynamic>?> getContractById(String contractId) async {
+    final doc = await _contracts.doc(contractId).get();
+    if (!doc.exists) return null;
+    return doc.data();
+  }
+
+  /// Met à jour le statut du contrat après signature assmat.
+  Future<void> finalizeAssmatSignature({
+    required String contractId,
+    required String signedName,
+    String? ipAddress,
+  }) async {
+    final now = DateTime.now().toIso8601String();
+    await _contracts.doc(contractId).update({
+      'status': ContractStatus.active.name,
+      'assmatSignedAt': now,
+      'assmatSignedName': signedName,
+      'assmatSignatureIp': ipAddress,
       'updatedAt': now,
     });
   }
