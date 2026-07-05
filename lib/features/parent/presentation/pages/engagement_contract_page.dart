@@ -85,10 +85,10 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
       final data = snapshot.data();
       if (data == null) return;
       final status = data['status'] as String?;
-      if (status == 'active' && _step == 3) {
+      if (status == 'active' && (_step == 3 || _step == 5)) {
         setState(() {
           _waitingForAssmat = false;
-          _step = 4;
+          _step = _step == 3 ? 4 : 6;
         });
       }
     });
@@ -181,7 +181,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
             backgroundColor: AppColors.success,
           ),
         );
-        if (_step == 3) {
+        if (_step == 3 || _step == 5) {
           _startWaitingForAssmat(contractId);
         } else {
           _next();

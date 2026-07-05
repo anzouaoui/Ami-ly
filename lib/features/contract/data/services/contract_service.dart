@@ -254,8 +254,12 @@ class ContractService {
     final now = DateTime.now().toIso8601String();
     final data = formData.toJson();
 
+    final doc = await _contracts.doc(contractId).get();
+    final currentStatus = doc.data()?['status'] as String?;
+
     await _contracts.doc(contractId).update({
-      'status': ContractStatus.pendingAssmat.name,
+      if (currentStatus != ContractStatus.active.name)
+        'status': ContractStatus.pendingAssmat.name,
       'pdfUrl': pdfUrl,
       'pdfHash': pdfHash,
       'contractData': data,
