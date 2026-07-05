@@ -65,11 +65,33 @@ class EngagementContractPage extends ConsumerStatefulWidget {
 class _EngagementContractPageState extends ConsumerState<EngagementContractPage> {
   int _step = 1;
   bool _isSigning = false;
+  bool _waitingForAssmat = false;
   ContractFormData? _contractFormData;
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  void _startWaitingForAssmat(String contractId) {
+    setState(() => _waitingForAssmat = true);
+    _listenForAssmatSignature(contractId);
+  }
+
+  void _listenForAssmatSignature(String contractId) {
+    final firestore = ref.read(firebaseServiceProvider).firestore;
+    firestore.collection('contracts').doc(contractId).snapshots().listen((snapshot) {
+      if (!mounted) return;
+      final data = snapshot.data();
+      if (data == null) return;
+      final status = data['status'] as String?;
+      if (status == 'active' && _step == 3) {
+        setState(() {
+          _waitingForAssmat = false;
+          _step = 4;
+        });
+      }
+    });
   }
 
   void _next() {
@@ -159,7 +181,11 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
             backgroundColor: AppColors.success,
           ),
         );
-        _next();
+        if (_step == 3) {
+          _startWaitingForAssmat(contractId);
+        } else {
+          _next();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -291,15 +317,53 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
                     ],
                   ),
                 )
-              : InAppSignatureWidget(
-                  parentFirstName: parentProfile.firstName,
-                  parentLastName: parentProfile.lastName,
-                  parentUid: currentUser.uid,
-                  assmatName: widget.assmatName ?? 'l\'assistante maternelle',
-                  contractFormData: _contractFormData!,
-                  onSigned: _onSignatureComplete,
-                  onError: _showError,
-                ),
+              : _waitingForAssmat
+                  ? Center(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              'En attente de la signature\n'
+                              "de l'assistante maternelle",
+                              style: AppTextStyles.titleMedium.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'Le document est en attente de signature.\n'
+                              "Vous serez notifié(e) dès la signature.",
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.secondaryText,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : InAppSignatureWidget(
+                      parentFirstName: parentProfile.firstName,
+                      parentLastName: parentProfile.lastName,
+                      parentUid: currentUser.uid,
+                      assmatName: widget.assmatName ?? 'l\'assistante maternelle',
+                      contractFormData: _contractFormData!,
+                      onSigned: _onSignatureComplete,
+                      onError: _showError,
+                    ),
         );
       case 4:
         return _Step4(
