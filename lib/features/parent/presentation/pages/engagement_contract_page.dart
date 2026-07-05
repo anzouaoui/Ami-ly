@@ -100,6 +100,14 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     }
   }
 
+  void _previous() {
+    if (_step > 1) {
+      setState(() => _step--);
+    }
+  }
+
+  bool get _canGoBack => _step > 1 && !_isSigning && !_waitingForAssmat;
+
   void _onStep2Preview(ContractFormData data) {
     _contractFormData = data;
     _next();
@@ -222,7 +230,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         title: const Text('Engagement & Contrat'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, size: 24),
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: _canGoBack ? _previous : () => Navigator.of(context).maybePop(),
         ),
       ),
       body: Column(
@@ -235,6 +243,21 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
               child: _buildStepContent(),
             ),
           ),
+          if (_canGoBack)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _previous,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text('Étape précédente'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

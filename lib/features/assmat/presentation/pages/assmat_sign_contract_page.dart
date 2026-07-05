@@ -12,6 +12,7 @@ import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/services/notification_service.dart';
 
 class AssmatSignContractPage extends ConsumerWidget {
   const AssmatSignContractPage({super.key});
@@ -341,6 +342,41 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
                 );
                 await service.saveSignature(
                     contractId: contractId, audit: audit);
+
+                // Notification au parent
+                try {
+                  final contractDoc = await FirebaseFirestore.instance
+                      .collection('contracts')
+                      .doc(contractId)
+                      .get();
+                  final parentUid =
+                      contractDoc.data()?['parentUid'] as String? ?? '';
+                  if (parentUid.isNotEmpty) {
+                    final notifService =
+                        ref.read(notificationServiceProvider);
+                    await notifService.createNotification(
+                      recipientUid: parentUid,
+                      senderUid: assmatUid,
+                      type: 'assmat_signed',
+                      contractId: contractId,
+                      title: 'Document signé',
+                      body:
+                          "L'assistante maternelle a signé le document.",
+                    );
+                  }
+                } catch (_) {
+                  // Échec notification non bloquant
+                }
+
+                // Génération du PDF finalisé si les deux parties ont signé
+                try {
+                  await service.generateFinalizedPdf(
+                    contractId: contractId,
+                    formData: formData,
+                  );
+                } catch (_) {
+                  // Échec génération PDF non bloquant
+                }
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

@@ -293,6 +293,33 @@ class ContractService {
     });
   }
 
+  /// Génère le PDF finalisé après signature des deux parties.
+  Future<void> generateFinalizedPdf({
+    required String contractId,
+    required ContractFormData formData,
+  }) async {
+    final doc = await _contracts.doc(contractId).get();
+    final data = doc.data();
+    if (data == null) return;
+
+    final parentSigned = data['parentSignedAt'] as String?;
+    final assmatSigned = data['assmatSignedAt'] as String?;
+    if (parentSigned == null || assmatSigned == null) return;
+
+    final pdfBytes = await generateContractPdf(formData);
+    final hash = computePdfHash(pdfBytes);
+
+    final ref = _storage.ref('contracts/$contractId/contrat_finalise.pdf');
+    await ref.putData(Uint8List.fromList(pdfBytes));
+    final pdfUrl = await ref.getDownloadURL();
+
+    await _contracts.doc(contractId).update({
+      'finalPdfUrl': pdfUrl,
+      'finalPdfHash': hash,
+      'finalizedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
   /// Récupère l'adresse IP approximative via un service externe.
   static Future<String?> getPublicIp() async {
     try {
