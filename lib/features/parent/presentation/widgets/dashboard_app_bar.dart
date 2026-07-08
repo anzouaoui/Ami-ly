@@ -1,15 +1,19 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../contract/data/models/contract_model.dart';
+import '../../presentation/pages/notifications_page.dart';
 
 /// Header custom du dashboard parent.
 ///
 /// Disposition (spec "Dashboard Parent 2") :
 ///   - À gauche : icône menu + logo AMiLY (carré vert + texte) côte à côte
-///   - À droite : icône notifications
+///   - À droite : icône notifications avec badge du nombre de contrats en
+///     attente de signature de l'assistante maternelle.
 ///
 /// Contrairement à une `AppBar` Material classique, ce widget vit **dans**
 /// le scroll du body — il défile avec le contenu.
@@ -17,11 +21,11 @@ class DashboardAppBar extends StatelessWidget {
   const DashboardAppBar({
     super.key,
     required this.onMenuTap,
-    required this.onNotificationsTap,
+    this.parentUid,
   });
 
   final VoidCallback onMenuTap;
-  final VoidCallback onNotificationsTap;
+  final String? parentUid;
 
   @override
   Widget build(BuildContext context) {
@@ -84,17 +88,102 @@ class DashboardAppBar extends StatelessWidget {
           ),
 
           // --- Bloc droite : notifications ---
-          IconButton(
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              size: 24,
-              color: AppColors.primaryText,
-            ),
-            onPressed: onNotificationsTap,
-            tooltip: 'Notifications',
-          ),
+          _ParentNotificationBell(parentUid: parentUid),
         ],
       ),
+    );
+  }
+}
+
+/// Icône de cloche avec badge du nombre de contrats en attente de signature
+/// de l'assistante maternelle.
+class _ParentNotificationBell extends StatelessWidget {
+  const _ParentNotificationBell({required this.parentUid});
+
+  final String? parentUid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (parentUid == null) {
+      return IconButton(
+        icon: const Icon(
+          Icons.notifications_none_rounded,
+          size: 24,
+          color: AppColors.primaryText,
+        ),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const NotificationsPage()),
+          );
+        },
+        tooltip: 'Notifications',
+      );
+    }
+
+    final stream = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('parentUid', isEqualTo: parentUid)
+        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+
+        return SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    size: 24,
+                    color: AppColors.primaryText,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsPage(),
+                      ),
+                    );
+                  },
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Notifications',
+                ),
+              ),
+              if (count > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      count > 9 ? '9+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

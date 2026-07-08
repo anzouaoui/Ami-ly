@@ -66,7 +66,39 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
   int _step = 1;
   bool _isSigning = false;
   bool _waitingForAssmat = false;
+
   ContractFormData? _contractFormData;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDraft());
+  }
+
+  Future<void> _loadDraft() async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+    try {
+      final firebaseService = ref.read(firebaseServiceProvider);
+      final service = ContractService(firebaseService: firebaseService);
+      final contractData = await service.findDraft(
+        parentUid: currentUser.uid,
+        assmatUid: widget.assmatUid,
+      );
+      if (contractData != null && mounted) {
+        setState(() {
+          _contractFormData = contractData;
+          _step = 2;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Brouillon trouvé. Vous pouvez reprendre où vous étiez.'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (_) {} 
+  }
 
   @override
   void dispose() {
@@ -76,6 +108,46 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
   void _startWaitingForAssmat(String contractId) {
     setState(() => _waitingForAssmat = true);
     _listenForAssmatSignature(contractId);
+  }
+
+  Widget _buildWaitingScreen() {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'En attente de la signature\n'
+              "de l'assistante maternelle",
+              style: AppTextStyles.titleMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Le document est en attente de signature.\n'
+              "Vous serez notifié(e) dès la signature.",
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.secondaryText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _listenForAssmatSignature(String contractId) {
@@ -100,9 +172,53 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     }
   }
 
+  void _previous() {
+    if (_step > 1) {
+      setState(() => _step--);
+    }
+  }
+
+  bool get _canGoBack => _step > 1 && !_isSigning && !_waitingForAssmat;
+
   void _onStep2Preview(ContractFormData data) {
     _contractFormData = data;
     _next();
+  }
+
+  Future<void> _saveDraft() async {
+    if (_contractFormData == null) return;
+    try {
+      final firebaseService = ref.read(firebaseServiceProvider);
+      final service = ContractService(firebaseService: firebaseService);
+      final currentUser = ref.read(currentUserProvider).valueOrNull;
+      if (currentUser == null) return;
+
+      final contractId = await service.getOrCreateContract(
+        parentUid: currentUser.uid,
+        assmatUid: widget.assmatUid,
+      );
+      await service.saveDraft(
+        contractId: contractId,
+        formData: _contractFormData!,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Brouillon enregistré !'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la sauvegarde du brouillon.'),
+            backgroundColor: AppColors.accent,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _onSignatureComplete(SignatureResult result) async {
@@ -113,7 +229,8 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
       final firebaseService = ref.read(firebaseServiceProvider);
       final service = ContractService(firebaseService: firebaseService);
 
-      final pdfBytes = await service.generateContractPdf(_contractFormData!);
+      final pdfBytes = await service.generateContractPdf(_contractFormData!,
+          contractType: _step == 3 ? 'engagement' : 'cdi');
       final pdfHash = service.computePdfHash(pdfBytes);
       final ip = await ContractService.getPublicIp();
 
@@ -139,6 +256,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         pdfUrl: pdfUrl ?? '',
         pdfHash: pdfHash,
         ipAddress: ip,
+        contractType: _step == 3 ? 'engagement' : 'cdi',
       );
 
       final audit = SignatureAuditModel(
@@ -222,7 +340,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         title: const Text('Engagement & Contrat'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, size: 24),
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: _canGoBack ? _previous : () => Navigator.of(context).maybePop(),
         ),
       ),
       body: Column(
@@ -235,6 +353,34 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
               child: _buildStepContent(),
             ),
           ),
+          if (_canGoBack || _contractFormData != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+              child: Row(
+                children: [
+                  if (_canGoBack)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _previous,
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Étape précédente'),
+                      ),
+                    ),
+                  if (_step == 2 && _contractFormData == null)
+                    const Spacer(),
+                  if (_contractFormData != null && _canGoBack)
+                    const SizedBox(width: AppSpacing.md),
+                  if (_contractFormData != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saveDraft,
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: const Text('Enregistrer le brouillon'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -304,66 +450,32 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
             ),
           );
         }
+        if (_isSigning) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Signature en cours…'),
+              ],
+            ),
+          );
+        }
+        if (_waitingForAssmat) {
+          return _buildWaitingScreen();
+        }
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: _isSigning
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Signature en cours…'),
-                    ],
-                  ),
-                )
-              : _waitingForAssmat
-                  ? Center(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(AppSpacing.xl),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(AppRadii.md),
-                          border: Border.all(color: AppColors.divider),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const CircularProgressIndicator(
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            Text(
-                              'En attente de la signature\n'
-                              "de l'assistante maternelle",
-                              style: AppTextStyles.titleMedium.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              'Le document est en attente de signature.\n'
-                              "Vous serez notifié(e) dès la signature.",
-                              style: AppTextStyles.bodySmall.copyWith(
-                                color: AppColors.secondaryText,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : InAppSignatureWidget(
-                      parentFirstName: parentProfile.firstName,
-                      parentLastName: parentProfile.lastName,
-                      parentUid: currentUser.uid,
-                      assmatName: widget.assmatName ?? 'l\'assistante maternelle',
-                      contractFormData: _contractFormData!,
-                      onSigned: _onSignatureComplete,
-                      onError: _showError,
-                    ),
+          child: InAppSignatureWidget(
+            parentFirstName: parentProfile.firstName,
+            parentLastName: parentProfile.lastName,
+            parentUid: currentUser.uid,
+            assmatName: widget.assmatName ?? 'l\'assistante maternelle',
+            contractFormData: _contractFormData!,
+            onSigned: _onSignatureComplete,
+            onError: _showError,
+          ),
         );
       case 4:
         return _Step4(
@@ -381,6 +493,21 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
             ),
           );
+        }
+        if (_isSigning) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Signature en cours…'),
+              ],
+            ),
+          );
+        }
+        if (_waitingForAssmat) {
+          return _buildWaitingScreen();
         }
         return _Step5(
           contractData: _contractFormData!,
@@ -712,7 +839,7 @@ class _Step2State extends State<_Step2> {
         InputDecorator(
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              border: const OutlineInputBorder(
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(AppRadii.sm)),
                 borderSide: BorderSide(color: AppColors.divider),
               ),

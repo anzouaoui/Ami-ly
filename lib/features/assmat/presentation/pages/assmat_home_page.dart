@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,9 +9,9 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../contract/data/models/contract_model.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
-import 'assmat_contract_page.dart';
 import 'assmat_invoice_page.dart';
 import 'assmat_holidays_page.dart';
 import 'assmat_day_journey_page.dart';
@@ -18,6 +19,7 @@ import 'assmat_between_page.dart';
 import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_sign_contract_page.dart';
+import 'assmat_notifications_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_converter_page.dart';
 import 'assmat_legal_consultation_page.dart';
@@ -61,8 +63,10 @@ class AssMatHomePage extends ConsumerWidget {
               children: [
                 _AssMatHeader(
                   onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer(),
+                  assmatUid: user?.uid,
                 ),
                 _WelcomeHeader(displayName: displayName),
+                _PendingSignatureBanner(assmatUid: user?.uid),
                 const _StatsGrid(),
                 const SizedBox(height: AppSpacing.lg),
                 const Padding(
@@ -102,7 +106,7 @@ class AssMatHomePage extends ConsumerWidget {
                       MaterialPageRoute(builder: (_) => const AssMatDayJourneyPage()),
                     ),
                     onContracts: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AssMatContractPage()),
+                      MaterialPageRoute(builder: (_) => const AssMatDocumentsPage()),
                     ),
                     onMessage: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const AssMatMessagesPage()),
@@ -119,15 +123,12 @@ class AssMatHomePage extends ConsumerWidget {
   }
 }
 
-/// Header custom assmat : menu + logo brun + "AMiLY".
-///
-/// Même pattern que DashboardAppBar côté parent mais avec un logo
-/// distinctif (carré brun pour indiquer l'espace pro assmat).
+/// Header custom assmat : menu + logo brun + "AMiLY" + icône notifications.
 class _AssMatHeader extends StatelessWidget {
-  const _AssMatHeader({required this.onMenuTap});
+  const _AssMatHeader({required this.onMenuTap, this.assmatUid});
   final VoidCallback onMenuTap;
+  final String? assmatUid;
 
-  // Brun du logo pro — accord avec l'identité visuelle assmat.
   static const _logoBg = Color(0xFF4A3B33);
 
   @override
@@ -135,7 +136,7 @@ class _AssMatHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: AppSpacing.md,
-        horizontal: AppSpacing.lg,
+        horizontal: AppSpacing.md,
       ),
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -157,7 +158,7 @@ class _AssMatHeader extends StatelessWidget {
             constraints: const BoxConstraints(),
             tooltip: 'Menu',
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           Container(
             width: 36,
             height: 36,
@@ -166,7 +167,6 @@ class _AssMatHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
             alignment: Alignment.center,
-            // TODO: remplacer par l'asset du logo réel.
             child: const Icon(
               Icons.face_rounded,
               color: Colors.white,
@@ -174,14 +174,197 @@ class _AssMatHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            'AMiLY',
-            style: AppTextStyles.titleLarge.copyWith(
-              fontWeight: FontWeight.w800,
+          Expanded(
+            child: Text(
+              'AMiLY',
+              style: AppTextStyles.titleLarge.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
+          _NotificationBell(assmatUid: assmatUid),
         ],
       ),
+    );
+  }
+}
+
+/// Icône de cloche avec badge du nombre de contrats en attente.
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell({required this.assmatUid});
+
+  final String? assmatUid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (assmatUid == null) {
+      return const SizedBox(width: 40);
+    }
+
+    final stream = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('assmatUid', isEqualTo: assmatUid)
+        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+
+        return SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    size: 24,
+                    color: AppColors.primaryText,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AssmatNotificationsPage(),
+                      ),
+                    );
+                  },
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Notifications',
+                ),
+              ),
+              if (count > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      count > 9 ? '9+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Pending signature banner ─────────────────────────────────────────────────
+
+class _PendingSignatureBanner extends StatelessWidget {
+  const _PendingSignatureBanner({required this.assmatUid});
+
+  final String? assmatUid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (assmatUid == null) return const SizedBox.shrink();
+
+    final stream = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('assmatUid', isEqualTo: assmatUid)
+        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(AppRadii.sm),
+                  ),
+                  child: const Icon(
+                    Icons.edit_note_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        count == 1
+                            ? '1 contrat en attente de signature'
+                            : '$count contrats en attente de signature',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Cliquez pour signer l'engagement réciproque",
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(
+                  width: 100,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AssmatSignContractPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    label: const Text('Signer'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -334,7 +517,7 @@ class _ChildrenCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               _LinkAction(
                 label: 'Tout voir',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AssMatContractPage())),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AssMatDocumentsPage())),
               ),
             ],
           ),
@@ -1039,6 +1222,8 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+
     return Drawer(
       backgroundColor: AppColors.background,
       width: 300,
@@ -1158,11 +1343,10 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                     _DrawerItem(
                       icon: Icons.article_outlined,
                       label: 'Contrats',
-                      onTap: () => _go(const AssMatContractPage()),
+                      onTap: () => _go(const AssMatDocumentsPage()),
                     ),
-                    _DrawerItem(
-                      icon: Icons.edit_note_rounded,
-                      label: 'Signature en attente',
+                    _PendingContractBadge(
+                      uid: currentUser?.uid,
                       onTap: () => _go(const AssmatSignContractPage()),
                     ),
                     _DrawerItem(
@@ -1422,6 +1606,45 @@ class _DrawerItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Pending contract badge ───────────────────────────────────────────────────
+
+class _PendingContractBadge extends StatelessWidget {
+  const _PendingContractBadge({required this.uid, required this.onTap});
+
+  final String? uid;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (uid == null) {
+      return _DrawerItem(
+        icon: Icons.edit_note_rounded,
+        label: 'Signature en attente',
+        onTap: onTap,
+      );
+    }
+
+    final stream = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('assmatUid', isEqualTo: uid)
+        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+        return _DrawerItem(
+          icon: Icons.edit_note_rounded,
+          label: 'Signature en attente',
+          badgeCount: count > 0 ? count : null,
+          onTap: onTap,
+        );
+      },
     );
   }
 }

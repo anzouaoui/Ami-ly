@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -8,10 +9,12 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../contract/data/models/contract_form_data.dart';
+import '../../../contract/data/models/contract_model.dart';
 import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/services/notification_service.dart';
 
 class AssmatSignContractPage extends ConsumerWidget {
   const AssmatSignContractPage({super.key});
@@ -31,7 +34,7 @@ class AssmatSignContractPage extends ConsumerWidget {
     final contractsQuery = FirebaseFirestore.instance
         .collection('contracts')
         .where('assmatUid', isEqualTo: user.uid)
-        .where('status', whereIn: ['pending_assmat'])
+        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
         .orderBy('updatedAt', descending: true);
 
     return Scaffold(
@@ -103,6 +106,8 @@ class AssmatSignContractPage extends ConsumerWidget {
                 assmatFirstName: assmat.firstName,
                 assmatLastName: assmat.lastName,
                 assmatUid: user.uid,
+                contractType: data['contractType'] as String? ?? 'engagement',
+                pdfUrl: data['pdfUrl'] as String?,
               );
             },
           );
@@ -159,6 +164,8 @@ class _ContractCard extends ConsumerWidget {
     required this.assmatFirstName,
     required this.assmatLastName,
     required this.assmatUid,
+    required this.contractType,
+    this.pdfUrl,
   });
 
   final String id;
@@ -166,6 +173,8 @@ class _ContractCard extends ConsumerWidget {
   final String assmatFirstName;
   final String assmatLastName;
   final String assmatUid;
+  final String contractType;
+  final String? pdfUrl;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -177,6 +186,10 @@ class _ContractCard extends ConsumerWidget {
         : formData?.prenomEnfant.isNotEmpty == true
             ? formData!.prenomEnfant
             : 'un enfant';
+    final isEngagement = contractType == 'engagement';
+    final documentLabel = isEngagement
+        ? 'Engagement réciproque'
+        : 'Contrat CDI';
 
     return Card(
       elevation: 0,
@@ -197,7 +210,7 @@ class _ContractCard extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Contrat — $employerName',
+                    '$documentLabel — $employerName',
                     style: AppTextStyles.bodyMedium.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -207,7 +220,9 @@ class _ContractCard extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'CDI — Accueil de $childName',
+              isEngagement
+                  ? 'Accueil de $childName'
+                  : 'CDI — Accueil de $childName',
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.secondaryText,
               ),
@@ -243,6 +258,8 @@ class _ContractCard extends ConsumerWidget {
                               assmatLastName: assmatLastName,
                               assmatUid: assmatUid,
                               employerName: employerName,
+                              contractType: contractType,
+                              pdfUrl: pdfUrl,
                             ),
                           ),
                         );
@@ -273,6 +290,8 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
     required this.assmatLastName,
     required this.assmatUid,
     required this.employerName,
+    required this.contractType,
+    this.pdfUrl,
   });
 
   final String contractId;
@@ -281,6 +300,8 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
   final String assmatLastName;
   final String assmatUid;
   final String employerName;
+  final String contractType;
+  final String? pdfUrl;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -289,6 +310,8 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
         : formData.prenomEnfant.isNotEmpty
             ? formData.prenomEnfant
             : 'l\'enfant';
+    final isEngagement = contractType == 'engagement';
+    final documentLabel = isEngagement ? "l'engagement réciproque" : 'le contrat CDI';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -300,7 +323,7 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Signer le contrat',
+        title: Text(isEngagement ? "Signer l'engagement" : 'Signer le contrat',
             style: AppTextStyles.titleMedium),
       ),
       body: SingleChildScrollView(
@@ -308,6 +331,22 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
         child: Column(
           children: [
             _buildContractSummary(),
+            if (pdfUrl != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final uri = Uri.parse(pdfUrl!);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: const Text('Voir le document'),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             InAppSignatureWidget(
               parentFirstName: assmatFirstName,
@@ -315,9 +354,11 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
               parentUid: assmatUid,
               assmatName: employerName,
               contractFormData: formData,
-              customTitle: 'Signature du contrat',
+              customTitle: isEngagement
+                  ? "Signature de l'engagement réciproque"
+                  : 'Signature du contrat CDI',
               customDescription:
-                  'En signant, vous acceptez les termes du contrat CDI '
+                  'En signant, vous acceptez les termes $documentLabel '
                   'avec $employerName pour l\'accueil de $childName.',
               onSigned: (result) async {
                 final firebaseService = ref.read(firebaseServiceProvider);
@@ -342,10 +383,50 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
                 await service.saveSignature(
                     contractId: contractId, audit: audit);
 
-                if (context.mounted) {
+                // Notification au parent
+                try {
+                  final contractDoc = await FirebaseFirestore.instance
+                      .collection('contracts')
+                      .doc(contractId)
+                      .get();
+                  final parentUid =
+                      contractDoc.data()?['parentUid'] as String? ?? '';
+                  if (parentUid.isNotEmpty) {
+                    final notifService =
+                        ref.read(notificationServiceProvider);
+                    await notifService.createNotification(
+                      recipientUid: parentUid,
+                      senderUid: assmatUid,
+                      type: 'assmat_signed',
+                      contractId: contractId,
+                      title: isEngagement
+                          ? "Engagement réciproque signé"
+                          : 'Contrat signé',
+                      body: isEngagement
+                          ? "L'assistante maternelle a signé l'engagement réciproque."
+                          : "L'assistante maternelle a signé le contrat CDI.",
+                    );
+                  }
+                } catch (_) {
+                  // Échec notification non bloquant
+                }
+
+                // Génération du PDF finalisé si les deux parties ont signé
+                try {
+                  await service.generateFinalizedPdf(
+                    contractId: contractId,
+                    formData: formData,
+                    contractType: isEngagement ? 'engagement' : 'cdi',
+                  );
+                } catch (_) {
+                  // Échec génération PDF non bloquant
+                }
+
+                  if (context.mounted) {
+                  final docLabel = isEngagement ? "l'engagement" : 'le contrat';
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Contrat signé avec succès !'),
+                    SnackBar(
+                      content: Text('$docLabel signé avec succès !'),
                       backgroundColor: AppColors.success,
                     ),
                   );
@@ -375,6 +456,7 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
         : formData.prenomEnfant.isNotEmpty
             ? formData.prenomEnfant
             : 'l\'enfant';
+    final localIsEngagement = contractType == 'engagement';
 
     return Container(
       width: double.infinity,
@@ -388,7 +470,9 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Récapitulatif du contrat',
+            localIsEngagement
+                ? "Récapitulatif de l'engagement réciproque"
+                : 'Récapitulatif du contrat',
             style: AppTextStyles.titleMedium.copyWith(
               fontWeight: FontWeight.w700,
             ),
