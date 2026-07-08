@@ -35,7 +35,7 @@ class ContractService {
     final existing = await _contracts
         .where('parentUid', isEqualTo: parentUid)
         .where('assmatUid', isEqualTo: assmatUid)
-        .where('status', whereIn: ['draft', 'pending_parent', 'pending_assmat'])
+        .where('status', whereIn: [ContractStatus.draft.name, ContractStatus.pendingParent.name, ContractStatus.pendingAssmat.name])
         .limit(1)
         .get();
 
@@ -55,7 +55,7 @@ class ContractService {
   }
 
   /// Génère le PDF du contrat avec les données du formulaire.
-  Future<List<int>> generateContractPdf(ContractFormData data) async {
+  Future<List<int>> generateContractPdf(ContractFormData data, {String contractType = 'engagement'}) async {
     final doc = pw.Document();
 
     doc.addPage(
@@ -63,7 +63,7 @@ class ContractService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(50),
         build: (context) => [
-          _buildHeader(),
+          _buildHeader(contractType == 'engagement'),
           pw.SizedBox(height: 24),
           _buildSection("Employeur", [
             _row('Civilité', data.civiliteEmployeur),
@@ -119,9 +119,11 @@ class ContractService {
           ]),
           pw.SizedBox(height: 32),
           pw.Paragraph(
-            text:
-                'Fait pour servir et valoir ce que de droit.\n'
-                'Document généré par Ami-ly — signature électronique.',
+            text: contractType == 'engagement'
+                ? 'Fait pour servir et valoir ce que de droit.\n'
+                    'Document généré par Ami-ly — signature électronique.'
+                : 'Fait pour servir et valoir ce que de droit, dans le cadre d\'un contrat de travail à durée indéterminée.\n'
+                    'Document généré par Ami-ly — signature électronique.',
             style: pw.TextStyle(
               fontSize: 10,
               color: PdfColors.grey,
@@ -142,12 +144,14 @@ class ContractService {
     return await doc.save();
   }
 
-  pw.Widget _buildHeader() {
+  pw.Widget _buildHeader(bool isEngagement) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          "Contrat d'engagement réciproque",
+          isEngagement
+              ? "Contrat d'engagement réciproque"
+              : 'Contrat de travail',
           style: pw.TextStyle(
             fontSize: 22,
             fontWeight: pw.FontWeight.bold,
@@ -156,7 +160,9 @@ class ContractService {
         ),
         pw.SizedBox(height: 4),
         pw.Text(
-          'Entre un parent employeur et une assistante maternelle agréée',
+          isEngagement
+              ? 'Entre un parent employeur et une assistante maternelle agréée'
+              : 'Contrat de travail à durée indéterminée — Convention collective des assistantes maternelles',
           style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey),
         ),
         pw.Divider(color: PdfColors.blueGrey200),
@@ -250,6 +256,7 @@ class ContractService {
     String pdfUrl = '',
     String pdfHash = '',
     String? ipAddress,
+    String contractType = 'engagement',
   }) async {
     final now = DateTime.now().toIso8601String();
     final data = formData.toJson();
@@ -266,6 +273,7 @@ class ContractService {
       'parentSignedAt': now,
       'parentSignedName': signedName,
       'parentSignatureIp': ipAddress,
+      'contractType': contractType,
       'updatedAt': now,
     });
   }
@@ -297,6 +305,7 @@ class ContractService {
   Future<void> generateFinalizedPdf({
     required String contractId,
     required ContractFormData formData,
+    String contractType = 'engagement',
   }) async {
     final doc = await _contracts.doc(contractId).get();
     final data = doc.data();
@@ -306,7 +315,7 @@ class ContractService {
     final assmatSigned = data['assmatSignedAt'] as String?;
     if (parentSigned == null || assmatSigned == null) return;
 
-    final pdfBytes = await generateContractPdf(formData);
+    final pdfBytes = await generateContractPdf(formData, contractType: contractType);
     final hash = computePdfHash(pdfBytes);
 
     final ref = _storage.ref('contracts/$contractId/contrat_finalise.pdf');
@@ -318,6 +327,76 @@ class ContractService {
       'finalPdfHash': hash,
       'finalizedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  /// Sauvegarde les données du formulaire en brouillon.
+  Future<void> saveDraft({
+    required String contractId,
+    required ContractFormData formData,
+  }) async {
+    final now = DateTime.now().toIso8601String();
+    await _contracts.doc(contractId).update({
+      'contractData': formData.toJson(),
+      'updatedAt': now,
+    });
+  }
+
+  /// Cherche un brouillon existant entre parent et assmat.
+  Future<ContractFormData?> findDraft({
+    required String parentUid,
+    required String assmatUid,
+  }) async {
+    final existing = await _contracts
+        .where('parentUid', isEqualTo: parentUid)
+        .where('assmatUid', isEqualTo: assmatUid)
+        .where('status', isEqualTo: 'draft')
+        .limit(1)
+        .get();
+    if (existing.docs.isEmpty) return null;
+    final data = existing.docs.first.data();
+    final contractData = data['contractData'] as Map<String, dynamic>?;
+    if (contractData == null) return null;
+    return _parseContractFormData(contractData);
+  }
+
+  static ContractFormData _parseContractFormData(Map<String, dynamic> json) {
+    final employer = json['employeur'] as Map<String, dynamic>? ?? {};
+    final salarie = json['salarie'] as Map<String, dynamic>? ?? {};
+    final enfant = json['enfant'] as Map<String, dynamic>? ?? {};
+    final contrat = json['contrat'] as Map<String, dynamic>? ?? {};
+
+    return ContractFormData(
+      civiliteEmployeur: employer['civilite'] as String? ?? '',
+      typeEmployeur: employer['type'] as String? ?? '',
+      nomEmployeur: employer['nom'] as String? ?? '',
+      prenomEmployeur: employer['prenom'] as String? ?? '',
+      adresseEmployeur: employer['adresse'] as String? ?? '',
+      villeEmployeur: employer['ville'] as String? ?? '',
+      cpEmployeur: employer['cp'] as String? ?? '',
+      telEmployeur: employer['telephone'] as String? ?? '',
+      emailEmployeur: employer['email'] as String? ?? '',
+      civiliteSalarie: salarie['civilite'] as String? ?? '',
+      nomSalarie: salarie['nom'] as String? ?? '',
+      prenomSalarie: salarie['prenom'] as String? ?? '',
+      adresseSalarie: salarie['adresse'] as String? ?? '',
+      villeSalarie: salarie['ville'] as String? ?? '',
+      cpSalarie: salarie['cp'] as String? ?? '',
+      telSalarie: salarie['telephone'] as String? ?? '',
+      emailSalarie: salarie['email'] as String? ?? '',
+      childFirstName: enfant['prenom'] as String? ?? '',
+      prenomEnfant: enfant['prenomComplet'] as String? ?? '',
+      nomEnfant: enfant['nom'] as String? ?? '',
+      dateNaissanceEnfant: enfant['dateNaissance'] as String? ?? '',
+      dateDebut: contrat['dateDebut'] as String? ?? '',
+      dateEmbauche: contrat['dateEmbauche'] as String? ?? '',
+      finContrat: contrat['finContrat'] as String? ?? '',
+      periodeEssai: contrat['periodeEssai'] as String? ?? '',
+      heuresSemaine: contrat['heuresSemaine'] as String? ?? '',
+      heuresMois: contrat['heuresMois'] as String? ?? '',
+      semainesAn: contrat['semainesAn'] as String? ?? '',
+      salaireMensuel: contrat['salaireMensuel'] as String? ?? '',
+      salaireHoraire: contrat['salaireHoraire'] as String? ?? '',
+    );
   }
 
   /// Récupère l'adresse IP approximative via un service externe.

@@ -1,10 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../contract/data/models/contract_model.dart';
 import '../widgets/action_list_button.dart';
 import '../widgets/dashboard_app_bar.dart';
 import '../widgets/notifications_card.dart';
@@ -17,7 +20,6 @@ import 'find_childminder_page.dart';
 import 'messages_page.dart';
 import 'payments_page.dart';
 import '../../../assmat/presentation/pages/assmat_legal_consultation_page.dart';
-import 'notifications_page.dart';
 import '../providers/parent_providers.dart';
 
 /// Dashboard du parent connecté.
@@ -55,9 +57,10 @@ class ParentHomeScreen extends ConsumerWidget {
               children: [
                 DashboardAppBar(
                   onMenuTap: () => Scaffold.of(scaffoldCtx).openDrawer(),
-                  onNotificationsTap: () => _onNotifications(context),
+                  parentUid: user?.uid,
                 ),
                 _WelcomeHeader(displayName: displayName),
+                _PendingSignatureBanner(parentUid: user?.uid),
                 _StatsGrid(),
                 const SizedBox(height: AppSpacing.md),
 
@@ -134,12 +137,6 @@ class ParentHomeScreen extends ConsumerWidget {
   void _onDocuments(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const DocumentsPage()),
-    );
-  }
-
-  void _onNotifications(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const NotificationsPage()),
     );
   }
 
@@ -361,3 +358,87 @@ class _LegalAdviceCard extends StatelessWidget {
   }
 }
 
+// ─── Pending signature banner ─────────────────────────────────────────────────
+
+class _PendingSignatureBanner extends StatelessWidget {
+  const _PendingSignatureBanner({required this.parentUid});
+
+  final String? parentUid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (parentUid == null) return const SizedBox.shrink();
+
+    final stream = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('parentUid', isEqualTo: parentUid)
+        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(AppRadii.sm),
+                  ),
+                  child: const Icon(
+                    Icons.hourglass_bottom_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        count == 1
+                            ? '1 contrat en attente de signature'
+                            : '$count contrats en attente de signature',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "En attente de la signature de l'assistante maternelle",
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
