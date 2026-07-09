@@ -59,10 +59,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBUuigKTIN05CDkNieSSwvfXpa_ajp256c',
-    appId: '1:483499244920:ios:3353279c1fc4545c3b5c8d',
+    appId: '1:483499244920:ios:a6032fa4794c542c3b5c8d',
     messagingSenderId: '483499244920',
     projectId: 'ami-ly',
     storageBucket: 'ami-ly.firebasestorage.app',
-    iosBundleId: 'com.amily.ami_ly',
+    iosBundleId: 'com.app.amily',
   );
 }

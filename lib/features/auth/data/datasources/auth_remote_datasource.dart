@@ -18,7 +18,11 @@ class AuthRemoteDataSource {
   AuthRemoteDataSource(this._firebase);
   final FirebaseService _firebase;
 
-  final _googleSignIn = GoogleSignIn();
+  final _googleSignIn = GoogleSignIn(
+    clientId: Platform.isIOS
+        ? '483499244920-jn0lbob4tq6chlnevr7kdog48ak4ae9g.apps.googleusercontent.com'
+        : null,
+  );
 
   Stream<User?> authStateChanges() => _firebase.authStateChanges;
 
