@@ -17,12 +17,21 @@ class ContractFormData {
     // Salarié
     this.civiliteSalarie = 'Mme',
     this.nomSalarie = '',
+    this.nomNaissanceSalarie = '',
+    this.nomUsageSalarie = '',
     this.prenomSalarie = '',
     this.adresseSalarie = '',
     this.villeSalarie = '',
     this.cpSalarie = '',
     this.telSalarie = '',
     this.emailSalarie = '',
+    this.securiteSocialeNo = '',
+    this.agrementRef = '',
+    this.agrementDate = '',
+    this.assuranceRcPro = '',
+    this.assuranceRcProPoliceNo = '',
+    this.assuranceAuto = '',
+    this.assuranceAutoPoliceNo = '',
     // Enfant
     this.childId,
     this.childFirstName = '',
@@ -58,12 +67,21 @@ class ContractFormData {
 
   final String civiliteSalarie;
   final String nomSalarie;
+  final String nomNaissanceSalarie;
+  final String nomUsageSalarie;
   final String prenomSalarie;
   final String adresseSalarie;
   final String villeSalarie;
   final String cpSalarie;
   final String telSalarie;
   final String emailSalarie;
+  final String securiteSocialeNo;
+  final String agrementRef;
+  final String agrementDate;
+  final String assuranceRcPro;
+  final String assuranceRcProPoliceNo;
+  final String assuranceAuto;
+  final String assuranceAutoPoliceNo;
 
   final String? childId;
   final String childFirstName;
@@ -101,12 +119,21 @@ class ContractFormData {
         'salarie': {
           'civilite': civiliteSalarie,
           'nom': nomSalarie,
+          'nomNaissance': nomNaissanceSalarie,
+          'nomUsage': nomUsageSalarie,
           'prenom': prenomSalarie,
           'adresse': adresseSalarie,
           'ville': villeSalarie,
           'cp': cpSalarie,
           'telephone': telSalarie,
           'email': emailSalarie,
+          'securiteSocialeNo': securiteSocialeNo,
+          'agrementRef': agrementRef,
+          'agrementDate': agrementDate,
+          'assuranceRcPro': assuranceRcPro,
+          'assuranceRcProPoliceNo': assuranceRcProPoliceNo,
+          'assuranceAuto': assuranceAuto,
+          'assuranceAutoPoliceNo': assuranceAutoPoliceNo,
         },
         'enfant': {
           'childId': childId,
