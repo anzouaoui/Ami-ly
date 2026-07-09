@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import 'assmat_documents_page.dart';
 import 'assmat_home_page.dart';
 import 'assmat_day_journey_page.dart';
 import 'assmat_messages_page.dart';
-import 'assmat_contract_page.dart';
 import 'assmat_profile_page.dart';
 
 /// Shell assmat : 5 onglets persistants + BottomNavigationBar.
@@ -23,7 +23,7 @@ class _AssMatShellState extends State<AssMatShell> {
     AssMatHomePage(),
     AssMatDayJourneyPage(),
     AssMatMessagesPage(),
-    AssMatContractPage(),
+    AssMatDocumentsPage(),
     AssMatProfilePage(),
   ];
 
