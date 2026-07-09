@@ -94,8 +94,12 @@ class ContractService {
               _row('Email', data.emailSalarie),
             ]),
           pw.SizedBox(height: 16),
-          if (contractType == 'cdi') _buildCdiEngagementSection(),
-          pw.SizedBox(height: 16),
+          if (contractType == 'cdi') ...[
+            _buildCdiEngagementSection(),
+            pw.SizedBox(height: 16),
+            _buildCdiLieuTravailSection(),
+            pw.SizedBox(height: 16),
+          ],
           _buildSection("Enfant concerné", [
             if (data.childFirstName.isNotEmpty)
               _row('Prénom', data.childFirstName),
@@ -322,6 +326,43 @@ class ContractService {
           '→ Ircem prévoyance\n'
           'Toutes deux domiciliées: 261 avenue des Nations-Unies – BP 593 – '
           '59060 ROUBAIX Cedex',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildCdiLieuTravailSection() {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildCdiSectionTitle('2. Lieu de travail et d\'accueil de l\'enfant'),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Le lieu de travail et d\'accueil de l\'enfant est exclusivement fixé :',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+        pw.SizedBox(height: 6),
+        _checkboxRow('Au domicile du salarié'),
+        pw.SizedBox(height: 4),
+        _checkboxRow('Dans une maison d\'assistants maternels'),
+      ],
+    );
+  }
+
+  pw.Widget _checkboxRow(String label) {
+    return pw.Row(
+      children: [
+        pw.Container(
+          width: 10,
+          height: 10,
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey600, width: 1.2),
+          ),
+        ),
+        pw.SizedBox(width: 8),
+        pw.Text(
+          label,
           style: const pw.TextStyle(fontSize: 9),
         ),
       ],
