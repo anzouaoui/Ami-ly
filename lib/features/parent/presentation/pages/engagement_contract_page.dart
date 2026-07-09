@@ -539,6 +539,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         return _Step2(
           assmatName: widget.assmatName ?? 'l\'assistante maternelle',
           onPreview: _onStep2Preview,
+          contractFormData: _contractFormData,
           initialData: _Step2InitialData(
             parentFirstName: parentProfile.firstName,
             parentLastName: parentProfile.lastName,
@@ -844,11 +845,13 @@ class _Step2 extends StatefulWidget {
   const _Step2({
     required this.assmatName,
     required this.onPreview,
+    this.contractFormData,
     this.initialData,
   });
 
   final String assmatName;
   final ValueChanged<ContractFormData> onPreview;
+  final ContractFormData? contractFormData;
   final _Step2InitialData? initialData;
 
   @override
@@ -896,6 +899,7 @@ class _Step2State extends State<_Step2> {
   void initState() {
     super.initState();
     final d = widget.initialData;
+    final draft = widget.contractFormData;
     if (d != null) {
       _nomCtrl.text = d.parentLastName;
       _prenomCtrl.text = d.parentFirstName;
@@ -906,6 +910,32 @@ class _Step2State extends State<_Step2> {
       _prenomSalarieCtrl.text = d.assmatFirstName;
       _adresseSalarieCtrl.text = d.assmatAddress;
       _children = d.children;
+    }
+    if (draft != null) {
+      if (draft.civiliteEmployeur.isNotEmpty) _civiliteEmployeur = draft.civiliteEmployeur;
+      if (draft.typeEmployeur.isNotEmpty) _typeEmployeur = draft.typeEmployeur;
+      if (draft.nomEmployeur.isNotEmpty) _nomCtrl.text = draft.nomEmployeur;
+      if (draft.nomNaissanceEmployeur.isNotEmpty) _nomCtrl.text = draft.nomNaissanceEmployeur;
+      if (draft.prenomEmployeur.isNotEmpty) _prenomCtrl.text = draft.prenomEmployeur;
+      if (draft.adresseEmployeur.isNotEmpty) _adresseCtrl.text = draft.adresseEmployeur;
+      if (draft.villeEmployeur.isNotEmpty) _villeCtrl.text = draft.villeEmployeur;
+      if (draft.cpEmployeur.isNotEmpty) _cpCtrl.text = draft.cpEmployeur;
+      if (draft.telEmployeur.isNotEmpty) _telCtrl.text = draft.telEmployeur;
+      if (draft.emailEmployeur.isNotEmpty) _emailCtrl.text = draft.emailEmployeur;
+      if (draft.civiliteSalarie.isNotEmpty) _civiliteSalarie = draft.civiliteSalarie;
+      if (draft.nomSalarie.isNotEmpty) _nomSalarieCtrl.text = draft.nomSalarie;
+      if (draft.prenomSalarie.isNotEmpty) _prenomSalarieCtrl.text = draft.prenomSalarie;
+      if (draft.adresseSalarie.isNotEmpty) _adresseSalarieCtrl.text = draft.adresseSalarie;
+      if (draft.villeSalarie.isNotEmpty) _villeSalarieCtrl.text = draft.villeSalarie;
+      if (draft.cpSalarie.isNotEmpty) _cpSalarieCtrl.text = draft.cpSalarie;
+      if (draft.telSalarie.isNotEmpty) _telSalarieCtrl.text = draft.telSalarie;
+      if (draft.emailSalarie.isNotEmpty) _emailSalarieCtrl.text = draft.emailSalarie;
+      if (draft.dateDebut.isNotEmpty) _dateDebutCtrl.text = draft.dateDebut;
+      if (draft.heuresSemaine.isNotEmpty) _heuresSemaineCtrl.text = draft.heuresSemaine;
+      if (draft.heuresMois.isNotEmpty) _heuresMoisCtrl.text = draft.heuresMois;
+      if (draft.semainesAn.isNotEmpty) _semainesAnCtrl.text = draft.semainesAn;
+      if (draft.salaireMensuel.isNotEmpty) _salaireMensuelCtrl.text = draft.salaireMensuel;
+      if (draft.salaireHoraire.isNotEmpty) _salaireHoraireCtrl.text = draft.salaireHoraire;
     }
   }
 
