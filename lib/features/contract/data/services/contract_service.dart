@@ -447,6 +447,43 @@ class ContractService {
           'rupture durant la période d\'essai sont facultatifs.',
           style: const pw.TextStyle(fontSize: 9),
         ),
+        pw.SizedBox(height: 12),
+        pw.Text(
+          'Période d\'adaptation',
+          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          '(Article 94 du socle spécifique « assistant maternel » de la '
+          'convention collective).',
+          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'La période d\'adaptation débute le premier jour de travail effectif, '
+          'pour une durée maximale de 30 jours calendaires.',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          'Les parties conviennent d\'une période d\'adaptation de '
+          '${data.dureeAdaptation.isNotEmpty ? data.dureeAdaptation : '………'} '
+          'jours calendaires, organisée du '
+          '${data.dateDebutAdaptation.isNotEmpty ? data.dateDebutAdaptation : '………'} '
+          'au ${data.dateFinAdaptation.isNotEmpty ? data.dateFinAdaptation : '………'}.',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          'Pendant cette période d\'adaptation, incluse dans la période '
+          'd\'essai, le salarié sera rémunéré sur la base du salaire mensuel '
+          'du présent contrat duquel sera déduite la rémunération des heures '
+          'de travail non effectué.',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
+        ),
       ],
     );
   }
@@ -717,6 +754,9 @@ class ContractService {
       dateEmbauche: contrat['dateEmbauche'] as String? ?? '',
       finContrat: contrat['finContrat'] as String? ?? '',
       periodeEssai: contrat['periodeEssai'] as String? ?? '',
+      dureeAdaptation: contrat['dureeAdaptation'] as String? ?? '',
+      dateDebutAdaptation: contrat['dateDebutAdaptation'] as String? ?? '',
+      dateFinAdaptation: contrat['dateFinAdaptation'] as String? ?? '',
       heuresSemaine: contrat['heuresSemaine'] as String? ?? '',
       heuresMois: contrat['heuresMois'] as String? ?? '',
       semainesAn: contrat['semainesAn'] as String? ?? '',

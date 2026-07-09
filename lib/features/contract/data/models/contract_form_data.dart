@@ -49,6 +49,9 @@ class ContractFormData {
     this.dateEmbauche = '',
     this.finContrat = '',
     this.periodeEssai = '',
+    this.dureeAdaptation = '',
+    this.dateDebutAdaptation = '',
+    this.dateFinAdaptation = '',
   });
 
   final String civiliteEmployeur;
@@ -99,6 +102,9 @@ class ContractFormData {
   final String dateEmbauche;
   final String finContrat;
   final String periodeEssai;
+  final String dureeAdaptation;
+  final String dateDebutAdaptation;
+  final String dateFinAdaptation;
 
   Map<String, dynamic> toJson() => {
         'employeur': {
@@ -147,6 +153,9 @@ class ContractFormData {
           'dateEmbauche': dateEmbauche,
           'finContrat': finContrat,
           'periodeEssai': periodeEssai,
+          'dureeAdaptation': dureeAdaptation,
+          'dateDebutAdaptation': dateDebutAdaptation,
+          'dateFinAdaptation': dateFinAdaptation,
           'heuresSemaine': heuresSemaine,
           'heuresMois': heuresMois,
           'semainesAn': semainesAn,

@@ -1498,6 +1498,9 @@ class _Step2State extends State<_Step2> {
       semainesAn: _semainesAnCtrl.text,
       salaireMensuel: _salaireMensuelCtrl.text,
       salaireHoraire: _salaireHoraireCtrl.text,
+      dureeAdaptation: '',
+      dateDebutAdaptation: '',
+      dateFinAdaptation: '',
     );
 
     widget.onPreview(data);
