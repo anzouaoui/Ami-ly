@@ -428,6 +428,25 @@ class ContractService {
           style: const pw.TextStyle(fontSize: 9),
           textAlign: pw.TextAlign.justify,
         ),
+        pw.SizedBox(height: 12),
+        pw.Text(
+          'Période d\'essai',
+          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          '(Articles 44-1 du socle commun et 95-1 du socle spécifique '
+          '« assistant maternel » de la convention collective).',
+          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+        ),
+        pw.SizedBox(height: 6),
+        _cdiField('Durée de la période d\'essai :', data.periodeEssai.isNotEmpty ? data.periodeEssai : '………'),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'La période d\'essai ainsi que le délai de prévenance en cas de '
+          'rupture durant la période d\'essai sont facultatifs.',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
       ],
     );
   }
