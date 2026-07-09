@@ -94,6 +94,8 @@ class ContractService {
               _row('Email', data.emailSalarie),
             ]),
           pw.SizedBox(height: 16),
+          if (contractType == 'cdi') _buildCdiEngagementSection(),
+          pw.SizedBox(height: 16),
           _buildSection("Enfant concerné", [
             if (data.childFirstName.isNotEmpty)
               _row('Prénom', data.childFirstName),
@@ -279,6 +281,50 @@ class ContractService {
           _cdiField('N° de police auto', data.assuranceAutoPoliceNo),
         ],
       ),
+    );
+  }
+
+  pw.Widget _buildCdiEngagementSection() {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildCdiSectionTitle('1. Engagement'),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Convention collective',
+          style: const pw.TextStyle(
+            fontSize: 11,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          'Ce contrat est régi par les dispositions de la Convention collective '
+          'nationale de la branche du secteur des particuliers employeurs '
+          'et de l\'emploi à domicile. Le salarié est informé de la possibilité '
+          'de consulter le texte de la Convention collective nationale sur le '
+          'site internet www.legifrance.gouv.fr.',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
+        ),
+        pw.SizedBox(height: 12),
+        pw.Text(
+          'Retraite complémentaire et prévoyance',
+          style: const pw.TextStyle(
+            fontSize: 11,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          'Les institutions compétentes en matière de retraite et de prévoyance sont:\n'
+          '→ Ircem AGIRC / ARRCO\n'
+          '→ Ircem prévoyance\n'
+          'Toutes deux domiciliées: 261 avenue des Nations-Unies – BP 593 – '
+          '59060 ROUBAIX Cedex',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+      ],
     );
   }
 
