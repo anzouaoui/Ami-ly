@@ -8,6 +8,8 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../contract/data/models/contract_form_data.dart';
 import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
+import '../../../contract/data/services/docusign_service.dart';
+import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/notification_service.dart';
@@ -313,6 +315,114 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     }
   }
 
+  Future<void> _onDocusignSign() async {
+    if (_contractFormData == null) return;
+    setState(() => _isSigning = true);
+
+    try {
+      final firebaseService = ref.read(firebaseServiceProvider);
+      final service = ContractService(firebaseService: firebaseService);
+
+      final pdfBytes = await service.generateContractPdf(_contractFormData!,
+          contractType: _step == 3 ? 'engagement' : 'cdi');
+      final pdfHash = service.computePdfHash(pdfBytes);
+
+      final contractId = await service.getOrCreateContract(
+        parentUid: ref.read(currentUserProvider).valueOrNull?.uid ?? '',
+        assmatUid: widget.assmatUid,
+      );
+
+      String? pdfUrl;
+      try {
+        pdfUrl = await service.uploadPdf(
+          contractId: contractId,
+          pdfBytes: pdfBytes,
+        );
+      } catch (_) {}
+
+      if (pdfUrl == null || pdfUrl!.isEmpty) {
+        throw Exception('Impossible de télécharger le PDF. Vérifiez le stockage Firebase.');
+      }
+
+      final docusign = DocusignService();
+      await docusign.createEnvelope(contractId: contractId, pdfUrl: pdfUrl!);
+
+      if (!mounted) return;
+      setState(() => _isSigning = false);
+
+      final currentUserUid = ref.read(currentUserProvider).valueOrNull?.uid ?? '';
+      final signingUrl =
+          await docusign.getRecipientViewUrl(contractId: contractId, userId: currentUserUid);
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DocusignSignaturePage(
+            signingUrl: signingUrl,
+            contractId: contractId,
+            userId: currentUserUid,
+            onSigned: () async {
+              Navigator.of(context).pop();
+              if (!mounted) return;
+              setState(() => _isSigning = true);
+
+              final ip = await ContractService.getPublicIp();
+              await service.finalizeParentSignature(
+                contractId: contractId,
+                formData: _contractFormData!,
+                signedName: '',
+                pdfUrl: pdfUrl ?? '',
+                pdfHash: pdfHash,
+                ipAddress: ip,
+                method: 'docusign',
+                contractType: _step == 3 ? 'engagement' : 'cdi',
+              );
+
+              try {
+                final notifService = ref.read(notificationServiceProvider);
+                final childName = _contractFormData!.childFirstName.isNotEmpty
+                    ? _contractFormData!.childFirstName
+                    : _contractFormData!.prenomEnfant.isNotEmpty
+                        ? _contractFormData!.prenomEnfant
+                        : 'l\'enfant';
+                await notifService.createNotification(
+                  recipientUid: widget.assmatUid,
+                  senderUid: currentUserUid,
+                  type: 'contract_signature',
+                  contractId: contractId,
+                  title: 'Contrat à signer',
+                  body: 'Un contrat pour l\'accueil de $childName '
+                      'est en attente de votre signature.',
+                );
+              } catch (_) {}
+
+              if (mounted) {
+                setState(() => _isSigning = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Contrat signé avec succès !'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+                if (_step == 3 || _step == 5) {
+                  _startWaitingForAssmat(contractId);
+                }
+              }
+            },
+            onError: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSigning = false);
+        _showError('Erreur lors de la signature DocuSign : $e');
+      }
+    }
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -467,14 +577,18 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         }
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: InAppSignatureWidget(
-            parentFirstName: parentProfile.firstName,
-            parentLastName: parentProfile.lastName,
-            parentUid: currentUser.uid,
-            assmatName: widget.assmatName ?? 'l\'assistante maternelle',
-            contractFormData: _contractFormData!,
-            onSigned: _onSignatureComplete,
-            onError: _showError,
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _onDocusignSign,
+              icon: const Icon(Icons.verified_outlined, size: 20),
+              label: const Text('Signer avec DocuSign'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
           ),
         );
       case 4:
@@ -515,8 +629,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
           parentFirstName: parentProfile.firstName,
           parentLastName: parentProfile.lastName,
           parentUid: currentUser.uid,
-          onSigned: _onSignatureComplete,
-          onError: _showError,
+          onDocusignSign: _onDocusignSign,
         );
       case 6:
         if (_contractFormData == null) {
@@ -1757,8 +1870,7 @@ class _Step5 extends StatelessWidget {
     required this.parentFirstName,
     required this.parentLastName,
     required this.parentUid,
-    required this.onSigned,
-    this.onError,
+    required this.onDocusignSign,
   });
 
   final ContractFormData contractData;
@@ -1766,77 +1878,22 @@ class _Step5 extends StatelessWidget {
   final String parentFirstName;
   final String parentLastName;
   final String parentUid;
-  final ValueChanged<SignatureResult> onSigned;
-  final void Function(String message)? onError;
+  final VoidCallback? onDocusignSign;
 
   @override
   Widget build(BuildContext context) {
-    final childName = contractData.childFirstName.isNotEmpty
-        ? contractData.childFirstName
-        : contractData.prenomEnfant.isNotEmpty
-            ? contractData.prenomEnfant
-            : 'l\'enfant';
-
-    final employerName =
-        '${contractData.prenomEmployeur} ${contractData.nomEmployeur}'.trim();
-    final employeeName =
-        '${contractData.prenomSalarie} ${contractData.nomSalarie}'.trim();
-
-    return Column(
-      children: [
-        // ── Carte d'information DocuSign ──────────────────────────
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.verified_outlined, color: AppColors.primary, size: 20),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Signature du contrat — DocuSign',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryText,
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onDocusignSign,
+        icon: const Icon(Icons.verified_outlined, size: 20),
+        label: const Text('Signer avec DocuSign'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          padding: const EdgeInsets.symmetric(vertical: 16),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        // ── Carte Signature centrée ────────────────────────────────
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            vertical: AppSpacing.xl,
-            horizontal: AppSpacing.lg,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: InAppSignatureWidget(
-            parentFirstName: parentFirstName,
-            parentLastName: parentLastName,
-            parentUid: parentUid,
-            assmatName: assmatName,
-            contractFormData: contractData,
-            onSigned: onSigned,
-            onError: onError,
-            customTitle: 'Signature du contrat',
-            customDescription:
-                'Contrat CDI entre $employerName et $employeeName '
-                'pour l\'accueil de $childName.',
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

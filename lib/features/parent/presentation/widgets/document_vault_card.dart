@@ -14,6 +14,7 @@ class DocumentEntry {
     required this.icon,
     required this.iconBg,
     required this.iconColor,
+    this.url,
   });
 
   final String title;
@@ -21,6 +22,7 @@ class DocumentEntry {
   final IconData icon;
   final Color iconBg;
   final Color iconColor;
+  final String? url;
 }
 
 /// Carte "Coffre-fort numérique" : header, info RGPD, liste de documents signés.

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -66,44 +67,6 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
 
   // ── Global ─────────────────────────────────────────────────────────────────
   bool _saving = false;
-
-  static const _documents = <DocumentEntry>[
-    DocumentEntry(
-      title: 'Fiche de paie — Mars',
-      subtitle: 'Signé le 05/03/2026',
-      icon: Icons.receipt_long_rounded,
-      iconBg: AppColors.parentIconBg,
-      iconColor: AppColors.primary,
-    ),
-    DocumentEntry(
-      title: 'Fiche de paie — Avril',
-      subtitle: 'Signé le 05/04/2026',
-      icon: Icons.receipt_long_rounded,
-      iconBg: AppColors.parentIconBg,
-      iconColor: AppColors.primary,
-    ),
-    DocumentEntry(
-      title: "Droit à l'image",
-      subtitle: 'Signé le 01/09/2025',
-      icon: Icons.visibility_rounded,
-      iconBg: AppColors.statBlueBg,
-      iconColor: AppColors.statBlueColor,
-    ),
-    DocumentEntry(
-      title: 'Autorisation de sortie',
-      subtitle: 'Signé le 01/09/2025',
-      icon: Icons.verified_user_rounded,
-      iconBg: AppColors.secondary,
-      iconColor: AppColors.primary,
-    ),
-    DocumentEntry(
-      title: 'Contrat de garde',
-      subtitle: 'Signé le 15/01/2026',
-      icon: Icons.description_rounded,
-      iconBg: AppColors.divider,
-      iconColor: AppColors.secondaryText,
-    ),
-  ];
 
   @override
   void dispose() {
@@ -379,7 +342,9 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(parentProfileProvider);
     final childrenAsync = ref.watch(childrenProvider);
-    final email = ref.watch(currentUserProvider).valueOrNull?.email ?? '';
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final email = currentUser?.email ?? '';
+    final userUid = currentUser?.uid ?? '';
 
     // Initialise les controllers profil à la première donnée disponible
     if (!_profileInitialized) {
@@ -445,7 +410,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
                                   .copyWith(color: AppColors.error),
                             ),
                           )
-                        : _buildContent(),
+                        : _buildContent(userUid),
               ),
               _BottomActionBar(
                 saving: _saving,
@@ -459,7 +424,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(String userUid) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -538,10 +503,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
           const SizedBox(height: AppSpacing.lg),
 
           // ── Coffre-fort numérique ───────────────────────────────────────
-          DocumentVaultCard(
-            documents: _documents,
-            onDocumentTap: (d) => _stub(d.title),
-          ),
+          _SignedDocumentsVault(userUid: userUid),
           const SizedBox(height: AppSpacing.lg),
 
           // ── Données personnelles (RGPD) ─────────────────────────────────
@@ -696,5 +658,139 @@ class _BottomActionBar extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─── Coffre-fort numérique (signés) ────────────────────────────────────────────
+
+class _SignedDocumentsVault extends StatelessWidget {
+  const _SignedDocumentsVault({required this.userUid});
+
+  final String userUid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (userUid.isEmpty) return const SizedBox.shrink();
+
+    final contractsQuery = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('parentUid', isEqualTo: userUid);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: contractsQuery.snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return const SizedBox.shrink();
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        final entries = <DocumentEntry>[];
+
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final status = data['status'] as String?;
+          if (status != 'signed' && status != 'active') continue;
+
+          final contractData = data['contractData'] as Map<String, dynamic>?;
+          final enfant = contractData?['enfant'] as Map<String, dynamic>?;
+          final childName = enfant?['prenom'] as String? ?? '';
+          final signedAt = (data['finalizedAt'] as String?) ??
+              (data['updatedAt'] as String?) ?? '';
+          final subtitle = signedAt.isNotEmpty
+              ? 'Signé le ${_formatDate(signedAt)}'
+              : 'Signé';
+
+          final pdfUrl = data['pdfUrl'] as String?;
+          final finalPdfUrl = data['finalPdfUrl'] as String?;
+
+          if (pdfUrl != null && pdfUrl.isNotEmpty) {
+            entries.add(DocumentEntry(
+              title: childName.isNotEmpty
+                  ? 'Engagement — $childName'
+                  : "Contrat d'engagement",
+              subtitle: subtitle,
+              icon: Icons.handshake_rounded,
+              iconBg: AppColors.secondary,
+              iconColor: AppColors.primary,
+              url: pdfUrl,
+            ));
+          }
+
+          if (finalPdfUrl != null && finalPdfUrl.isNotEmpty) {
+            entries.add(DocumentEntry(
+              title: childName.isNotEmpty
+                  ? 'Contrat CDI — $childName'
+                  : 'Contrat de travail CDI',
+              subtitle: subtitle,
+              icon: Icons.description_rounded,
+              iconBg: AppColors.parentIconBg,
+              iconColor: AppColors.primary,
+              url: finalPdfUrl,
+            ));
+          }
+        }
+
+        if (entries.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.lock_rounded,
+                        color: AppColors.primary, size: 22),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text('Coffre-fort numérique',
+                          style: AppTextStyles.titleMedium),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const Icon(Icons.folder_open_rounded, size: 48,
+                    color: AppColors.secondaryText),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Aucun document signé pour le moment',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.secondaryText,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return DocumentVaultCard(
+          documents: entries,
+          onDocumentTap: (d) {
+            if (d.url != null) {
+              launchUrl(Uri.parse(d.url!),
+                  mode: LaunchMode.externalApplication);
+            }
+          },
+        );
+      },
+    );
+  }
+
+  String _formatDate(String iso) {
+    try {
+      final dt = DateTime.parse(iso);
+      return '${dt.day.toString().padLeft(2, '0')}/'
+          '${dt.month.toString().padLeft(2, '0')}/'
+          '${dt.year}';
+    } catch (_) {
+      return iso;
+    }
   }
 }

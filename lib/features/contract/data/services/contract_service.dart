@@ -256,6 +256,7 @@ class ContractService {
     String pdfUrl = '',
     String pdfHash = '',
     String? ipAddress,
+    String method = 'typed_name',
     String contractType = 'engagement',
   }) async {
     final now = DateTime.now().toIso8601String();
@@ -273,6 +274,7 @@ class ContractService {
       'parentSignedAt': now,
       'parentSignedName': signedName,
       'parentSignatureIp': ipAddress,
+      'signatureMethod': method,
       'contractType': contractType,
       'updatedAt': now,
     });
