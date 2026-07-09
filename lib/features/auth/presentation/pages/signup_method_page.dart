@@ -39,7 +39,9 @@ class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage> {
       _errorMessage = null;
     });
 
-    final result = await ref.read(authRepositoryProvider).signInWithGoogle();
+    final result = await ref
+        .read(authRepositoryProvider)
+        .signInWithGoogle(role: widget.role);
 
     if (!mounted) return;
     result.fold(
@@ -49,14 +51,13 @@ class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage> {
       }),
       (user) {
         setState(() => _loading = false);
-        if (user == null) {
-          // Nouvel utilisateur Google sans profil → profil créé, rediriger
-          // vers WelcomePage pour qu'il choisisse (ou re-choisisse) son rôle.
-          // En pratique il vient de choisir son rôle ici, mais le doc Firestore
-          // n'est pas encore créé. Le stream currentUserProvider gérera la suite.
-          // Pour l'instant on ne fait rien : l'AuthWrapper détectera le signIn.
+        if (user != null) {
+          // Profil créé avec le rôle → le stream currentUserProvider
+          // prend le relai et AuthWrapper redirige automatiquement.
         }
-        // Si user != null, le stream currentUserProvider prend le relai.
+        // Si user == null, c'est que l'utilisateur a annulé
+        // la sélection de compte Google (déjà géré par l'exception
+        // "Connexion annulée" dans le datasource).
       },
     );
   }

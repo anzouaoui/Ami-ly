@@ -95,9 +95,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, AppUser?>> signInWithGoogle() async {
+  Future<Either<Failure, AppUser?>> signInWithGoogle({UserRole? role}) async {
     try {
-      final model = await _remote.signInWithGoogle();
+      final model = await _remote.signInWithGoogle(role: role);
       if (model == null) {
         // Nouvel utilisateur Google sans profil Firestore → rôle à choisir.
         return const Right(null);

@@ -399,9 +399,11 @@ class AuthRemoteDataSource {
   /// contre une credential Firebase, puis crée le document Firestore si
   /// l'utilisateur est nouveau (première connexion Google).
   ///
-  /// Retourne le [UserModel] si le profil Firestore existe déjà, ou `null`
-  /// si l'utilisateur doit encore choisir son rôle.
-  Future<UserModel?> signInWithGoogle() async {
+  /// Si [role] est fourni et que l'utilisateur est nouveau, le profil
+  /// Firestore (doc `users/{uid}` + sous-doc profil) est créé
+  /// automatiquement. Sinon, retourne `null` pour indiquer qu'un choix
+  /// de rôle est nécessaire (redirection vers WelcomePage).
+  Future<UserModel?> signInWithGoogle({UserRole? role}) async {
     try {
       // 1. Affiche le sélecteur de compte Google.
       final googleUser = await _googleSignIn.signIn();
@@ -429,8 +431,14 @@ class AuthRemoteDataSource {
         return UserModel.fromFirestore(doc);
       }
 
-      // 5. Nouvel utilisateur Google → pas encore de rôle choisi.
-      //    On retourne null : la couche presentation redirigera vers WelcomePage.
+      // 5. Nouvel utilisateur Google.
+      //    Si un rôle est fourni, on crée le profil Firestore immédiatement.
+      if (role != null) {
+        return _createGoogleUserProfile(user: user, role: role);
+      }
+
+      //    Sinon, on retourne null : la couche presentation redirigera
+      //    vers WelcomePage pour le choix du rôle.
       return null;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapAuthError(e));
@@ -438,6 +446,59 @@ class AuthRemoteDataSource {
       rethrow;
     } catch (e) {
       throw AuthException('Erreur lors de la connexion Google : $e');
+    }
+  }
+
+  /// Crée le profil Firestore pour un nouvel utilisateur Google.
+  ///
+  /// Écrit le doc `users/{uid}` (rôle + email) et le sous-doc profil
+  /// correspondant (`parents/{uid}` ou `assmats/{uid}`).
+  Future<UserModel> _createGoogleUserProfile({
+    required User user,
+    required UserRole role,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final email = user.email ?? '';
+      final displayName = user.displayName ?? '';
+
+      // 1. Document `users/{uid}` — source de vérité du rôle.
+      final model = UserModel(
+        uid: user.uid,
+        email: email,
+        role: role,
+        createdAt: now,
+        displayName: displayName.isNotEmpty ? displayName : null,
+        photoUrl: user.photoURL,
+      );
+      await _firebase.userDoc(user.uid).set(model.toFirestore());
+
+      // 2. Sous-document profil étendu selon le rôle.
+      final nameParts = displayName.split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName =
+          nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+      if (role == UserRole.parent) {
+        final profile = ParentProfileModel.initial(
+          uid: user.uid,
+          firstName: firstName,
+          lastName: lastName,
+        );
+        await _firebase.parentDoc(user.uid).set(profile.toFirestore());
+      } else {
+        final profile = AssmatProfileModel.initial(
+          uid: user.uid,
+          firstName: firstName,
+          lastName: lastName,
+        );
+        await _firebase.assmatDoc(user.uid).set(profile.toFirestore());
+      }
+
+      return model;
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de la création du profil Google.');
     }
   }
 

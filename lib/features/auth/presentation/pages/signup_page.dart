@@ -76,12 +76,28 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     );
   }
 
-  void _onGoogleTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connexion Google — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _onGoogleTap() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ref
+        .read(authRepositoryProvider)
+        .signInWithGoogle(role: _role);
+
+    if (!mounted) return;
+    result.fold(
+      (failure) => setState(() {
+        _errorMessage = failure.message;
+        _loading = false;
+      }),
+      (user) {
+        setState(() => _loading = false);
+        if (user != null) {
+          // Profil créé → le stream currentUserProvider prend le relai.
+        }
+      },
     );
   }
 
