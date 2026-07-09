@@ -99,18 +99,21 @@ class ContractService {
             pw.SizedBox(height: 16),
             _buildCdiLieuTravailSection(),
             pw.SizedBox(height: 16),
+            _buildCdiDateEffetSection(data),
+            pw.SizedBox(height: 16),
+          ] else ...[
+            _buildSection("Enfant concerné", [
+              if (data.childFirstName.isNotEmpty)
+                _row('Prénom', data.childFirstName),
+              if (data.prenomEnfant.isNotEmpty)
+                _row('Prénom (contrat)', data.prenomEnfant),
+              if (data.nomEnfant.isNotEmpty)
+                _row('Nom', data.nomEnfant),
+              if (data.dateNaissanceEnfant.isNotEmpty)
+                _row('Date de naissance', data.dateNaissanceEnfant),
+            ]),
+            pw.SizedBox(height: 16),
           ],
-          _buildSection("Enfant concerné", [
-            if (data.childFirstName.isNotEmpty)
-              _row('Prénom', data.childFirstName),
-            if (data.prenomEnfant.isNotEmpty)
-              _row('Prénom (contrat)', data.prenomEnfant),
-            if (data.nomEnfant.isNotEmpty)
-              _row('Nom', data.nomEnfant),
-            if (data.dateNaissanceEnfant.isNotEmpty)
-              _row('Date de naissance', data.dateNaissanceEnfant),
-          ]),
-          pw.SizedBox(height: 16),
           _buildSection("Conditions d'accueil et rémunération", [
             if (data.dateDebut.isNotEmpty)
               _row('Date de début', data.dateDebut),
@@ -364,6 +367,66 @@ class ContractService {
         pw.Text(
           label,
           style: const pw.TextStyle(fontSize: 9),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildCdiDateEffetSection(ContractFormData data) {
+    final childNom = data.nomEnfant.isNotEmpty ? data.nomEnfant : '………';
+    final childPrenom = data.childFirstName.isNotEmpty
+        ? data.childFirstName
+        : data.prenomEnfant.isNotEmpty
+            ? data.prenomEnfant
+            : '………';
+    final childDateNaissance =
+        data.dateNaissanceEnfant.isNotEmpty ? data.dateNaissanceEnfant : '………';
+    final dateDebut = data.dateDebut.isNotEmpty ? data.dateDebut : '………';
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildCdiSectionTitle(
+            '3. Date d\'effet du contrat'),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Le présent contrat est établi pour l\'accueil de l\'enfant :',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          children: [
+            pw.SizedBox(width: 30, child: pw.Text('Nom :',
+                style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+            pw.Text(childNom,
+                style: const pw.TextStyle(fontSize: 9)),
+          ],
+        ),
+        pw.SizedBox(height: 3),
+        pw.Row(
+          children: [
+            pw.SizedBox(width: 30, child: pw.Text('Prénom :',
+                style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+            pw.Text(childPrenom,
+                style: const pw.TextStyle(fontSize: 9)),
+          ],
+        ),
+        pw.SizedBox(height: 3),
+        pw.Row(
+          children: [
+            pw.SizedBox(width: 30, child: pw.Text('Né(e) le :',
+                style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+            pw.Text(childDateNaissance,
+                style: const pw.TextStyle(fontSize: 9)),
+          ],
+        ),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Il prendra effet à la date de l\'embauche, le $dateDebut, '
+          'pour une durée indéterminée. '
+          '(À compter du premier jour de la période d\'essai).',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
         ),
       ],
     );
