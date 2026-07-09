@@ -65,26 +65,34 @@ class ContractService {
         build: (context) => [
           _buildHeader(contractType == 'engagement'),
           pw.SizedBox(height: 24),
-          _buildSection("Employeur", [
-            _row('Civilité', data.civiliteEmployeur),
-            _row('Type', data.typeEmployeur),
-            _row('Nom', '${data.prenomEmployeur} ${data.nomEmployeur}'),
-            _row('Adresse', data.adresseEmployeur),
-            if (data.villeEmployeur.isNotEmpty || data.cpEmployeur.isNotEmpty)
-              _row('Ville / CP', '${data.villeEmployeur} ${data.cpEmployeur}'.trim()),
-            _row('Téléphone', data.telEmployeur),
-            _row('Email', data.emailEmployeur),
-          ]),
+          if (contractType == 'cdi') ...[
+            _buildCdiSectionTitle('Entre le particulier employeur :'),
+            _buildCdiEmployeurSection(data),
+          ] else
+            _buildSection("Employeur", [
+              _row('Civilité', data.civiliteEmployeur),
+              _row('Type', data.typeEmployeur),
+              _row('Nom', '${data.prenomEmployeur} ${data.nomEmployeur}'),
+              _row('Adresse', data.adresseEmployeur),
+              if (data.villeEmployeur.isNotEmpty || data.cpEmployeur.isNotEmpty)
+                _row('Ville / CP', '${data.villeEmployeur} ${data.cpEmployeur}'.trim()),
+              _row('Téléphone', data.telEmployeur),
+              _row('Email', data.emailEmployeur),
+            ]),
           pw.SizedBox(height: 16),
-          _buildSection("Salarié — Assistante maternelle", [
-            _row('Civilité', data.civiliteSalarie),
-            _row('Nom', '${data.prenomSalarie} ${data.nomSalarie}'),
-            _row('Adresse', data.adresseSalarie),
-            if (data.villeSalarie.isNotEmpty || data.cpSalarie.isNotEmpty)
-              _row('Ville / CP', '${data.villeSalarie} ${data.cpSalarie}'.trim()),
-            _row('Téléphone', data.telSalarie),
-            _row('Email', data.emailSalarie),
-          ]),
+          if (contractType == 'cdi') ...[
+            _buildCdiSectionTitle('Entre le salarié :'),
+            _buildCdiSalarieSection(data),
+          ] else
+            _buildSection("Salarié — Assistante maternelle", [
+              _row('Civilité', data.civiliteSalarie),
+              _row('Nom', '${data.prenomSalarie} ${data.nomSalarie}'),
+              _row('Adresse', data.adresseSalarie),
+              if (data.villeSalarie.isNotEmpty || data.cpSalarie.isNotEmpty)
+                _row('Ville / CP', '${data.villeSalarie} ${data.cpSalarie}'.trim()),
+              _row('Téléphone', data.telSalarie),
+              _row('Email', data.emailSalarie),
+            ]),
           pw.SizedBox(height: 16),
           _buildSection("Enfant concerné", [
             if (data.childFirstName.isNotEmpty)
@@ -124,7 +132,7 @@ class ContractService {
                     'Document généré par Ami-ly — signature électronique.'
                 : 'Fait pour servir et valoir ce que de droit, dans le cadre d\'un contrat de travail à durée indéterminée.\n'
                     'Document généré par Ami-ly — signature électronique.',
-            style: pw.TextStyle(
+            style: const pw.TextStyle(
               fontSize: 10,
               color: PdfColors.grey,
               fontStyle: pw.FontStyle.italic,
@@ -145,28 +153,154 @@ class ContractService {
   }
 
   pw.Widget _buildHeader(bool isEngagement) {
+    if (isEngagement) {
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            "Contrat d'engagement réciproque",
+            style: const pw.TextStyle(
+              fontSize: 22,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.blueGrey800,
+            ),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Entre un parent employeur et une assistante maternelle agréée',
+            style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey),
+          ),
+          pw.Divider(color: PdfColors.blueGrey200),
+        ],
+      );
+    }
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          isEngagement
-              ? "Contrat d'engagement réciproque"
-              : 'Contrat de travail',
-          style: pw.TextStyle(
-            fontSize: 22,
+          'Contrat de travail à durée indéterminée (CDI)',
+          style: const pw.TextStyle(
+            fontSize: 20,
             fontWeight: pw.FontWeight.bold,
             color: PdfColors.blueGrey800,
           ),
         ),
         pw.SizedBox(height: 4),
         pw.Text(
-          isEngagement
-              ? 'Entre un parent employeur et une assistante maternelle agréée'
-              : 'Contrat de travail à durée indéterminée — Convention collective des assistantes maternelles',
-          style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey),
+          'Assistant maternel agréé',
+          style: const pw.TextStyle(
+            fontSize: 14,
+            color: PdfColors.blueGrey600,
+            fontWeight: pw.FontWeight.normal,
+          ),
         ),
-        pw.Divider(color: PdfColors.blueGrey200),
+        pw.SizedBox(height: 8),
+        pw.Container(
+          height: 2,
+          color: PdfColors.blueGrey200,
+        ),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Convention collective nationale des assistants maternels du 1er juillet 2004 - IDCC 3239',
+          style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
+        ),
       ],
+    );
+  }
+
+  pw.Widget _buildCdiSectionTitle(String title) {
+    return pw.Container(
+      color: PdfColors.blueGrey50,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: pw.Text(
+        title,
+        style: const pw.TextStyle(
+          fontSize: 12,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.blueGrey800,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _buildCdiEmployeurSection(ContractFormData data) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _cdiField('Nom de naissance', data.nomEmployeur),
+          _cdiField('Nom d\'usage', data.nomUsageEmployeur),
+          _cdiField('Prénom', data.prenomEmployeur),
+          _cdiField('Adresse', data.adresseEmployeur),
+          _cdiField('Ville', data.villeEmployeur),
+          _cdiField('Code postal', data.cpEmployeur),
+          _cdiField('N° de téléphone', data.telEmployeur),
+          _cdiField('E-mail', data.emailEmployeur),
+          _cdiField('En qualité de', data.typeEmployeur),
+          _cdiField('N° Pajemploi', data.pajemploiNo),
+          _cdiField('Code IDCC', data.idccCode),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildCdiSalarieSection(ContractFormData data) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _cdiField('Civilité', data.civiliteSalarie),
+          _cdiField('Nom', data.nomSalarie),
+          _cdiField('Prénom', data.prenomSalarie),
+          _cdiField('Adresse', data.adresseSalarie),
+          _cdiField('Ville', data.villeSalarie),
+          _cdiField('Code postal', data.cpSalarie),
+          _cdiField('N° de téléphone', data.telSalarie),
+          _cdiField('E-mail', data.emailSalarie),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _cdiField(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 130,
+            child: pw.Text(
+              label,
+              style: const pw.TextStyle(
+                fontSize: 9,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value.isNotEmpty ? value : '………',
+              style: const pw.TextStyle(
+                fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -179,7 +313,7 @@ class ContractService {
           padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: pw.Text(
             title,
-            style: pw.TextStyle(
+            style: const pw.TextStyle(
               fontSize: 13,
               fontWeight: pw.FontWeight.bold,
               color: PdfColors.blueGrey800,
@@ -371,12 +505,16 @@ class ContractService {
       civiliteEmployeur: employer['civilite'] as String? ?? '',
       typeEmployeur: employer['type'] as String? ?? '',
       nomEmployeur: employer['nom'] as String? ?? '',
+      nomNaissanceEmployeur: employer['nomNaissance'] as String? ?? '',
+      nomUsageEmployeur: employer['nomUsage'] as String? ?? '',
       prenomEmployeur: employer['prenom'] as String? ?? '',
       adresseEmployeur: employer['adresse'] as String? ?? '',
       villeEmployeur: employer['ville'] as String? ?? '',
       cpEmployeur: employer['cp'] as String? ?? '',
       telEmployeur: employer['telephone'] as String? ?? '',
       emailEmployeur: employer['email'] as String? ?? '',
+      pajemploiNo: employer['pajemploiNo'] as String? ?? '',
+      idccCode: employer['idccCode'] as String? ?? '3239',
       civiliteSalarie: salarie['civilite'] as String? ?? '',
       nomSalarie: salarie['nom'] as String? ?? '',
       prenomSalarie: salarie['prenom'] as String? ?? '',

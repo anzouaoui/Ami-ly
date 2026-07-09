@@ -4,12 +4,16 @@ class ContractFormData {
     this.civiliteEmployeur = 'M.',
     this.typeEmployeur = 'Père',
     this.nomEmployeur = '',
+    this.nomNaissanceEmployeur = '',
+    this.nomUsageEmployeur = '',
     this.prenomEmployeur = '',
     this.adresseEmployeur = '',
     this.villeEmployeur = '',
     this.cpEmployeur = '',
     this.telEmployeur = '',
     this.emailEmployeur = '',
+    this.pajemploiNo = '',
+    this.idccCode = '3239',
     // Salarié
     this.civiliteSalarie = 'Mme',
     this.nomSalarie = '',
@@ -41,12 +45,16 @@ class ContractFormData {
   final String civiliteEmployeur;
   final String typeEmployeur;
   final String nomEmployeur;
+  final String nomNaissanceEmployeur;
+  final String nomUsageEmployeur;
   final String prenomEmployeur;
   final String adresseEmployeur;
   final String villeEmployeur;
   final String cpEmployeur;
   final String telEmployeur;
   final String emailEmployeur;
+  final String pajemploiNo;
+  final String idccCode;
 
   final String civiliteSalarie;
   final String nomSalarie;
@@ -79,12 +87,16 @@ class ContractFormData {
           'civilite': civiliteEmployeur,
           'type': typeEmployeur,
           'nom': nomEmployeur,
+          'nomNaissance': nomNaissanceEmployeur,
+          'nomUsage': nomUsageEmployeur,
           'prenom': prenomEmployeur,
           'adresse': adresseEmployeur,
           'ville': villeEmployeur,
           'cp': cpEmployeur,
           'telephone': telEmployeur,
           'email': emailEmployeur,
+          'pajemploiNo': pajemploiNo,
+          'idccCode': idccCode,
         },
         'salarie': {
           'civilite': civiliteSalarie,
