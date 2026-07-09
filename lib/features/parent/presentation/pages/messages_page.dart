@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,8 +9,10 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../shared/models/conversation_model.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../widgets/parent_navigation_drawer.dart';
+import 'engagement_contract_page.dart';
 import 'find_childminder_page.dart';
 import 'parent_chat_page.dart';
 
@@ -49,7 +52,8 @@ class MessagesPage extends ConsumerWidget {
                                       const FindChildminderPage()),
                             ),
                           )
-                        : _ConversationList(conversations: conversations),
+                        : _ConversationListView(
+                            conversations: conversations),
                   ),
             ),
           ],
@@ -167,12 +171,17 @@ class _EmptyState extends StatelessWidget {
 
 // ─── Conversation list ────────────────────────────────────────────────────────
 
-class _ConversationList extends StatelessWidget {
-  const _ConversationList({required this.conversations});
+class _ConversationListView extends ConsumerWidget {
+  const _ConversationListView({required this.conversations});
   final List<ConversationModel> conversations;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    if (currentUser == null) {
+      return const Center(child: Text('Utilisateur non connecté'));
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
@@ -186,20 +195,42 @@ class _ConversationList extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadii.md),
-                border: Border.all(color: AppColors.divider),
-                boxShadow: AppShadows.sm,
-              ),
-              child: ListView.separated(
-                itemCount: conversations.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, indent: 72),
-                itemBuilder: (_, i) =>
-                    _ConversationTile(conv: conversations[i]),
-              ),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('contracts')
+                  .where('parentUid', isEqualTo: currentUser.uid)
+                  .snapshots(),
+              builder: (context, contractSnap) {
+                final contractByAssmat =
+                    <String, Map<String, dynamic>>{};
+                if (contractSnap.hasData) {
+                  for (final doc in contractSnap.data!.docs) {
+                    final d = doc.data() as Map<String, dynamic>;
+                    final assmatUid = d['assmatUid'] as String? ?? '';
+                    if (assmatUid.isNotEmpty) {
+                      contractByAssmat[assmatUid] = d;
+                    }
+                  }
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadii.md),
+                    border: Border.all(color: AppColors.divider),
+                    boxShadow: AppShadows.sm,
+                  ),
+                  child: ListView.separated(
+                    itemCount: conversations.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, indent: 72),
+                    itemBuilder: (_, i) => _ConversationTile(
+                      conv: conversations[i],
+                      contractData: contractByAssmat[conversations[i].assmatUid],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -211,8 +242,12 @@ class _ConversationList extends StatelessWidget {
 // ─── Conversation tile ────────────────────────────────────────────────────────
 
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conv});
+  const _ConversationTile({
+    required this.conv,
+    this.contractData,
+  });
   final ConversationModel conv;
+  final Map<String, dynamic>? contractData;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +259,9 @@ class _ConversationTile extends StatelessWidget {
         .join();
     final unread = conv.unreadParent;
     final timeLabel = _timeLabel(conv.lastMessageAt);
+
+    final status = contractData?['status'] as String? ?? '';
+    final (statusLabel, statusColor, actionLabel) = _contractStatusInfo(status);
 
     return InkWell(
       onTap: () => Navigator.of(context).push(
@@ -324,6 +362,49 @@ class _ConversationTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  if (status.isNotEmpty && status != 'active') ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryText,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        SizedBox(
+                          height: 28,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => EngagementContractPage(
+                                  assmatUid: conv.assmatUid,
+                                  assmatName: conv.assmatName,
+                                ),
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              textStyle: const TextStyle(fontSize: 11),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: Text(actionLabel),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -331,6 +412,21 @@ class _ConversationTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  (String, Color, String) _contractStatusInfo(String status) {
+    switch (status) {
+      case 'draft':
+        return ('Brouillon', AppColors.secondary, 'Reprendre');
+      case 'pendingAssmat':
+        return ('En attente signature', AppColors.accent, 'Voir');
+      case 'pendingParent':
+        return ('À signer', AppColors.primary, 'Signer');
+      case 'active':
+        return ('Contrat actif', AppColors.success, 'Voir');
+      default:
+        return ('', Colors.transparent, '');
+    }
   }
 
   static String _timeLabel(DateTime? dt) {

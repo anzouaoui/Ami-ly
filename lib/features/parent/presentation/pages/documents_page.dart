@@ -412,7 +412,7 @@ class _PendingCard extends StatelessWidget {
                     label: Text(
                       typeLabel == 'Engagement réciproque'
                           ? 'Engagement réciproque (signé)'
-                          : 'Document (signé)',
+                          : '$typeLabel (signé)',
                     ),
                   ),
                 ),
@@ -517,7 +517,7 @@ class _SignedCard extends StatelessWidget {
                           mode: LaunchMode.externalApplication,
                         ),
                         icon: const Icon(Icons.description_outlined, size: 16),
-                        label: const Text('Engagement réciproque (signé)'),
+                        label: Text('$typeLabel (signé)'),
                       ),
                     ),
                   ),

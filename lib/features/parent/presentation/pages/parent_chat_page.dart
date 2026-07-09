@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -216,6 +217,13 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
             ),
             const Divider(height: 1),
 
+            // ── Contrat banner ─────────────────────────────────────────────────────
+            _ContractBanner(
+              currentUserUid: myUid,
+              assmatUid: widget.assmatUid,
+              assmatName: widget.assmatName,
+            ),
+
             // ── Messages ───────────────────────────────────────────────────────────
             Expanded(
               child: _initError != null
@@ -370,6 +378,91 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Bannière affichant le statut du contrat dans le chat.
+class _ContractBanner extends StatelessWidget {
+  const _ContractBanner({
+    required this.currentUserUid,
+    required this.assmatUid,
+    required this.assmatName,
+  });
+
+  final String currentUserUid;
+  final String assmatUid;
+  final String assmatName;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('contracts')
+          .where('parentUid', isEqualTo: currentUserUid)
+          .where('assmatUid', isEqualTo: assmatUid)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final d = snap.data!.docs.first.data() as Map<String, dynamic>;
+        final status = d['status'] as String? ?? '';
+        if (status == 'active' || status.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final (label, color, action) = switch (status) {
+          'draft' => ('Brouillon de contrat', AppColors.secondary, 'Reprendre'),
+          'pendingAssmat' => ('En attente de signature assmat', AppColors.accent, 'Voir'),
+          'pendingParent' => ('Contrat à signer', AppColors.primary, 'Signer'),
+          _ => ('', Colors.transparent, ''),
+        };
+        if (label.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.3))),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 26,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => EngagementContractPage(
+                        assmatUid: assmatUid,
+                        assmatName: assmatName,
+                      ),
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 11),
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: color,
+                  ),
+                  child: Text(action),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
