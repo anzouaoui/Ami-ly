@@ -101,6 +101,8 @@ class ContractService {
             pw.SizedBox(height: 16),
             _buildCdiDateEffetSection(data),
             pw.SizedBox(height: 16),
+            _buildCdiDureeHorairesAccueilSection(data),
+            pw.SizedBox(height: 16),
           ] else ...[
             _buildSection("Enfant concerné", [
               if (data.childFirstName.isNotEmpty)
@@ -353,7 +355,7 @@ class ContractService {
     );
   }
 
-  pw.Widget _checkboxRow(String label) {
+  pw.Widget _checkboxRow(String label, {bool checked = false}) {
     return pw.Row(
       children: [
         pw.Container(
@@ -361,6 +363,7 @@ class ContractService {
           height: 10,
           decoration: pw.BoxDecoration(
             border: pw.Border.all(color: PdfColors.grey600, width: 1.2),
+            color: checked ? PdfColors.black : null,
           ),
         ),
         pw.SizedBox(width: 8),
@@ -483,6 +486,42 @@ class ContractService {
           'de travail non effectué.',
           style: const pw.TextStyle(fontSize: 9),
           textAlign: pw.TextAlign.justify,
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildCdiDureeHorairesAccueilSection(ContractFormData data) {
+    final is52Semaines = data.semainesAn == '52';
+    final is46OuMoins = data.semainesAn.isNotEmpty && data.semainesAn != '52';
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildCdiSectionTitle(
+            '4. Durée et horaires d\'accueil'),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          '(Articles 97-1, 97-2 et 98-1-1 du socle spécifique '
+          '« assistant maternel » de la convention collective).',
+          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+        ),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'L\'enfant sera accueilli (au choix) :',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+        pw.SizedBox(height: 6),
+        _checkboxRow(
+          'Accueil de l\'enfant sur 52 semaines (y compris les congés, '
+          'par période de 12 mois consécutifs)',
+          checked: is52Semaines,
+        ),
+        pw.SizedBox(height: 3),
+        _checkboxRow(
+          'Accueil de l\'enfant sur 46 semaines ou moins (hors congés, '
+          'par période de 12 mois consécutifs)',
+          checked: is46OuMoins,
         ),
       ],
     );
