@@ -171,6 +171,10 @@ class AssmatSignContractPage extends ConsumerWidget {
       semainesAn: contrat['semainesAn'] as String? ?? '',
       salaireMensuel: contrat['salaireMensuel'] as String? ?? '',
       salaireHoraire: contrat['salaireHoraire'] as String? ?? '',
+      salaireHoraireNet: contrat['salaireHoraireNet'] as String? ?? '',
+      salaireBrutBaseMajore: contrat['salaireBrutBaseMajore'] as String? ?? '',
+      salaireNetBaseMajore: contrat['salaireNetBaseMajore'] as String? ?? '',
+      tauxHoraireBrutMajore: contrat['tauxHoraireBrutMajore'] as String? ?? '',
     );
   }
 }

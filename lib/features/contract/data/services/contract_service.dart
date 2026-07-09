@@ -103,6 +103,8 @@ class ContractService {
             pw.SizedBox(height: 16),
             _buildCdiDureeHorairesAccueilSection(data),
             pw.SizedBox(height: 16),
+            _buildCdiRemunerationSection(data),
+            pw.SizedBox(height: 16),
           ] else ...[
             _buildSection("Enfant concerné", [
               if (data.childFirstName.isNotEmpty)
@@ -527,6 +529,82 @@ class ContractService {
     );
   }
 
+  pw.Widget _buildCdiRemunerationSection(ContractFormData data) {
+    final salaireBrut = data.salaireHoraire.isNotEmpty ? '${data.salaireHoraire}' : '………';
+    final salaireNet = data.salaireHoraireNet.isNotEmpty ? '${data.salaireHoraireNet}' : '………';
+    final salaireBrutMajore = data.salaireBrutBaseMajore.isNotEmpty ? '${data.salaireBrutBaseMajore}' : '………';
+    final salaireNetMajore = data.salaireNetBaseMajore.isNotEmpty ? '${data.salaireNetBaseMajore}' : '………';
+    final tauxMajore = data.tauxHoraireBrutMajore.isNotEmpty ? '${data.tauxHoraireBrutMajore}' : '………';
+    final is52Sem = data.semainesAn == '52';
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildCdiSectionTitle(
+            '5. Rémunération à la date d\'embauche'),
+        pw.SizedBox(height: 10),
+        pw.Text(
+          'Salaire horaire de base',
+          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Salaire horaire brut de base : $salaireBrut€  '
+          'Salaire horaire net de base : $salaireNet€',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Si le salarié est amené à effectuer des heures complémentaires '
+          '(au-delà de l\'horaire contractuel et en-deçà de 45 heures '
+          'hebdomadaires), celles-ci sont rémunérées au taux horaire normal. '
+          'Les heures complémentaires peuvent donner lieu à une majoration '
+          'de salaire, sur décision écrite des parties prévue dans le contrat '
+          'de travail (article 110-2 de la convention collective).',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Salaire horaire brut de base majoré : $salaireBrutMajore€  '
+          'Salaire horaire net de base majoré : $salaireNetMajore€',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Si le salarié est amené à effectuer des heures majorées '
+          '(au-delà de 45 heures hebdomadaires), celles-ci donneront '
+          'lieu à une majoration du salaire et seront rémunérées au taux '
+          'horaire brut majoré de $tauxMajore% (ce taux ne pouvant '
+          'être inférieur à 10% selon l\'article 110-1 de la convention '
+          'collective).',
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.justify,
+        ),
+        pw.SizedBox(height: 12),
+        pw.Text(
+          'Salaire mensuel de base',
+          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          is52Sem
+              ? 'Accueil de l\'enfant 52 semaines, y compris les congés, '
+                  'sur une période de 12 mois consécutifs'
+              : 'Accueil de l\'enfant sur 46 semaines ou moins (hors congés, '
+                  'par période de 12 mois consécutifs)',
+          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+        ),
+        pw.SizedBox(height: 6),
+        if (data.salaireMensuel.isNotEmpty)
+          pw.Text(
+            'Salaire mensuel brut de base : ${data.salaireMensuel}€',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+      ],
+    );
+  }
+
   pw.Widget _cdiField(String label, String value) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 2),
@@ -801,6 +879,10 @@ class ContractService {
       semainesAn: contrat['semainesAn'] as String? ?? '',
       salaireMensuel: contrat['salaireMensuel'] as String? ?? '',
       salaireHoraire: contrat['salaireHoraire'] as String? ?? '',
+      salaireHoraireNet: contrat['salaireHoraireNet'] as String? ?? '',
+      salaireBrutBaseMajore: contrat['salaireBrutBaseMajore'] as String? ?? '',
+      salaireNetBaseMajore: contrat['salaireNetBaseMajore'] as String? ?? '',
+      tauxHoraireBrutMajore: contrat['tauxHoraireBrutMajore'] as String? ?? '',
     );
   }
 

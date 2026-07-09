@@ -42,6 +42,10 @@ class ContractFormData {
     this.semainesAn = '',
     this.salaireMensuel = '',
     this.salaireHoraire = '',
+    this.salaireHoraireNet = '',
+    this.salaireBrutBaseMajore = '',
+    this.salaireNetBaseMajore = '',
+    this.tauxHoraireBrutMajore = '',
     // Contrat (Step 4)
     this.nomEnfant = '',
     this.prenomEnfant = '',
@@ -95,6 +99,10 @@ class ContractFormData {
   final String semainesAn;
   final String salaireMensuel;
   final String salaireHoraire;
+  final String salaireHoraireNet;
+  final String salaireBrutBaseMajore;
+  final String salaireNetBaseMajore;
+  final String tauxHoraireBrutMajore;
 
   final String nomEnfant;
   final String prenomEnfant;
@@ -161,6 +169,10 @@ class ContractFormData {
           'semainesAn': semainesAn,
           'salaireMensuel': salaireMensuel,
           'salaireHoraire': salaireHoraire,
+          'salaireHoraireNet': salaireHoraireNet,
+          'salaireBrutBaseMajore': salaireBrutBaseMajore,
+          'salaireNetBaseMajore': salaireNetBaseMajore,
+          'tauxHoraireBrutMajore': tauxHoraireBrutMajore,
         },
       };
 }

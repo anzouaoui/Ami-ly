@@ -183,6 +183,10 @@ class ContractModel {
       semainesAn: ctr?['semainesAn'] as String? ?? '',
       salaireMensuel: ctr?['salaireMensuel'] as String? ?? '',
       salaireHoraire: ctr?['salaireHoraire'] as String? ?? '',
+      salaireHoraireNet: ctr?['salaireHoraireNet'] as String? ?? '',
+      salaireBrutBaseMajore: ctr?['salaireBrutBaseMajore'] as String? ?? '',
+      salaireNetBaseMajore: ctr?['salaireNetBaseMajore'] as String? ?? '',
+      tauxHoraireBrutMajore: ctr?['tauxHoraireBrutMajore'] as String? ?? '',
     );
   }
 }
