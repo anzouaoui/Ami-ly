@@ -1,0 +1,10 @@
+{
+  "docusign": {
+    "integration_key": "0ce9aae5-66d3-44e5-bea8-09c05a4633ae",
+    "user_id": "93e78f13-3a17-4613-b445-431859cff5d3",
+    "account_id": "cb48c43b-df39-4b43-929d-89272c30572a",
+    "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEApjBHoH36Z77xdqlp6+uVsk8oG91JO+kJzplpTkVTwKBA6VF7\nhujv6rFs8bJ2vNXWzz7/EgDlou6NV2g5TCjOzOFxbxegScA7X133alMZr3dDrLzz\n1p2vrzeEy5PL20H6JL82anfYxXylBp4EZsAL67SJiV6GRFmlFxBfpDvLkpFewaaC\nxfpkRYVqAGKrH/QRjZfgoUs5cI397cm5YTZuYf13KMh8rleuFi1dIjgMSp8pEnEW\n7mlpRBhVQv14Q15hCv9CCsTRATBw6fmZp05N9cze4TFYf+fkseolaJaZhQvzlOoh\nSpisWvIuI2DkuI+TktJtF69FgHTlnm+ZPPlJ+QIDAQABAoIBAC5AbpbYqNm51xr2\n0G9j7BApnpiOsCSX2W5h3OB3Q/VuxFILJu1no+n2AkOMLyaj/vpD5ppcnIyJhtXG\nQHgVPWTg84B/G1GbSgrjLIovYY0njLKlDdnzneMOeQttcUVu6c7TVrIv86kW5Rjf\n3oq4NTke0E5me8jHCD7QhEXBjIkYLjhggIhlapiptb6BEzn9vPHG7CLwZ0CCm5yh\nOJMed+Lo1ojH4xvFCC3NTbx6iKPYdky2HDC70tk89NX75Gy3SxGZ4CphZr3eoYBW\nBxw+iPi98yLVlhSpCt0YYYtXO32XZsyTqitpYN12nkUc2noHEtzxlHXsx0sTj5N1\nF33VWQcCgYEA+u5t8lrwbR1pDqpjLsdMMOEV+efS1PBvXzcICyU9ffuhooxe+8Pv\nTrPqAhzlqnKFEuzUW8XG4z6p5d1znE8p1WIztnkBS03HiC9iCi6qw5fa8RlQZ65v\nyf9MIsO4hZCzevv4vNWb0HBv/Mh2sbhSOfZxS+7S1NPElfSZTlmVQ4cCgYEAqYuk\n2VylcYmx8rn/ClXSM9dBG5O23J4EYs6iHKkclQJzeVuRwHkchMM8A7PAON6JJay7\npUXJTWiEfahStxEzEVzdLVFODsR29d3VrqPk5MXH0vnesjsJBSwiBql9AQQdr18E\n4JCIG6ylv5ZeC/hPFBCZ11jUu0oHRdhpVDATZn8CgYEAvntCAOhhfCMIPfa/xaHK\nR4yF1yfQlo5RrNCkjXlefYUHhNHTxIBO58qRR7tR6Bp4xA39ghDXUmeeJvz9Jtm9\nItsh8FFY1yYa4lk9rgcQ39sle0HBFIOJHqhqzjUOnG1koWYmwonQduDzUcuGto/5\n80ANbxvC9YYvw7liquQ7938CgYEAgN/89pxNxff8o5xuGNUTawR8IRIvNZOHkfOv\nlkmVyE6Mp/rK15s36lLdE5NW0eOWLGUYXZCma4i+7SU9eppATzpfhUsAIomEQ2/U\nNWOvYZZVRjFY7fGh8aSSWK4MrvEJ/3wioPA8BY0+kFskMcUVlxLnXaHQUmz7CkRu\nC+hfVtECgYBQEjbEANJlfa9I3apss1R0RmTL3MNKT3+iP/7ZTLGt0vC4egyENVHt\nKLNDnffr8By11dz5t/W8B7gSlBM2O64oTuP8gi52aIH3TVNAZMJlLokU/TVR/GWn\nwKVK9WsVgs48hRW6kikU8MM7eZ2xOvtrXoL84U2BPPKU7fcVblIkBg==\n-----END RSA PRIVATE KEY-----",
+    "base_path": "https://demo.docusign.net",
+    "base_url": "https://us-central1-ami-ly.cloudfunctions.net"
+  }
+}
