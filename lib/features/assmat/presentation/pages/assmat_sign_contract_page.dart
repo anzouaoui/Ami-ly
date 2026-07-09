@@ -12,6 +12,8 @@ import '../../../contract/data/models/contract_form_data.dart';
 import '../../../contract/data/models/contract_model.dart';
 import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
+import '../../../contract/data/services/docusign_service.dart';
+import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/notification_service.dart';
@@ -348,99 +350,115 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
-            InAppSignatureWidget(
-              parentFirstName: assmatFirstName,
-              parentLastName: assmatLastName,
-              parentUid: assmatUid,
-              assmatName: employerName,
-              contractFormData: formData,
-              customTitle: isEngagement
-                  ? "Signature de l'engagement réciproque"
-                  : 'Signature du contrat CDI',
-              customDescription:
-                  'En signant, vous acceptez les termes $documentLabel '
-                  'avec $employerName pour l\'accueil de $childName.',
-              onSigned: (result) async {
-                final firebaseService = ref.read(firebaseServiceProvider);
-                final service =
-                    ContractService(firebaseService: firebaseService);
-                final ip = await ContractService.getPublicIp();
-
-                await service.finalizeAssmatSignature(
-                  contractId: contractId,
-                  signedName: result.signedName,
-                  ipAddress: ip,
-                );
-
-                final audit = SignatureAuditModel(
-                  uid: assmatUid,
-                  role: 'assmat',
-                  signedName: result.signedName,
-                  ipAddress: ip,
-                  method: 'typed_name',
-                  consentText: result.consentText,
-                );
-                await service.saveSignature(
-                    contractId: contractId, audit: audit);
-
-                // Notification au parent
-                try {
-                  final contractDoc = await FirebaseFirestore.instance
-                      .collection('contracts')
-                      .doc(contractId)
-                      .get();
-                  final parentUid =
-                      contractDoc.data()?['parentUid'] as String? ?? '';
-                  if (parentUid.isNotEmpty) {
-                    final notifService =
-                        ref.read(notificationServiceProvider);
-                    await notifService.createNotification(
-                      recipientUid: parentUid,
-                      senderUid: assmatUid,
-                      type: 'assmat_signed',
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    final docusign = DocusignService();
+                    final envelopeId = await docusign.getExistingEnvelopeId(contractId);
+                    if (envelopeId == null) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Aucune enveloppe DocuSign trouvée. Veuillez utiliser la signature par nom tapé.'),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    final signingUrl = await docusign.getRecipientViewUrl(
                       contractId: contractId,
-                      title: isEngagement
-                          ? "Engagement réciproque signé"
-                          : 'Contrat signé',
-                      body: isEngagement
-                          ? "L'assistante maternelle a signé l'engagement réciproque."
-                          : "L'assistante maternelle a signé le contrat CDI.",
+                      userId: assmatUid,
                     );
+                    if (context.mounted) {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DocusignSignaturePage(
+                            signingUrl: signingUrl,
+                            contractId: contractId,
+                            userId: assmatUid,
+                            onSigned: () async {
+                              Navigator.of(context).pop();
+                              if (!context.mounted) return;
+
+                              final firebaseService = ref.read(firebaseServiceProvider);
+                              final service = ContractService(firebaseService: firebaseService);
+                              final ip = await ContractService.getPublicIp();
+
+                              await service.finalizeAssmatSignature(
+                                contractId: contractId,
+                                signedName: '',
+                                ipAddress: ip,
+                              );
+
+                              try {
+                                final contractDoc = await FirebaseFirestore.instance
+                                    .collection('contracts')
+                                    .doc(contractId)
+                                    .get();
+                                final parentUid =
+                                    contractDoc.data()?['parentUid'] as String? ?? '';
+                                if (parentUid.isNotEmpty) {
+                                  final notifService = ref.read(notificationServiceProvider);
+                                  await notifService.createNotification(
+                                    recipientUid: parentUid,
+                                    senderUid: assmatUid,
+                                    type: 'assmat_signed',
+                                    contractId: contractId,
+                                    title: isEngagement
+                                        ? "Engagement réciproque signé"
+                                        : 'Contrat signé',
+                                    body: isEngagement
+                                        ? "L'assistante maternelle a signé l'engagement réciproque."
+                                        : "L'assistante maternelle a signé le contrat CDI.",
+                                  );
+                                }
+                              } catch (_) {}
+
+                              try {
+                                await service.generateFinalizedPdf(
+                                  contractId: contractId,
+                                  formData: formData,
+                                  contractType: isEngagement ? 'engagement' : 'cdi',
+                                );
+                              } catch (_) {}
+
+                              if (context.mounted) {
+                                final docLabel = isEngagement ? "l'engagement" : 'le contrat';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('$docLabel signé avec succès !'),
+                                    backgroundColor: AppColors.success,
+                                  ),
+                                );
+                                Navigator.of(context).pop();
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur DocuSign : $e'),
+                          backgroundColor: AppColors.accent,
+                        ),
+                      );
+                    }
                   }
-                } catch (_) {
-                  // Échec notification non bloquant
-                }
-
-                // Génération du PDF finalisé si les deux parties ont signé
-                try {
-                  await service.generateFinalizedPdf(
-                    contractId: contractId,
-                    formData: formData,
-                    contractType: isEngagement ? 'engagement' : 'cdi',
-                  );
-                } catch (_) {
-                  // Échec génération PDF non bloquant
-                }
-
-                  if (context.mounted) {
-                  final docLabel = isEngagement ? "l'engagement" : 'le contrat';
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('$docLabel signé avec succès !'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  Navigator.of(context).pop();
-                }
-              },
-              onError: (message) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(message),
-                    backgroundColor: AppColors.accent,
-                  ),
-                );
-              },
+                },
+                icon: const Icon(Icons.verified_outlined, size: 20),
+                label: const Text('Signer avec DocuSign'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
             ),
           ],
         ),

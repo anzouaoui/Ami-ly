@@ -1,0 +1,21 @@
+{
+  "name": "ami-ly-docusign",
+  "version": "1.0.0",
+  "description": "Firebase Cloud Functions for DocuSign embedded signature",
+  "main": "index.js",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "docusign-esign": "^7.0.0",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "axios": "^1.7.7"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "private": true
+}

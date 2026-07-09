@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -15,6 +16,7 @@ import '../../../../core/models/address_suggestion.dart';
 import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../parent/presentation/widgets/document_vault_card.dart';
 import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
 import '../../../parent/presentation/widgets/profile_form_field.dart';
 import '../../../parent/presentation/widgets/personal_info_card.dart';
@@ -551,7 +553,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(assmatProfileProvider);
-    final email = ref.watch(currentUserProvider).valueOrNull?.email ?? '';
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final email = currentUser?.email ?? '';
+    final userUid = currentUser?.uid ?? '';
 
     if (!_initialized) {
       profileAsync.whenData((profile) {
@@ -595,7 +599,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
                                   .copyWith(color: AppColors.error),
                             ),
                           )
-                        : _buildContent(),
+                        : _buildContent(userUid),
               ),
               _BottomActionBar(
                 saving: _saving,
@@ -609,7 +613,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(String userUid) {
     final availableSlots =
         int.tryParse(_availableSlotsCtrl.text) ??
         (_loadedProfile?.availableSlots ?? 0);
@@ -751,7 +755,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          const _DigitalVaultCard(),
+          _SignedContractsVault(userUid: userUid),
           const SizedBox(height: AppSpacing.lg),
 
           _PersonalDataCard(onStub: _stub),
@@ -2354,80 +2358,136 @@ class _SpecialitiesCard extends StatelessWidget {
 
 // ─── Coffre-fort numérique ────────────────────────────────────────────────────
 
-class _DigitalVaultCard extends StatelessWidget {
-  const _DigitalVaultCard();
+class _SignedContractsVault extends StatelessWidget {
+  const _SignedContractsVault({required this.userUid});
+
+  final String userUid;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.divider),
-        boxShadow: AppShadows.sm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock_outline_rounded,
-                  color: AppColors.primary, size: 22),
-              const SizedBox(width: AppSpacing.sm),
-              Text('Coffre-fort numérique', style: AppTextStyles.titleMedium),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Dossiers complets par famille — contrats, documents et fiches de paie signés',
-            style: AppTextStyles.bodyMedium
-                .copyWith(color: AppColors.secondaryText),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.md),
+    if (userUid.isEmpty) return const SizedBox.shrink();
+
+    final contractsQuery = FirebaseFirestore.instance
+        .collection('contracts')
+        .where('assmatUid', isEqualTo: userUid)
+        .where('status', isEqualTo: 'active');
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: contractsQuery.snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return const SizedBox.shrink();
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        final entries = <DocumentEntry>[];
+
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final contractData = data['contractData'] as Map<String, dynamic>?;
+          final employer = contractData?['employeur'] as Map<String, dynamic>?;
+          final enfant = contractData?['enfant'] as Map<String, dynamic>?;
+          final parentName = '${employer?['prenom'] ?? ''} ${employer?['nom'] ?? ''}'.trim();
+          final childName = enfant?['prenom'] as String? ?? '';
+          final signedAt = (data['finalizedAt'] as String?) ??
+              (data['updatedAt'] as String?) ?? '';
+          final subtitle = signedAt.isNotEmpty
+              ? 'Signé le ${_formatDate(signedAt)}'
+              : 'Actif';
+          final label = parentName.isNotEmpty ? parentName : childName;
+
+          final pdfUrl = data['pdfUrl'] as String?;
+          final finalPdfUrl = data['finalPdfUrl'] as String?;
+
+          if (pdfUrl != null && pdfUrl.isNotEmpty) {
+            entries.add(DocumentEntry(
+              title: label.isNotEmpty
+                  ? 'Engagement — $label'
+                  : "Contrat d'engagement",
+              subtitle: subtitle,
+              icon: Icons.handshake_rounded,
+              iconBg: AppColors.secondary,
+              iconColor: AppColors.primary,
+              url: pdfUrl,
+            ));
+          }
+
+          if (finalPdfUrl != null && finalPdfUrl.isNotEmpty) {
+            entries.add(DocumentEntry(
+              title: label.isNotEmpty
+                  ? 'Contrat CDI — $label'
+                  : 'Contrat de travail CDI',
+              subtitle: subtitle,
+              icon: Icons.description_rounded,
+              iconBg: AppColors.parentIconBg,
+              iconColor: AppColors.primary,
+              url: finalPdfUrl,
+            ));
+          }
+        }
+
+        if (entries.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppRadii.md),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
               border: Border.all(color: AppColors.divider),
             ),
-            child: Row(
+            child: Column(
               children: [
-                const Icon(Icons.circle_outlined,
-                    size: 14, color: AppColors.secondaryText),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Stockage chiffré • Conforme RGPD • 0 document archivé',
-                    style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.secondaryText),
+                Row(
+                  children: [
+                    const Icon(Icons.lock_rounded,
+                        color: AppColors.primary, size: 22),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text('Coffre-fort numérique',
+                          style: AppTextStyles.titleMedium),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const Icon(Icons.folder_open_rounded, size: 48,
+                    color: AppColors.secondaryText),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Aucun document signé pour le moment',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.secondaryText,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-              child: Column(
-                children: [
-                  const Icon(Icons.folder_open_rounded, size: 48, color: AppColors.secondaryText),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Aucun document archivé pour le moment',
-                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.secondaryText, fontStyle: FontStyle.italic),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+          );
+        }
+
+        return DocumentVaultCard(
+          documents: entries,
+          onDocumentTap: (d) {
+            if (d.url != null) {
+              launchUrl(Uri.parse(d.url!),
+                  mode: LaunchMode.externalApplication);
+            }
+          },
+        );
+      },
     );
+  }
+
+  String _formatDate(String iso) {
+    try {
+      final dt = DateTime.parse(iso);
+      return '${dt.day.toString().padLeft(2, '0')}/'
+          '${dt.month.toString().padLeft(2, '0')}/'
+          '${dt.year}';
+    } catch (_) {
+      return iso;
+    }
   }
 }
 
