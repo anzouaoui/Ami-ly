@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../constants/app_constants.dart';
-import '../../models/notification_model.dart';
+import '../constants/app_constants.dart';
+import '../models/notification_model.dart';
 import 'firebase_service.dart';
 
 class NotificationService {
