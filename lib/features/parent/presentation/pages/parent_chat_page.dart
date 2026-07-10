@@ -159,6 +159,18 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
           visioDate: visioDate,
           senderIsParent: true,
         );
+
+    // Notification in-app pour l'assmat
+    try {
+      ref.read(notificationTriggersProvider).onVisioProposalSent(
+            recipientUid: widget.assmatUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Un parent',
+            conversationId: _convId!,
+            visioDate: visioDate,
+            visioProposalId: '',
+          );
+    } catch (_) {}
   }
 
   @override
@@ -946,6 +958,18 @@ class _VisioCard extends ConsumerWidget {
         responderIsParent: true,
         responderUid: parentUid!,
       );
+
+      // Notification in-app pour l'assmat
+      try {
+        final assmatUid = convId!.split('_').last;
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: assmatUid,
+              senderUid: parentUid!,
+              senderName: 'Le parent',
+              conversationId: convId!,
+              status: VisioStatus.completed,
+            );
+      } catch (_) {}
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -966,6 +990,18 @@ class _VisioCard extends ConsumerWidget {
         responderIsParent: true,
         responderUid: parentUid!,
       );
+
+      // Notification in-app pour l'assmat
+      try {
+        final assmatUid = convId!.split('_').last;
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: assmatUid,
+              senderUid: parentUid!,
+              senderName: 'Le parent',
+              conversationId: convId!,
+              status: status,
+            );
+      } catch (_) {}
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

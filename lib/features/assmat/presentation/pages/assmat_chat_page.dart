@@ -476,6 +476,18 @@ class _AssmatVisioCard extends ConsumerWidget {
           responderIsParent: false,
           responderUid: currentUser.uid,
         );
+
+    // Notification in-app pour le parent
+    try {
+      final parentUid = conversationId.split('_').first;
+      ref.read(notificationTriggersProvider).onVisioResponse(
+            recipientUid: parentUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Une assistante maternelle',
+            conversationId: conversationId,
+            status: status,
+          );
+    } catch (_) {}
   }
 }
 

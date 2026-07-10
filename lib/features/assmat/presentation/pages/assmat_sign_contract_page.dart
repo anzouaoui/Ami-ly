@@ -470,6 +470,16 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
                                         ? "L'assistante maternelle a signé l'engagement réciproque."
                                         : "L'assistante maternelle a signé le contrat CDI.",
                                   );
+
+                                  // Notification contrat activé
+                                  await notifService.createNotification(
+                                    recipientUid: parentUid,
+                                    senderUid: assmatUid,
+                                    type: NotificationType.contractStatusChanged,
+                                    contractId: contractId,
+                                    title: 'Contrat activé',
+                                    body: 'Le contrat est maintenant actif.',
+                                  );
                                 }
                               } catch (_) {}
 
