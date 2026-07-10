@@ -6,7 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../contract/data/models/contract_model.dart';
-import '../../presentation/pages/notifications_page.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 
 /// Header custom du dashboard parent.
 ///

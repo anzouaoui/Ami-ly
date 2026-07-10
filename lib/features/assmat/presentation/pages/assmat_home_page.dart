@@ -19,7 +19,7 @@ import 'assmat_between_page.dart';
 import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_sign_contract_page.dart';
-import 'assmat_notifications_page.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_converter_page.dart';
 import 'assmat_legal_consultation_page.dart';
@@ -228,7 +228,7 @@ class _NotificationBell extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const AssmatNotificationsPage(),
+                        builder: (_) => const NotificationsPage(),
                       ),
                     );
                   },

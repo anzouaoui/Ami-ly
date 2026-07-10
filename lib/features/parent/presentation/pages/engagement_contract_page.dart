@@ -12,6 +12,7 @@ import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
@@ -283,7 +284,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         await notifService.createNotification(
           recipientUid: widget.assmatUid,
           senderUid: currentUser?.uid ?? '',
-          type: 'contract_signature',
+          type: NotificationType.contractSignatureRequest,
           contractId: contractId,
           title: 'Contrat à signer',
           body: 'Un contrat pour l\'accueil de $childName '
@@ -388,7 +389,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
                 await notifService.createNotification(
                   recipientUid: widget.assmatUid,
                   senderUid: currentUserUid,
-                  type: 'contract_signature',
+                  type: NotificationType.contractSigned,
                   contractId: contractId,
                   title: 'Contrat à signer',
                   body: 'Un contrat pour l\'accueil de $childName '
