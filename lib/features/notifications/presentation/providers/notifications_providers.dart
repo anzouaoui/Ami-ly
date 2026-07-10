@@ -15,7 +15,7 @@ final notificationsProvider =
 /// Stream des notifications non lues (utile pour les badges).
 final unreadNotificationsCountProvider = StreamProvider.autoDispose<int>((ref) {
   final uid = ref.watch(currentUserProvider).valueOrNull?.uid;
-  if (uid == null) return const Stream.value(0);
+  if (uid == null) return Stream.value(0);
   return ref.read(notificationServiceProvider).unreadCountStream(uid);
 });
 
