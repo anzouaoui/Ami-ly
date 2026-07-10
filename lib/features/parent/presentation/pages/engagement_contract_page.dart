@@ -6,12 +6,11 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../contract/data/models/contract_form_data.dart';
-import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
-import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
@@ -83,14 +82,23 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     try {
       final firebaseService = ref.read(firebaseServiceProvider);
       final service = ContractService(firebaseService: firebaseService);
-      final contractData = await service.findDraft(
+      final draft = await service.findDraft(
         parentUid: currentUser.uid,
         assmatUid: widget.assmatUid,
       );
-      if (contractData != null && mounted) {
+      if (draft != null && mounted) {
         setState(() {
-          _contractFormData = contractData;
-          _step = 2;
+          _contractFormData = draft.formData;
+          if (draft.status == 'pendingAssmat') {
+            _step = 5;
+            _startWaitingForAssmat(draft.id);
+          } else if (draft.status == 'active') {
+            _step = 6;
+          } else if (draft.step != null) {
+            _step = draft.step!;
+          } else {
+            _step = 2;
+          }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -171,12 +179,18 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
   void _next() {
     if (_step < 6) {
       setState(() => _step++);
+      if (_contractFormData != null) {
+        _saveDraft(silent: true);
+      }
     }
   }
 
   void _previous() {
     if (_step > 1) {
       setState(() => _step--);
+      if (_contractFormData != null) {
+        _saveDraft(silent: true);
+      }
     }
   }
 
@@ -187,7 +201,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
     _next();
   }
 
-  Future<void> _saveDraft() async {
+  Future<void> _saveDraft({bool silent = false}) async {
     if (_contractFormData == null) return;
     try {
       final firebaseService = ref.read(firebaseServiceProvider);
@@ -202,8 +216,9 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
       await service.saveDraft(
         contractId: contractId,
         formData: _contractFormData!,
+        step: _step,
       );
-      if (mounted) {
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Brouillon enregistré !'),
@@ -212,105 +227,13 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         );
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Erreur lors de la sauvegarde du brouillon.'),
             backgroundColor: AppColors.accent,
           ),
         );
-      }
-    }
-  }
-
-  Future<void> _onSignatureComplete(SignatureResult result) async {
-    if (_contractFormData == null) return;
-    setState(() => _isSigning = true);
-
-    try {
-      final firebaseService = ref.read(firebaseServiceProvider);
-      final service = ContractService(firebaseService: firebaseService);
-
-      final pdfBytes = await service.generateContractPdf(_contractFormData!,
-          contractType: _step == 3 ? 'engagement' : 'cdi');
-      final pdfHash = service.computePdfHash(pdfBytes);
-      final ip = await ContractService.getPublicIp();
-
-      final contractId = await service.getOrCreateContract(
-        parentUid: ref.read(currentUserProvider).valueOrNull?.uid ?? '',
-        assmatUid: widget.assmatUid,
-      );
-
-      String? pdfUrl;
-      try {
-        pdfUrl = await service.uploadPdf(
-          contractId: contractId,
-          pdfBytes: pdfBytes,
-        );
-      } catch (_) {
-        // Storage désactivé — le PDF sera uploadé plus tard
-      }
-
-      await service.finalizeParentSignature(
-        contractId: contractId,
-        formData: _contractFormData!,
-        signedName: result.signedName,
-        pdfUrl: pdfUrl ?? '',
-        pdfHash: pdfHash,
-        ipAddress: ip,
-        contractType: _step == 3 ? 'engagement' : 'cdi',
-      );
-
-      final audit = SignatureAuditModel(
-        uid: ref.read(currentUserProvider).valueOrNull?.uid ?? '',
-        role: 'parent',
-        signedName: result.signedName,
-        ipAddress: ip,
-        method: result.smsVerified ? 'sms' : 'typed_name',
-        consentText: result.consentText,
-      );
-      await service.saveSignature(contractId: contractId, audit: audit);
-
-      // Notification à l'assmat
-      try {
-        final notifService = ref.read(notificationServiceProvider);
-        final currentUser = ref.read(currentUserProvider).valueOrNull;
-        final childName = _contractFormData!.childFirstName.isNotEmpty
-            ? _contractFormData!.childFirstName
-            : _contractFormData!.prenomEnfant.isNotEmpty
-                ? _contractFormData!.prenomEnfant
-                : 'l\'enfant';
-        await notifService.createNotification(
-          recipientUid: widget.assmatUid,
-          senderUid: currentUser?.uid ?? '',
-          type: 'contract_signature',
-          contractId: contractId,
-          title: 'Contrat à signer',
-          body: 'Un contrat pour l\'accueil de $childName '
-              'est en attente de votre signature.',
-        );
-      } catch (_) {
-        // Échec notification non bloquant
-      }
-
-      if (mounted) {
-        setState(() => _isSigning = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Contrat signé avec succès !'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        if (_step == 5) {
-          _startWaitingForAssmat(contractId);
-        } else {
-          _next();
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSigning = false);
-        _showError('Erreur lors de la signature : $e');
       }
     }
   }
@@ -340,12 +263,12 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         );
       } catch (_) {}
 
-      if (pdfUrl == null || pdfUrl!.isEmpty) {
+      if (pdfUrl == null || pdfUrl.isEmpty) {
         throw Exception('Impossible de télécharger le PDF. Vérifiez le stockage Firebase.');
       }
 
       final docusign = DocusignService();
-      await docusign.createEnvelope(contractId: contractId, pdfUrl: pdfUrl!);
+      await docusign.createEnvelope(contractId: contractId, pdfUrl: pdfUrl);
 
       if (!mounted) return;
       setState(() => _isSigning = false);
@@ -388,7 +311,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
                 await notifService.createNotification(
                   recipientUid: widget.assmatUid,
                   senderUid: currentUserUid,
-                  type: 'contract_signature',
+                  type: NotificationType.contractSigned,
                   contractId: contractId,
                   title: 'Contrat à signer',
                   body: 'Un contrat pour l\'accueil de $childName '

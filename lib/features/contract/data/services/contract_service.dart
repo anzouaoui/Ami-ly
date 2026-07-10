@@ -1415,30 +1415,50 @@ class ContractService {
   Future<void> saveDraft({
     required String contractId,
     required ContractFormData formData,
+    int? step,
   }) async {
     final now = DateTime.now().toIso8601String();
-    await _contracts.doc(contractId).update({
+    final updateData = <String, dynamic>{
       'contractData': formData.toJson(),
       'updatedAt': now,
-    });
+    };
+    if (step != null) {
+      updateData['currentStep'] = step;
+    }
+    await _contracts.doc(contractId).update(updateData);
   }
 
   /// Cherche un brouillon existant entre parent et assmat.
-  Future<ContractFormData?> findDraft({
+  Future<({ContractFormData formData, int? step, String status, String id})?> findDraft({
     required String parentUid,
     required String assmatUid,
   }) async {
     final existing = await _contracts
         .where('parentUid', isEqualTo: parentUid)
         .where('assmatUid', isEqualTo: assmatUid)
-        .where('status', isEqualTo: 'draft')
+        .where('status', whereIn: [
+          ContractStatus.draft.name,
+          ContractStatus.pendingParent.name,
+          ContractStatus.pendingAssmat.name,
+          ContractStatus.active.name,
+        ])
         .limit(1)
         .get();
+        
     if (existing.docs.isEmpty) return null;
-    final data = existing.docs.first.data();
+    
+    final doc = existing.docs.first;
+    final data = doc.data();
     final contractData = data['contractData'] as Map<String, dynamic>?;
+    
     if (contractData == null) return null;
-    return _parseContractFormData(contractData);
+    
+    return (
+      formData: _parseContractFormData(contractData),
+      step: data['currentStep'] as int?,
+      status: data['status'] as String? ?? 'draft',
+      id: doc.id,
+    );
   }
 
   static ContractFormData _parseContractFormData(Map<String, dynamic> json) {

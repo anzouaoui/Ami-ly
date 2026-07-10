@@ -16,6 +16,7 @@ import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
 
 class AssmatSignContractPage extends ConsumerWidget {
@@ -460,7 +461,7 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
                                   await notifService.createNotification(
                                     recipientUid: parentUid,
                                     senderUid: assmatUid,
-                                    type: 'assmat_signed',
+                                    type: NotificationType.contractSigned,
                                     contractId: contractId,
                                     title: isEngagement
                                         ? "Engagement réciproque signé"
@@ -468,6 +469,16 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
                                     body: isEngagement
                                         ? "L'assistante maternelle a signé l'engagement réciproque."
                                         : "L'assistante maternelle a signé le contrat CDI.",
+                                  );
+
+                                  // Notification contrat activé
+                                  await notifService.createNotification(
+                                    recipientUid: parentUid,
+                                    senderUid: assmatUid,
+                                    type: NotificationType.contractStatusChanged,
+                                    contractId: contractId,
+                                    title: 'Contrat activé',
+                                    body: 'Le contrat est maintenant actif.',
                                   );
                                 }
                               } catch (_) {}

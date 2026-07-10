@@ -9,12 +9,15 @@ import 'theme/app_theme.dart';
 ///
 /// NB : si tu veux passer à `go_router` plus tard (déjà en dépendance),
 /// remplace `home: AuthWrapper()` par `MaterialApp.router(routerConfig: ...)`.
+final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>();
+
 class AmilyApp extends StatelessWidget {
   const AmilyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: globalNavigatorKey,
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),

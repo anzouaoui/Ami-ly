@@ -9,6 +9,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
+import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../../../../shared/models/message_model.dart';
 import 'engagement_contract_page.dart';
 
@@ -108,6 +109,17 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
           senderIsParent: true,
         );
 
+    // Notification in-app pour l'assmat
+    try {
+      ref.read(notificationTriggersProvider).onMessageSent(
+            recipientUid: widget.assmatUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Un parent',
+            conversationId: _convId!,
+            messageText: text,
+          );
+    } catch (_) {}
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
@@ -147,6 +159,18 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
           visioDate: visioDate,
           senderIsParent: true,
         );
+
+    // Notification in-app pour l'assmat
+    try {
+      ref.read(notificationTriggersProvider).onVisioProposalSent(
+            recipientUid: widget.assmatUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Un parent',
+            conversationId: _convId!,
+            visioDate: visioDate,
+            visioProposalId: '',
+          );
+    } catch (_) {}
   }
 
   @override
@@ -934,6 +958,18 @@ class _VisioCard extends ConsumerWidget {
         responderIsParent: true,
         responderUid: parentUid!,
       );
+
+      // Notification in-app pour l'assmat
+      try {
+        final assmatUid = convId!.split('_').last;
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: assmatUid,
+              senderUid: parentUid!,
+              senderName: 'Le parent',
+              conversationId: convId!,
+              status: VisioStatus.completed,
+            );
+      } catch (_) {}
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -954,6 +990,18 @@ class _VisioCard extends ConsumerWidget {
         responderIsParent: true,
         responderUid: parentUid!,
       );
+
+      // Notification in-app pour l'assmat
+      try {
+        final assmatUid = convId!.split('_').last;
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: assmatUid,
+              senderUid: parentUid!,
+              senderName: 'Le parent',
+              conversationId: convId!,
+              status: status,
+            );
+      } catch (_) {}
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

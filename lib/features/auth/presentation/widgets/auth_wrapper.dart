@@ -9,6 +9,9 @@ import '../pages/login_page.dart';
 import '../../../parent/presentation/pages/parent_onboarding_page.dart';
 import '../../../parent/presentation/pages/parent_shell.dart';
 import '../providers/auth_providers.dart';
+import '../../../../core/services/push_notification_service.dart';
+import '../../../../core/helpers/notification_navigation_helper.dart';
+import '../../../../app/app.dart';
 
 /// Widget racine qui décide quoi afficher selon l'état d'authentification
 /// et le rôle de l'utilisateur stocké dans Firestore.
@@ -28,6 +31,40 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(currentUserProvider, (previous, next) {
+      final user = next.valueOrNull;
+      final prevUser = previous?.valueOrNull;
+
+      if (user != null && (prevUser == null || prevUser.uid != user.uid)) {
+        ref.read(pushNotificationServiceProvider).initialize(user.uid);
+      } else if (user == null && prevUser != null) {
+        ref.read(pushNotificationServiceProvider).removeToken(prevUser.uid);
+      }
+    });
+
+    PushNotificationService.onNotificationTap = (data) {
+      final user = ref.read(currentUserProvider).valueOrNull;
+      if (user == null) return;
+      
+      final type = data['type'] as String?;
+      if (type == null) return;
+      
+      final context = globalNavigatorKey.currentContext;
+      if (context == null) return;
+
+      if (['newMessage', 'visioProposalReceived', 'visioProposalResponse'].contains(type)) {
+        final convId = data['conversationId'] as String?;
+        if (convId != null) {
+          NotificationNavigationHelper.navigateToConversation(context, convId, user.uid);
+        }
+      } else if (['contractSignatureRequest', 'contractSigned', 'contractStatusChanged'].contains(type)) {
+        final contractId = data['contractId'] as String?;
+        if (contractId != null) {
+          NotificationNavigationHelper.navigateToContract(context, contractId, user.uid);
+        }
+      }
+    };
+
     final userAsync = ref.watch(currentUserProvider);
 
     return userAsync.when(

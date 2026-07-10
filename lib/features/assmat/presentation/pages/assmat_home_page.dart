@@ -19,7 +19,8 @@ import 'assmat_between_page.dart';
 import 'assmat_pro_page.dart';
 import 'assmat_documents_page.dart';
 import 'assmat_sign_contract_page.dart';
-import 'assmat_notifications_page.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
+import '../../../notifications/presentation/providers/notifications_providers.dart';
 import 'assmat_messages_page.dart';
 import 'assmat_converter_page.dart';
 import 'assmat_legal_consultation_page.dart';
@@ -124,7 +125,7 @@ class AssMatHomePage extends ConsumerWidget {
 }
 
 /// Header custom assmat : menu + logo brun + "AMiLY" + icône notifications.
-class _AssMatHeader extends StatelessWidget {
+class _AssMatHeader extends ConsumerWidget {
   const _AssMatHeader({required this.onMenuTap, this.assmatUid});
   final VoidCallback onMenuTap;
   final String? assmatUid;
@@ -132,7 +133,7 @@ class _AssMatHeader extends StatelessWidget {
   static const _logoBg = Color(0xFF4A3B33);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: AppSpacing.md,
@@ -182,89 +183,75 @@ class _AssMatHeader extends StatelessWidget {
               ),
             ),
           ),
-          _NotificationBell(assmatUid: assmatUid),
+          _NotificationBell(ref: ref),
         ],
       ),
     );
   }
 }
 
-/// Icône de cloche avec badge du nombre de contrats en attente.
+/// Icône de cloche avec badge du nombre de notifications non lues.
 class _NotificationBell extends StatelessWidget {
-  const _NotificationBell({required this.assmatUid});
+  const _NotificationBell({required this.ref});
 
-  final String? assmatUid;
+  final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
-    if (assmatUid == null) {
-      return const SizedBox(width: 40);
-    }
+    final count = ref.watch(unreadNotificationsCountProvider).valueOrNull ?? 0;
 
-    final stream = FirebaseFirestore.instance
-        .collection('contracts')
-        .where('assmatUid', isEqualTo: assmatUid)
-        .where('status', whereIn: [ContractStatus.pendingAssmat.name])
-        .snapshots();
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: stream,
-      builder: (context, snapshot) {
-        final count = snapshot.data?.docs.length ?? 0;
-
-        return SizedBox(
-          width: 40,
-          height: 40,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.notifications_outlined,
-                    size: 24,
-                    color: AppColors.primaryText,
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: IconButton(
+              icon: const Icon(
+                Icons.notifications_outlined,
+                size: 24,
+                color: AppColors.primaryText,
+              ),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsPage(),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const AssmatNotificationsPage(),
-                      ),
-                    );
-                  },
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Notifications',
+                );
+              },
+              padding: EdgeInsets.zero,
+              tooltip: 'Notifications',
+            ),
+          ),
+          if (count > 0)
+            Positioned(
+              right: 2,
+              top: 2,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-              if (count > 0)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
-                    child: Text(
-                      count > 9 ? '9+' : '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+            ),
+        ],
+      ),
     );
   }
 }
