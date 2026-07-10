@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,8 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../assmat/presentation/pages/assmat_chat_page.dart';
+import '../../../parent/presentation/pages/parent_chat_page.dart';
 import '../providers/notifications_providers.dart';
 import '../widgets/notification_tile.dart';
 
@@ -159,31 +162,80 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   void _onTap(NotificationModel notification) async {
-    final uid = ref.read(currentUserProvider).valueOrNull?.uid;
-    if (uid != null && !notification.read) {
-      await ref
-          .read(notificationServiceProvider)
-          .markAsRead(notification.id);
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    // Marquer comme lue
+    if (!notification.read) {
+      await ref.read(notificationServiceProvider).markAsRead(notification.id);
     }
 
-    // Navigation basée sur le type de notification
     if (!mounted) return;
+
     switch (notification.type) {
       case NotificationType.newMessage:
-        // TODO: naviguer vers la conversation
-        break;
+      case NotificationType.visioProposalReceived:
+      case NotificationType.visioProposalResponse:
+        await _navigateToConversation(notification, user);
+
       case NotificationType.contractSignatureRequest:
       case NotificationType.contractSigned:
       case NotificationType.contractStatusChanged:
-        // TODO: naviguer vers le contrat
+        // TODO: naviguer vers la page du contrat
         break;
-      case NotificationType.visioProposalReceived:
-      case NotificationType.visioProposalResponse:
-        // TODO: naviguer vers la conversation visio
-        break;
+
       case NotificationType.childAdded:
       case NotificationType.availabilityUpdated:
         break;
+    }
+  }
+
+  /// Navigue vers la conversation en chargeant les infos depuis Firestore.
+  Future<void> _navigateToConversation(
+      NotificationModel notification, dynamic user) async {
+    final convId = notification.conversationId;
+    if (convId == null) return;
+
+    // Charge la conversation pour obtenir le nom des participants
+    final convDoc = await FirebaseFirestore.instance
+        .collection('conversations')
+        .doc(convId)
+        .get();
+
+    if (!convDoc.exists || !mounted) return;
+
+    final data = convDoc.data()!;
+    final isParent = data['parentUid'] == user.uid;
+
+    if (isParent) {
+      // Côté parent : navigue vers ParentChatPage
+      final assmatUid = data['assmatUid'] as String? ?? '';
+      final assmatName = data['assmatName'] as String? ?? 'Assistante maternelle';
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ParentChatPage(
+            assmatUid: assmatUid,
+            assmatName: assmatName,
+          ),
+        ),
+      );
+    } else {
+      // Côté assmat : navigue vers AssMatChatPage
+      final parentName = data['parentName'] as String? ?? 'Parent';
+      final initials = parentName
+          .split(' ')
+          .where((w) => w.isNotEmpty)
+          .take(2)
+          .map((w) => w[0].toUpperCase())
+          .join();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AssMatChatPage(
+            contact: ChatContact(name: parentName, initials: initials),
+            conversationId: convId,
+          ),
+        ),
+      );
     }
   }
 }

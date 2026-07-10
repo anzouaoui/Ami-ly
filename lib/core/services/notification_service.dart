@@ -48,13 +48,17 @@ class NotificationService {
   // ── Lecture ──────────────────────────────────────────────────────────────────
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _queryByRecipient(String uid,
-          {bool? read, NotificationType? type, int? limit}) =>
-      _notifications
-          .where('recipientUid', isEqualTo: uid)
-          .where('read', isEqualTo: read)
-          .orderBy('createdAt', descending: true)
-          .limit(limit ?? 100)
-          .snapshots();
+          {bool? read, NotificationType? type, int? limit}) {
+    Query<Map<String, dynamic>> query =
+        _notifications.where('recipientUid', isEqualTo: uid);
+    if (read != null) {
+      query = query.where('read', isEqualTo: read);
+    }
+    return query
+        .orderBy('createdAt', descending: true)
+        .limit(limit ?? 100)
+        .snapshots();
+  }
 
   /// Toutes les notifications (non lues + lues).
   Stream<List<NotificationModel>> notificationsStream(String uid) =>
@@ -117,21 +121,8 @@ class NotificationService {
   }
 
   // ── Suppression ─────────────────────────────────────────────────────────────
-
-  Future<void> delete(String notificationId) async {
-    await _notifications.doc(notificationId).delete();
-  }
-
-  Future<void> deleteAll(String uid) async {
-    final all = await _notifications
-        .where('recipientUid', isEqualTo: uid)
-        .get();
-    final batch = _firestore.batch();
-    for (final doc in all.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
-  }
+  // Note : la suppression côté client est interdite par les règles Firestore
+  // (allow delete: if false). Utiliser une Cloud Function si nécessaire.
 }
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
