@@ -1,4 +1,5 @@
 const functions = require('firebase-functions/v2/https');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const docusign = require('docusign-esign');
 
@@ -307,4 +308,76 @@ exports.docusignCallback = functions.onRequest(async (req, res) => {
 
   const deepLink = `amily://signature-callback?contractId=${contractId}&event=${event ?? 'unknown'}`;
   res.redirect(deepLink);
+});
+
+exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId}', async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    console.log('No data associated with the event');
+    return;
+  }
+  
+  const notification = snapshot.data();
+  const recipientUid = notification.recipientUid;
+  
+  if (!recipientUid) {
+    console.log('No recipientUid found in notification');
+    return;
+  }
+
+  const db = admin.firestore();
+  const userDoc = await db.collection('users').doc(recipientUid).get();
+  
+  if (!userDoc.exists) {
+    console.log('User not found:', recipientUid);
+    return;
+  }
+
+  const user = userDoc.data();
+  const tokens = user.fcmTokens || [];
+
+  if (tokens.length === 0) {
+    console.log('No FCM tokens for user:', recipientUid);
+    return;
+  }
+
+  const payload = {
+    notification: {
+      title: notification.title || 'Nouvelle notification',
+      body: notification.body || '',
+    },
+    data: {
+      type: notification.type || 'unknown',
+      id: snapshot.id,
+      contractId: notification.contractId || '',
+      conversationId: notification.conversationId || '',
+    }
+  };
+
+  try {
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens: tokens,
+      notification: payload.notification,
+      data: payload.data,
+    });
+    
+    console.log(`Successfully sent message. Success count: ${response.successCount}, Failure count: ${response.failureCount}`);
+    
+    if (response.failureCount > 0) {
+      const failedTokens = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          failedTokens.push(tokens[idx]);
+        }
+      });
+      if (failedTokens.length > 0) {
+        await userDoc.ref.update({
+          fcmTokens: admin.firestore.FieldValue.arrayRemove(...failedTokens)
+        });
+        console.log('Removed failed tokens:', failedTokens);
+      }
+    }
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+  }
 });
