@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../core/models/notification_model.dart';
-import '../../../core/services/notification_service.dart';
+import '../../../../core/models/notification_model.dart';
+import '../../../../core/services/notification_service.dart';
 
 /// Stream de toutes les notifications de l'utilisateur connecté.
 final notificationsProvider =
