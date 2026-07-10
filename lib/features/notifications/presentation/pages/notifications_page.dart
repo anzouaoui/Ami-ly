@@ -10,7 +10,9 @@ import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../assmat/presentation/pages/assmat_chat_page.dart';
+import '../../../assmat/presentation/pages/assmat_sign_contract_page.dart';
 import '../../../parent/presentation/pages/parent_chat_page.dart';
+import '../../../parent/presentation/pages/engagement_contract_page.dart';
 import '../providers/notifications_providers.dart';
 import '../widgets/notification_tile.dart';
 
@@ -181,8 +183,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       case NotificationType.contractSignatureRequest:
       case NotificationType.contractSigned:
       case NotificationType.contractStatusChanged:
-        // TODO: naviguer vers la page du contrat
-        break;
+        await _navigateToContract(notification, user);
 
       case NotificationType.childAdded:
       case NotificationType.availabilityUpdated:
@@ -234,6 +235,46 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             contact: ChatContact(name: parentName, initials: initials),
             conversationId: convId,
           ),
+        ),
+      );
+    }
+  }
+
+  /// Navigue vers la page de contrat en chargeant les infos depuis Firestore.
+  Future<void> _navigateToContract(
+      NotificationModel notification, dynamic user) async {
+    final contractId = notification.contractId;
+    if (contractId == null) return;
+
+    // Charge le contrat pour obtenir les participants
+    final contractDoc = await FirebaseFirestore.instance
+        .collection('contracts')
+        .doc(contractId)
+        .get();
+
+    if (!contractDoc.exists || !mounted) return;
+
+    final data = contractDoc.data()!;
+    final isParent = data['parentUid'] == user.uid;
+
+    if (isParent) {
+      final assmatUid = data['assmatUid'] as String? ?? '';
+      final assmatName = data['assmatName'] as String? ?? 'Assistante maternelle';
+
+      // Côté parent : navigue vers l'engagement réciproque (création de contrat)
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => EngagementContractPage(
+            assmatUid: assmatUid,
+            assmatName: assmatName,
+          ),
+        ),
+      );
+    } else {
+      // Côté assmat : navigue vers la page de signature
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const AssmatSignContractPage(),
         ),
       );
     }
