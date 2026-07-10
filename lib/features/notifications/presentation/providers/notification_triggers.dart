@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/models/notification_model.dart';
-import '../../core/services/notification_service.dart';
-import '../../shared/models/message_model.dart';
+import '../../../../core/models/notification_model.dart';
+import '../../../../core/services/notification_service.dart';
+import '../../../shared/models/message_model.dart';
 
 /// Helper pour déclencher les notifications in-app lors d'événements métier.
 class NotificationTriggers {
