@@ -8,6 +8,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../shared/models/message_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
+import '../../../notifications/presentation/providers/notification_triggers.dart';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,18 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
           text: text,
           senderIsParent: false,
         );
+
+    // Notification in-app pour le parent (convId = parentUid_assmatUid)
+    try {
+      final parentUid = widget.conversationId.split('_').first;
+      ref.read(notificationTriggersProvider).onMessageSent(
+            recipientUid: parentUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Une assistante maternelle',
+            conversationId: widget.conversationId,
+            messageText: text,
+          );
+    } catch (_) {}
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {

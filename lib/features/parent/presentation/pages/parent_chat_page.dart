@@ -9,6 +9,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
+import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../../../../shared/models/message_model.dart';
 import 'engagement_contract_page.dart';
 
@@ -107,6 +108,17 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
           text: text,
           senderIsParent: true,
         );
+
+    // Notification in-app pour l'assmat
+    try {
+      ref.read(notificationTriggersProvider).onMessageSent(
+            recipientUid: widget.assmatUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Un parent',
+            conversationId: _convId!,
+            messageText: text,
+          );
+    } catch (_) {}
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
