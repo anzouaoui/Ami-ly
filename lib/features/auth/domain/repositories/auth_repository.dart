@@ -21,10 +21,13 @@ abstract class AuthRepository {
 
   /// Connexion via compte Google.
   ///
+  /// Si [role] est fourni et que l'utilisateur est nouveau, le profil
+  /// Firestore est créé automatiquement avec ce rôle.
+  ///
   /// Retourne [Right(AppUser)] si l'utilisateur a déjà un profil Firestore,
   /// ou [Right(null)] s'il s'agit d'un nouvel utilisateur qui doit encore
   /// choisir son rôle (redirection vers WelcomePage attendue côté UI).
-  Future<Either<Failure, AppUser?>> signInWithGoogle();
+  Future<Either<Failure, AppUser?>> signInWithGoogle({UserRole? role});
 
   Future<Either<Failure, AppUser>> signUpWithEmail({
     required String email,

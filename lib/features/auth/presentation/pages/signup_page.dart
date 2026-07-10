@@ -76,12 +76,28 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     );
   }
 
-  void _onGoogleTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Connexion Google — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _onGoogleTap() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    final result = await ref
+        .read(authRepositoryProvider)
+        .signInWithGoogle(role: _role);
+
+    if (!mounted) return;
+    result.fold(
+      (failure) => setState(() {
+        _errorMessage = failure.message;
+        _loading = false;
+      }),
+      (user) {
+        setState(() => _loading = false);
+        if (user != null) {
+          // Profil créé → le stream currentUserProvider prend le relai.
+        }
+      },
     );
   }
 
@@ -181,6 +197,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                                 autofillHints: const [
                                   AutofillHints.givenName,
                                 ],
+                                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                                 decoration: const InputDecoration(
                                   hintText: 'Marie',
                                 ),
@@ -206,6 +223,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                                 autofillHints: const [
                                   AutofillHints.familyName,
                                 ],
+                                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                                 decoration: const InputDecoration(
                                   hintText: 'Dupont',
                                 ),
@@ -228,6 +246,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                       decoration: const InputDecoration(
                         hintText: 'marie@exemple.fr',
                       ),
@@ -245,6 +264,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                       controller: _passwordCtrl,
                       obscureText: _obscurePassword,
                       autofillHints: const [AutofillHints.newPassword],
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         suffixIcon: IconButton(
