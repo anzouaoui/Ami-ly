@@ -1,69 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/models/parent_profile_model.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../parent/data/models/child_model.dart';
+import '../../data/models/parent_with_children.dart';
+import '../providers/assmat_search_providers.dart';
 
-// ---------------------------------------------------------------------------
-// Data models
-// ---------------------------------------------------------------------------
-
-class _ChildData {
-  const _ChildData({
-    required this.firstName,
-    required this.age,
-    required this.interests,
-  });
-
-  final String firstName;
-  final String age;
-  final List<String> interests;
-}
-
-class _FamilyData {
-  const _FamilyData({
-    required this.displayName,
-    required this.initials,
-    required this.city,
-    required this.startDate,
-    required this.scheduleType,
-    required this.schedule,
-    required this.avatarColor,
-    this.tags = const [],
-    this.kids = const [],
-    this.quote,
-  });
-
-  final String displayName;
-  final String initials;
-  final String city;
-  final String startDate;
-  final String scheduleType;
-  final String schedule;
-  final Color avatarColor;
-  final List<String> tags;
-  final List<_ChildData> kids;
-  final String? quote;
-}
-
-const _families = <_FamilyData>[];
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
-class SearchParentsPage extends StatefulWidget {
+/// Page "Parents en recherche" pour les assistantes maternelles.
+///
+/// Branchée sur Firestore : récupère les parents actifs (searchPaused == false)
+/// avec leurs enfants, et permet une recherche par ville.
+class SearchParentsPage extends ConsumerStatefulWidget {
   const SearchParentsPage({super.key});
 
   @override
-  State<SearchParentsPage> createState() => _SearchParentsPageState();
+  ConsumerState<SearchParentsPage> createState() => _SearchParentsPageState();
 }
 
-class _SearchParentsPageState extends State<SearchParentsPage> {
+class _SearchParentsPageState extends ConsumerState<SearchParentsPage> {
   final _searchController = TextEditingController();
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.trim().toLowerCase());
+    });
+  }
 
   @override
   void dispose() {
@@ -71,19 +41,12 @@ class _SearchParentsPageState extends State<SearchParentsPage> {
     super.dispose();
   }
 
-  List<_FamilyData> get _filtered {
-    if (_query.isEmpty) return _families;
-    final q = _query.toLowerCase();
-    return _families
-        .where((f) =>
-            f.city.toLowerCase().contains(q) ||
-            f.displayName.toLowerCase().contains(q))
-        .toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered;
+    final assmatProfile = ref.watch(assmatProfileProvider).valueOrNull;
+    final parentsAsync =
+        ref.watch(searchableParentsWithChildrenProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -165,7 +128,6 @@ class _SearchParentsPageState extends State<SearchParentsPage> {
                 children: [
                   TextField(
                     controller: _searchController,
-                    onChanged: (v) => setState(() => _query = v),
                     decoration: InputDecoration(
                       hintText: 'Rechercher par ville...',
                       hintStyle: AppTextStyles.bodyMedium
@@ -183,12 +145,35 @@ class _SearchParentsPageState extends State<SearchParentsPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  _StatusChip(
-                    label:
-                        '${filtered.length} famille${filtered.length > 1 ? 's' : ''} en recherche',
-                    dotColor: const Color(0xFF4CAF50),
-                    bgColor: const Color(0xFFE8F5E9),
-                    textColor: const Color(0xFF2E7D32),
+                  parentsAsync.when(
+                    loading: () => const _StatusChip(
+                      label: 'Chargement...',
+                      dotColor: AppColors.secondaryText,
+                      bgColor: AppColors.background,
+                      textColor: AppColors.secondaryText,
+                    ),
+                    error: (_, __) => const _StatusChip(
+                      label: 'Erreur de chargement',
+                      dotColor: Colors.red,
+                      bgColor: Color(0xFFFFEBEE),
+                      textColor: Colors.red,
+                    ),
+                    data: (all) {
+                      final filtered = _query.isEmpty
+                          ? all
+                          : all.where((p) =>
+                              p.parent.address.toLowerCase().contains(_query) ||
+                              '${p.parent.firstName} ${p.parent.lastName}'
+                                  .toLowerCase()
+                                  .contains(_query)).toList();
+                      return _StatusChip(
+                        label:
+                            '${filtered.length} famille${filtered.length > 1 ? 's' : ''} en recherche',
+                        dotColor: const Color(0xFF4CAF50),
+                        bgColor: const Color(0xFFE8F5E9),
+                        textColor: const Color(0xFF2E7D32),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -199,24 +184,53 @@ class _SearchParentsPageState extends State<SearchParentsPage> {
 
           // Family list
           Expanded(
-            child: filtered.isEmpty
-                ? Center(
+            child: parentsAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (e, _) => Center(
+                child: Text(
+                  'Erreur : $e',
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(color: AppColors.error),
+                ),
+              ),
+              data: (all) {
+                final filtered = _query.isEmpty
+                    ? all
+                    : all.where((p) =>
+                        p.parent.address.toLowerCase().contains(_query) ||
+                        '${p.parent.firstName} ${p.parent.lastName}'
+                            .toLowerCase()
+                            .contains(_query)).toList();
+
+                if (filtered.isEmpty) {
+                  return Center(
                     child: Text(
-                      'Aucune famille trouvée',
+                      _query.isNotEmpty
+                          ? 'Aucune famille trouvée pour « $_query »'
+                          : 'Aucune famille en recherche actuellement',
                       style: AppTextStyles.bodyMedium
                           .copyWith(color: AppColors.secondaryText),
                     ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.lg,
-                    ),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.md),
-                    itemBuilder: (context, i) =>
-                        _FamilyCard(family: filtered[i]),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.lg,
                   ),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.md),
+                  itemBuilder: (context, i) =>
+                      _FamilyCard(
+                        parentWithChildren: filtered[i],
+                        assmatProfile: assmatProfile,
+                      ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -229,8 +243,14 @@ class _SearchParentsPageState extends State<SearchParentsPage> {
 // ---------------------------------------------------------------------------
 
 class _FamilyCard extends StatefulWidget {
-  const _FamilyCard({required this.family});
-  final _FamilyData family;
+  const _FamilyCard({
+    required this.parentWithChildren,
+    this.assmatProfile,
+  });
+
+  final ParentWithChildren parentWithChildren;
+  // ignore: unused_element
+  final Object? assmatProfile;
 
   @override
   State<_FamilyCard> createState() => _FamilyCardState();
@@ -241,7 +261,12 @@ class _FamilyCardState extends State<_FamilyCard> {
 
   @override
   Widget build(BuildContext context) {
-    final f = widget.family;
+    final w = widget.parentWithChildren;
+    final p = w.parent;
+
+    final displayName = '${p.firstName} ${p.lastName}'.trim();
+    final initials = p.firstName.isNotEmpty ? p.firstName[0] : '?';
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -252,14 +277,14 @@ class _FamilyCardState extends State<_FamilyCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header row ───────────────────────────────────────────────────
+          // Header row
           Row(
             children: [
               CircleAvatar(
                 radius: 26,
-                backgroundColor: f.avatarColor,
+                backgroundColor: const Color(0xFFF3E5D8),
                 child: Text(
-                  f.initials,
+                  initials.toUpperCase(),
                   style: AppTextStyles.labelLarge.copyWith(
                     fontWeight: FontWeight.w700,
                     color: Colors.black54,
@@ -274,7 +299,7 @@ class _FamilyCardState extends State<_FamilyCard> {
                     Row(
                       children: [
                         Text(
-                          f.displayName,
+                          displayName.isNotEmpty ? displayName : 'Parent',
                           style: AppTextStyles.titleMedium
                               .copyWith(fontWeight: FontWeight.w700),
                         ),
@@ -293,9 +318,14 @@ class _FamilyCardState extends State<_FamilyCard> {
                         const Icon(Icons.location_on_outlined,
                             size: 14, color: AppColors.secondaryText),
                         const SizedBox(width: 2),
-                        Text(f.city,
+                        Expanded(
+                          child: Text(
+                            p.address.isNotEmpty ? p.address : 'Adresse non renseignée',
                             style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.secondaryText)),
+                                .copyWith(color: AppColors.secondaryText),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -306,7 +336,7 @@ class _FamilyCardState extends State<_FamilyCard> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // ── Critères de recherche ─────────────────────────────────────
+          // Search criteria (from children data)
           Text(
             'CRITÈRES DE RECHERCHE',
             style: AppTextStyles.labelSmall.copyWith(
@@ -319,74 +349,25 @@ class _FamilyCardState extends State<_FamilyCard> {
           const SizedBox(height: AppSpacing.sm),
 
           _CriteriaRow(
-            icon: Icons.event_outlined,
-            child: RichText(
-              text: TextSpan(
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.primaryText),
-                children: [
-                  const TextSpan(text: 'Début :  '),
-                  TextSpan(
-                    text: f.startDate,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          _CriteriaRow(
-            icon: Icons.schedule_outlined,
-            child: Text(f.scheduleType,
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.primaryText)),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          _CriteriaRow(
             icon: Icons.child_friendly_outlined,
             child: Text(
-              '${f.kids.length} enfant${f.kids.length > 1 ? 's' : ''}',
-              style:
-                  AppTextStyles.bodySmall.copyWith(color: AppColors.primaryText),
+              '${w.children.length} enfant${w.children.length > 1 ? 's' : ''}',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.primaryText),
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          _CriteriaRow(
-            icon: Icons.work_outline_rounded,
-            child: Text(f.schedule,
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.secondaryText)),
-          ),
 
-          // ── Tags ──────────────────────────────────────────────────────
-          if (f.tags.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: f.tags.map((t) => _OutlinedChip(label: t)).toList(),
-            ),
-          ],
-
-          // ── Children cards ────────────────────────────────────────────
-          if (f.kids.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            ...f.kids.map((k) => Padding(
-                  padding: EdgeInsets.only(
-                      bottom: k != f.kids.last ? AppSpacing.sm : 0),
-                  child: _ChildCard(child: k),
-                )),
-          ],
-
-          // ── Quote ─────────────────────────────────────────────────────
-          if (f.quote != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            _QuoteBlock(text: f.quote!),
+          // Children details
+          if (w.children.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ...w.children.map((k) => Padding(
+              padding: EdgeInsets.only(bottom: k != w.children.last ? AppSpacing.sm : 0),
+              child: _ChildCard(child: k),
+            )),
           ],
 
           const SizedBox(height: AppSpacing.md),
 
-          // ── Action button ─────────────────────────────────────────────
+          // Action button
           Row(
             children: [
               Expanded(
@@ -405,7 +386,7 @@ class _FamilyCardState extends State<_FamilyCard> {
                         ),
                       )
                     : FilledButton.icon(
-                        onPressed: () => setState(() => _contacted = true),
+                        onPressed: () => _sendContactRequest(p),
                         icon: const Icon(Icons.send_outlined, size: 18),
                         label: const Text('Demander un contact'),
                         style: FilledButton.styleFrom(
@@ -430,6 +411,17 @@ class _FamilyCardState extends State<_FamilyCard> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _sendContactRequest(ParentProfileModel parent) {
+    // TODO: envoyer une notification / créer un message système
+    setState(() => _contacted = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Demande de contact envoyée à ${parent.firstName}'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -500,33 +492,21 @@ class _CriteriaRow extends StatelessWidget {
   }
 }
 
-class _OutlinedChip extends StatelessWidget {
-  const _OutlinedChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.full),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.labelSmall.copyWith(
-          color: AppColors.primaryText,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
 class _ChildCard extends StatelessWidget {
   const _ChildCard({required this.child});
-  final _ChildData child;
+  final ChildModel child;
+
+  String _ageLabel(DateTime? birthDate) {
+    if (birthDate == null) return '';
+    final now = DateTime.now();
+    final totalMonths =
+        (now.year - birthDate.year) * 12 + now.month - birthDate.month;
+    if (totalMonths < 0) return '';
+    if (totalMonths < 2) return '$totalMonths mois';
+    if (totalMonths < 24) return '$totalMonths mois';
+    final years = totalMonths ~/ 12;
+    return '$years an${years > 1 ? 's' : ''}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -558,10 +538,12 @@ class _ChildCard extends StatelessWidget {
                         text: child.firstName,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      TextSpan(
-                        text: '  (${child.age})',
-                        style: const TextStyle(color: AppColors.secondaryText),
-                      ),
+                      if (child.birthDate != null) ...[
+                        TextSpan(
+                          text: '  (${_ageLabel(child.birthDate)})',
+                          style: const TextStyle(color: AppColors.secondaryText),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -574,39 +556,6 @@ class _ChildCard extends StatelessWidget {
                   ),
                 ],
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuoteBlock extends StatelessWidget {
-  const _QuoteBlock({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 3,
-            decoration: BoxDecoration(
-              color: AppColors.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.secondaryText,
-                fontStyle: FontStyle.italic,
-              ),
             ),
           ),
         ],
