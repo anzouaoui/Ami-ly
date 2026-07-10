@@ -197,6 +197,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                                 autofillHints: const [
                                   AutofillHints.givenName,
                                 ],
+                                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                                 decoration: const InputDecoration(
                                   hintText: 'Marie',
                                 ),
@@ -222,6 +223,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                                 autofillHints: const [
                                   AutofillHints.familyName,
                                 ],
+                                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                                 decoration: const InputDecoration(
                                   hintText: 'Dupont',
                                 ),
@@ -244,6 +246,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                       decoration: const InputDecoration(
                         hintText: 'marie@exemple.fr',
                       ),
@@ -261,6 +264,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                       controller: _passwordCtrl,
                       obscureText: _obscurePassword,
                       autofillHints: const [AutofillHints.newPassword],
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         suffixIcon: IconButton(

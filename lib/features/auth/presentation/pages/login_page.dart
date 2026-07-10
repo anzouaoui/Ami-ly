@@ -163,6 +163,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                       decoration: const InputDecoration(
                         hintText: 'marie@exemple.fr',
                       ),
@@ -179,6 +180,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       controller: _passwordCtrl,
                       obscureText: _obscurePassword,
                       autofillHints: const [AutofillHints.password],
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.onSurface),
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         suffixIcon: IconButton(
