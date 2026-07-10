@@ -10,8 +10,7 @@ import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../../core/services/firebase_service.dart';
-import '../../../../core/models/notification_model.dart';
-import '../../../../core/services/notification_service.dart';
+import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/domain/entities/app_user.dart';
@@ -302,20 +301,25 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
               );
 
               try {
-                final notifService = ref.read(notificationServiceProvider);
+                final trigRef = ref.read(notificationTriggersProvider);
                 final childName = _contractFormData!.childFirstName.isNotEmpty
                     ? _contractFormData!.childFirstName
                     : _contractFormData!.prenomEnfant.isNotEmpty
                         ? _contractFormData!.prenomEnfant
                         : 'l\'enfant';
-                await notifService.createNotification(
+                await trigRef.onContractSigned(
                   recipientUid: widget.assmatUid,
                   senderUid: currentUserUid,
-                  type: NotificationType.contractSigned,
                   contractId: contractId,
-                  title: 'Contrat à signer',
-                  body: 'Un contrat pour l\'accueil de $childName '
-                      'est en attente de votre signature.',
+                  senderIsParent: true,
+                  childName: childName,
+                );
+                await trigRef.onContractStatusChanged(
+                  recipientUid: widget.assmatUid,
+                  senderUid: currentUserUid,
+                  contractId: contractId,
+                  newStatus: 'pendingAssmat',
+                  childName: childName,
                 );
               } catch (_) {}
 
