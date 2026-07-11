@@ -34,6 +34,26 @@ final assmatConversationsProvider =
       .watchConversationsForAssmat(uid);
 });
 
+// ── Unread counts ─────────────────────────────────────────────────────────────
+
+/// Nombre total de messages non lus pour le parent connecté.
+final parentUnreadMessageCountProvider = Provider.autoDispose<int>((ref) {
+  final conversations = ref.watch(parentConversationsProvider);
+  return conversations.whenOrNull(
+        data: (list) => list.fold<int>(0, (sum, c) => sum + c.unreadParent),
+      ) ??
+      0;
+});
+
+/// Nombre total de messages non lus pour l'assmat connectée.
+final assmatUnreadMessageCountProvider = Provider.autoDispose<int>((ref) {
+  final conversations = ref.watch(assmatConversationsProvider);
+  return conversations.whenOrNull(
+        data: (list) => list.fold<int>(0, (sum, c) => sum + c.unreadAssmat),
+      ) ??
+      0;
+});
+
 // ── Messages ──────────────────────────────────────────────────────────────────
 
 /// Messages d'un fil de conversation, triés par date croissante.
