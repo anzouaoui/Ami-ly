@@ -346,6 +346,20 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
       title: notification.title || 'Nouvelle notification',
       body: notification.body || '',
     },
+    android: {
+      notification: {
+        channelId: 'amily_high_importance_channel',
+        priority: 'high',
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: 'default',
+          badge: 1,
+        },
+      },
+    },
     data: {
       type: notification.type || 'unknown',
       id: snapshot.id,
@@ -358,6 +372,8 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
     const response = await admin.messaging().sendEachForMulticast({
       tokens: tokens,
       notification: payload.notification,
+      android: payload.android,
+      apns: payload.apns,
       data: payload.data,
     });
     
