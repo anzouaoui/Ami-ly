@@ -341,6 +341,15 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
     return;
   }
 
+  // Compter les notifications non lues pour le badge iOS
+  const unreadSnapshot = await db
+    .collection('notifications')
+    .where('recipientUid', '==', recipientUid)
+    .where('read', '==', false)
+    .count()
+    .get();
+  const unreadCount = unreadSnapshot.data().count;
+
   const payload = {
     notification: {
       title: notification.title || 'Nouvelle notification',
@@ -356,7 +365,7 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
       payload: {
         aps: {
           sound: 'default',
-          badge: 1,
+          badge: unreadCount,
         },
       },
     },
