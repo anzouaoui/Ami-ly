@@ -41,10 +41,13 @@ class PushNotificationService {
     _listenBackground();
   }
 
+  static const _androidChannelId = 'amily_high_importance_channel';
+  static const _androidChannelName = 'Ami-ly Notifications';
+
   Future<void> _initLocalNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    
+
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -71,6 +74,26 @@ class PushNotificationService {
         }
       },
     );
+
+    if (Platform.isAndroid) {
+      await _createAndroidChannel();
+    }
+  }
+
+  Future<void> _createAndroidChannel() async {
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+
+    const channel = AndroidNotificationChannel(
+      _androidChannelId,
+      _androidChannelName,
+      importance: Importance.max,
+      description: 'Notifications de messages, contrats et visio Ami-ly',
+    );
+    await androidPlugin.createNotificationChannel(channel);
+    debugPrint('[PushNotif] Android channel created: $_androidChannelId');
   }
 
   /// Demande de permission (iOS : popup natif, Android 13+ : POST_NOTIFICATIONS).
@@ -143,8 +166,8 @@ class PushNotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'amily_high_importance_channel', // id
-      'Ami-ly Notifications', // title
+      _androidChannelId,
+      _androidChannelName,
       importance: Importance.max,
       priority: Priority.high,
     );
