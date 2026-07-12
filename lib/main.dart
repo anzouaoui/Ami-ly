@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'app/app.dart';
 import 'core/services/firebase_service.dart';
+import 'core/services/stripe_service.dart';
 import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
@@ -23,6 +24,8 @@ Future<void> main() async {
   await FirebaseService.initialize(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  StripeService.initStripe();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
