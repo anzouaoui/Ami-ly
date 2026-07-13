@@ -57,6 +57,18 @@ class PushNotificationService {
       iOS: initializationSettingsIOS,
     );
 
+    // Create the channel on the device (if it doesn't already exist).
+    // FCM uses this channel for incoming background messages on Android.
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'amily_high_importance_channel', // id
+      'Ami-ly Notifications', // title
+      importance: Importance.max,
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     await _localNotifications.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {

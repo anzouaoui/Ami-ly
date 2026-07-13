@@ -359,6 +359,22 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
       tokens: tokens,
       notification: payload.notification,
       data: payload.data,
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'amily_high_importance_channel',
+          sound: 'default'
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            badge: 1,
+            sound: 'default',
+            contentAvailable: true
+          }
+        }
+      }
     });
     
     console.log(`Successfully sent message. Success count: ${response.successCount}, Failure count: ${response.failureCount}`);
