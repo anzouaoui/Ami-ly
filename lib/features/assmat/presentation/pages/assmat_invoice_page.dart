@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/models/assmat_profile_model.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../payments/data/models/invoice_model.dart';
+import '../../../payments/data/repositories/invoice_repository.dart';
+import '../../../payments/presentation/providers/invoice_providers.dart';
 import 'assmat_home_page.dart';
 
-class AssMatInvoicePage extends StatefulWidget {
+class AssMatInvoicePage extends ConsumerWidget {
   const AssMatInvoicePage({super.key});
 
   @override
-  State<AssMatInvoicePage> createState() => _AssMatInvoicePageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final assmatAsync = ref.watch(assmatProfileProvider);
+    final invoicesAsync = ref.watch(invoicesByAssmatProvider);
 
-class _AssMatInvoicePageState extends State<AssMatInvoicePage> {
-  int _tab = 0;
-
-  static const _tabs = ['Factures', 'Promesses d\'embauche', 'Contrats'];
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       drawer: const AssMatDrawer(),
@@ -52,163 +53,197 @@ class _AssMatInvoicePageState extends State<AssMatInvoicePage> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────
-            Text(
-              'Facturation & Documents',
-              style: AppTextStyles.titleLarge
-                  .copyWith(fontWeight: FontWeight.w700, fontSize: 26),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Gérez vos factures, contrats et documents administratifs',
-              style: AppTextStyles.bodyMedium
-                  .copyWith(color: AppColors.secondaryText),
-            ),
-            const SizedBox(height: AppSpacing.md),
+      body: assmatAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Erreur: $e')),
+        data: (assmat) => _Body(assmat: assmat, invoicesAsync: invoicesAsync),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showNewInvoiceSheet(context, ref),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Nouvelle facture'),
+      ),
+    );
+  }
 
-            // ── Export Pajemploi ────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.send_outlined, size: 18),
-                label: const Text('Export Pajemploi'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primaryText,
-                  side: const BorderSide(color: AppColors.divider),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                  ),
-                  textStyle: AppTextStyles.bodyMedium
-                      .copyWith(fontWeight: FontWeight.w500),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
+  void _showNewInvoiceSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _NewInvoiceSheet(),
+    );
+  }
+}
 
-            // ── Stats 2×2 ───────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    icon: Icons.euro_rounded,
-                    iconColor: AppColors.primary,
-                    iconBg: AppColors.secondary,
-                    value: '2 340 €',
-                    label: 'Revenus du mois',
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _StatCard(
-                    icon: Icons.receipt_outlined,
-                    iconColor: AppColors.statBlueColor,
-                    iconBg: AppColors.statBlueBg,
-                    value: '2',
-                    label: 'Factures ce mois',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    icon: Icons.task_outlined,
-                    iconColor: AppColors.primary,
-                    iconBg: AppColors.secondary,
-                    value: '2',
-                    label: 'Contrats actifs',
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _StatCard(
-                    icon: Icons.note_add_outlined,
-                    iconColor: AppColors.accent,
-                    iconBg: AppColors.statYellowBg,
-                    value: '1',
-                    label: 'Promesse en attente',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
+class _Body extends ConsumerWidget {
+  const _Body({
+    required this.assmat,
+    required this.invoicesAsync,
+  });
 
-            // ── Tabs ────────────────────────────────────
+  final AssmatProfileModel? assmat;
+  final AsyncValue<List<InvoiceModel>> invoicesAsync;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isStripeConnected = assmat?.stripeConnected ?? false;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Facturation & Documents',
+            style: AppTextStyles.titleLarge
+                .copyWith(fontWeight: FontWeight.w700, fontSize: 26),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Gérez vos factures et connectez Stripe pour recevoir les paiements',
+            style: AppTextStyles.bodyMedium
+                .copyWith(color: AppColors.secondaryText),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (!isStripeConnected) _StripeOnboardingBanner(),
+          if (isStripeConnected)
             Container(
-              padding: const EdgeInsets.all(3),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.divider.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(AppRadii.sm),
+                color: AppColors.secondary,
+                borderRadius: BorderRadius.circular(AppRadii.md),
               ),
               child: Row(
-                children: List.generate(_tabs.length, (i) {
-                  final selected = _tab == i;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _tab = i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.surface
-                              : Colors.transparent,
-                          borderRadius:
-                              BorderRadius.circular(AppRadii.sm - 2),
-                          boxShadow: selected
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black
-                                        .withValues(alpha: 0.06),
-                                    blurRadius: 4,
-                                  )
-                                ]
-                              : [],
-                        ),
-                        child: Center(
-                          child: Text(
-                            _tabs[i],
-                            style: AppTextStyles.bodySmall.copyWith(
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: selected
-                                  ? AppColors.primaryText
-                                  : AppColors.secondaryText,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+                children: [
+                  const Icon(Icons.check_circle,
+                      color: AppColors.primary, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text('Compte Stripe connecté',
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(fontWeight: FontWeight.w600)),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Tab content ─────────────────────────────
-            switch (_tab) {
-              0 => const _FacturesContent(),
-              1 => const _PromessesContent(),
-              _ => const _ContratsContent(),
-            },
-          ],
-        ),
+          const SizedBox(height: AppSpacing.md),
+          _StatsSection(assmat: assmat!),
+          const SizedBox(height: AppSpacing.md),
+          _InvoiceList(invoicesAsync: invoicesAsync),
+        ],
       ),
     );
   }
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+class _StripeOnboardingBanner extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance, color: AppColors.primary, size: 28),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Connectez votre compte bancaire',
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(
+                  'Pour recevoir les paiements par carte, '
+                  'connectez votre compte Stripe.',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.secondaryText),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          TextButton(
+            onPressed: () => _connectStripe(context, ref),
+            style: TextButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.md),
+              ),
+            ),
+            child: const Text('Connecter'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _connectStripe(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    try {
+      final repo = ref.read(invoiceRepositoryProvider);
+      final url = await repo.getOnboardingLink(user.uid);
+      if (url.isNotEmpty && await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+}
+
+class _StatsSection extends ConsumerWidget {
+  const _StatsSection({required this.assmat});
+
+  final AssmatProfileModel assmat;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final revenue =
+        ref.watch(monthlyRevenueProvider);
+    final count =
+        ref.watch(monthlyInvoiceCountProvider);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            icon: Icons.euro_rounded,
+            iconColor: AppColors.primary,
+            iconBg: AppColors.secondary,
+            value: '${revenue.toStringAsFixed(0)} €',
+            label: 'Revenus du mois',
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.receipt_outlined,
+            iconColor: AppColors.statBlueColor,
+            iconBg: AppColors.statBlueBg,
+            value: '$count',
+            label: 'Factures ce mois',
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
@@ -231,264 +266,99 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.md),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(color: AppColors.divider),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 40,
             height: 40,
-            decoration:
-                BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: AppTextStyles.titleLarge
-                .copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: AppTextStyles.bodySmall
-                .copyWith(color: AppColors.secondaryText),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Tab: Factures ────────────────────────────────────────────────────────────
-
-class _FacturesContent extends StatelessWidget {
-  const _FacturesContent();
-
-  static const _factures = <_FactureData>[];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => const _NewInvoiceSheet(),
-            ),
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: const Text('Générer une facture'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              minimumSize: const Size(double.infinity, 52),
-              textStyle: AppTextStyles.labelLarge
-                  .copyWith(fontWeight: FontWeight.w600),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadii.md),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        for (int i = 0; i < _factures.length; i++) ...[
-          _FactureTile(data: _factures[i]),
-          if (i < _factures.length - 1) const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
-    );
-  }
-}
-
-enum _FactureStatut { payee, enAttente }
-
-class _FactureData {
-  const _FactureData({
-    required this.famille,
-    required this.enfant,
-    required this.mois,
-    required this.montant,
-    required this.statut,
-    required this.datePaiement,
-  });
-  final String famille;
-  final String enfant;
-  final String mois;
-  final String montant;
-  final _FactureStatut statut;
-  final String? datePaiement;
-}
-
-class _FactureTile extends StatelessWidget {
-  const _FactureTile({required this.data});
-  final _FactureData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPaid = data.statut == _FactureStatut.payee;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Icon
-          Container(
-            width: 44,
-            height: 44,
             decoration: BoxDecoration(
-              color: AppColors.secondary,
+              color: iconBg,
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            child: const Icon(Icons.attach_money_rounded,
-                size: 24, color: AppColors.primary),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
+          Text(value,
+              style: AppTextStyles.titleLarge
+                  .copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.secondaryText)),
+        ],
+      ),
+    );
+  }
+}
 
-          // Name + date
-          Expanded(
+class _InvoiceList extends StatelessWidget {
+  const _InvoiceList({required this.invoicesAsync});
+
+  final AsyncValue<List<InvoiceModel>> invoicesAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return invoicesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Erreur: $e')),
+      data: (invoices) {
+        if (invoices.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              border: Border.all(color: AppColors.divider),
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Icon(Icons.receipt_long_rounded,
+                    size: 64, color: AppColors.secondaryText),
+                const SizedBox(height: AppSpacing.md),
+                Text('Aucune facture',
+                    style: AppTextStyles.titleMedium
+                        .copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
                 Text(
-                  '${data.famille} – ${data.enfant}',
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isPaid && data.datePaiement != null
-                      ? '${data.mois} · Payée\nle ${data.datePaiement}'
-                      : data.mois,
+                  'Créez votre première facture avec le bouton +',
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.secondaryText),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
+          );
+        }
 
-          // Amount
-          Text(
-            data.montant,
-            style: AppTextStyles.bodyMedium
-                .copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-
-          // Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: isPaid
-                  ? AppColors.primary.withValues(alpha: 0.12)
-                  : AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppRadii.full),
-            ),
-            child: Text(
-              isPaid ? 'Payée' : 'En attente',
-              style: AppTextStyles.labelSmall.copyWith(
-                color: isPaid ? AppColors.primary : AppColors.accent,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-
-          // Download
-          Icon(Icons.download_outlined,
-              size: 20, color: AppColors.secondaryText),
-        ],
-      ),
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: invoices.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+          itemBuilder: (_, i) => _InvoiceTile(invoice: invoices[i]),
+        );
+      },
     );
   }
 }
 
-// ─── Tab: Promesses d'embauche ────────────────────────────────────────────────
+class _InvoiceTile extends StatelessWidget {
+  const _InvoiceTile({required this.invoice});
 
-enum _PromesseStatut { signee, enAttente, expiree }
-
-class _PromesseData {
-  const _PromesseData({
-    required this.famille,
-    required this.enfant,
-    required this.debutPrevu,
-    required this.heures,
-    required this.statut,
-  });
-  final String famille;
-  final String enfant;
-  final String debutPrevu;
-  final String heures;
-  final _PromesseStatut statut;
-}
-
-class _PromessesContent extends StatelessWidget {
-  const _PromessesContent();
-
-  static const _promesses = <_PromesseData>[];
+  final InvoiceModel invoice;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => const _NewPromesseSheet(),
-            ),
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: const Text('Nouvelle promesse d\'embauche'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              minimumSize: const Size(double.infinity, 52),
-              textStyle: AppTextStyles.labelLarge
-                  .copyWith(fontWeight: FontWeight.w600),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadii.md),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        ..._promesses.map((p) => _PromesseTile(data: p)),
-      ],
-    );
-  }
-}
-
-class _PromesseTile extends StatelessWidget {
-  const _PromesseTile({required this.data});
-  final _PromesseData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final (badgeLabel, badgeColor) = switch (data.statut) {
-      _PromesseStatut.signee => ('Signée', AppColors.primary),
-      _PromesseStatut.enAttente => ('En attente', AppColors.accent),
-      _PromesseStatut.expiree => ('Expirée', AppColors.error),
-    };
+    final isPaid = invoice.status == InvoiceStatus.paid;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.md),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(color: AppColors.divider),
       ),
       child: Row(
@@ -497,155 +367,56 @@ class _PromesseTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.statYellowBg,
+              color: isPaid
+                  ? AppColors.secondary
+                  : AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            child: const Icon(Icons.note_add_outlined,
-                size: 22, color: AppColors.accent),
+            child: Icon(
+              Icons.receipt_long_rounded,
+              size: 24,
+              color: isPaid ? AppColors.primary : AppColors.accent,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${data.famille} – ${data.enfant}',
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(fontWeight: FontWeight.w700),
-                ),
+                Text(invoice.familyName,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(
-                  'Début prévu : ${data.debutPrevu} · ${data.heures}',
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.secondaryText),
-                ),
+                Text(invoice.childName,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.secondaryText)),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppRadii.full),
-            ),
-            child: Text(
-              badgeLabel,
-              style: AppTextStyles.labelSmall.copyWith(
-                color: badgeColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Tab: Contrats ────────────────────────────────────────────────────────────
-
-class _ContratData {
-  const _ContratData({
-    required this.famille,
-    required this.nomEnfant,
-    required this.creeLe,
-    required this.statut,
-  });
-  final String famille;
-  final String nomEnfant;
-  final String creeLe;
-  final String statut;
-}
-
-class _ContratsContent extends StatelessWidget {
-  const _ContratsContent();
-
-  static const _contrats = <_ContratData>[];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int i = 0; i < _contrats.length; i++) ...[
-          _ContratTile(data: _contrats[i]),
-          if (i < _contrats.length - 1) const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
-    );
-  }
-}
-
-class _ContratTile extends StatelessWidget {
-  const _ContratTile({required this.data});
-  final _ContratData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              Text('${invoice.totalAmount.toStringAsFixed(2)} €',
+                  style: AppTextStyles.titleMedium
+                      .copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
               Container(
-                width: 44,
-                height: 44,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(AppRadii.sm),
-                ),
-                child: const Icon(Icons.task_outlined,
-                    size: 22, color: AppColors.primary),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${data.famille} – ${data.nomEnfant}',
-                      style: AppTextStyles.bodyMedium
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Créé le ${data.creeLe}',
-                      style: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.secondaryText),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: isPaid
+                      ? AppColors.primary.withValues(alpha: 0.12)
+                      : AppColors.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppRadii.full),
                 ),
                 child: Text(
-                  data.statut,
+                  invoice.status.label,
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.primary,
+                    color: isPaid ? AppColors.primary : AppColors.accent,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              const Icon(Icons.download_outlined,
-                  size: 20, color: AppColors.secondaryText),
             ],
           ),
         ],
@@ -654,548 +425,203 @@ class _ContratTile extends StatelessWidget {
   }
 }
 
-// ─── Modal : Nouvelle facture ─────────────────────────────────────────────────
-
-class _NewInvoiceSheet extends StatefulWidget {
+class _NewInvoiceSheet extends ConsumerStatefulWidget {
   const _NewInvoiceSheet();
 
   @override
-  State<_NewInvoiceSheet> createState() => _NewInvoiceSheetState();
+  ConsumerState<_NewInvoiceSheet> createState() => _NewInvoiceSheetState();
 }
 
-class _NewInvoiceSheetState extends State<_NewInvoiceSheet> {
-  String? _contrat;
-  String? _mois;
-  final _anneeCtrl = TextEditingController(text: '2026');
-  final _heuresCtrl = TextEditingController(text: '160');
-  final _repasCtrl = TextEditingController(text: '20');
-  final _heuresComplCtrl = TextEditingController(text: '0');
-  final _entretienCtrl = TextEditingController(text: '85');
-  final _commentaireCtrl = TextEditingController();
+class _NewInvoiceSheetState extends ConsumerState<_NewInvoiceSheet> {
+  final _familleCtrl = TextEditingController();
+  final _enfantCtrl = TextEditingController();
+  final _heuresCtrl = TextEditingController();
+  final _tauxHoraireCtrl = TextEditingController();
+  final _repasCtrl = TextEditingController();
+  final _tauxRepasCtrl = TextEditingController();
+  final _heuresComplCtrl = TextEditingController();
+  final _entretienCtrl = TextEditingController();
+  int? _mois;
+  bool _loading = false;
 
-  static const _contratOptions = [
-    'Famille Dupont – Lucas Dupont',
-    'Famille Leroy – Emma Leroy',
-  ];
-  static const _moisOptions = [
+  static const _months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
   ];
 
   @override
   void dispose() {
-    _anneeCtrl.dispose();
+    _familleCtrl.dispose();
+    _enfantCtrl.dispose();
     _heuresCtrl.dispose();
+    _tauxHoraireCtrl.dispose();
     _repasCtrl.dispose();
+    _tauxRepasCtrl.dispose();
     _heuresComplCtrl.dispose();
     _entretienCtrl.dispose();
-    _commentaireCtrl.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.md + bottom),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Header ──────────────────────────────────
-            Row(
-              children: [
-                const Spacer(),
-                Text(
-                  'Nouvelle facture mensuelle',
-                  style: AppTextStyles.titleMedium
-                      .copyWith(fontWeight: FontWeight.w600),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  color: AppColors.secondaryText,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Famille / Enfant ─────────────────────────
-            _SheetLabel('Famille / Enfant'),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _contrat,
-              isExpanded: true,
-              decoration: _sheetInputDeco(),
-              hint: Text('Sélectionner un contrat',
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.hint)),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.secondaryText),
-              items: _contratOptions
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                  .toList(),
-              onChanged: (v) => setState(() => _contrat = v),
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Mois / Année ─────────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Mois'),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: _mois,
-                        isExpanded: true,
-                        decoration: _sheetInputDeco(),
-                        hint: Text('Mois',
-                            style: AppTextStyles.bodyMedium
-                                .copyWith(color: AppColors.hint)),
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                            color: AppColors.secondaryText),
-                        items: _moisOptions
-                            .map((m) =>
-                                DropdownMenuItem(value: m, child: Text(m)))
-                            .toList(),
-                        onChanged: (v) => setState(() => _mois = v),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Année'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                          controller: _anneeCtrl,
-                          keyboardType: TextInputType.number),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Heures / Repas ───────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Heures effectuées'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                          controller: _heuresCtrl,
-                          keyboardType: TextInputType.number),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Nb repas'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                          controller: _repasCtrl,
-                          keyboardType: TextInputType.number),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Heures compl. / Entretien ────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Heures\ncomplémentaires'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                          controller: _heuresComplCtrl,
-                          keyboardType: TextInputType.number),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Indemnité entretien (€)'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                          controller: _entretienCtrl,
-                          keyboardType: TextInputType.number),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Commentaire ──────────────────────────────
-            _SheetLabel('Commentaire'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _commentaireCtrl,
-              maxLines: 4,
-              decoration: _sheetInputDeco().copyWith(
-                hintText: 'Notes éventuelles…',
-                hintStyle: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.hint),
-              ),
-              style: AppTextStyles.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Bouton ───────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.receipt_long_outlined, size: 20),
-                label: const Text('Générer la facture'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 52),
-                  textStyle: AppTextStyles.labelLarge
-                      .copyWith(fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-InputDecoration _sheetInputDeco() => InputDecoration(
-      filled: true,
-      fillColor: AppColors.background,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadii.sm),
-        borderSide: const BorderSide(color: AppColors.divider),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadii.sm),
-        borderSide: const BorderSide(color: AppColors.divider),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadii.sm),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-      ),
-    );
-
-class _SheetLabel extends StatelessWidget {
-  const _SheetLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: AppTextStyles.bodySmall.copyWith(
-          color: AppColors.primaryText,
-          fontWeight: FontWeight.w500,
-        ),
+  Future<void> _submit() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+    if (_familleCtrl.text.isEmpty ||
+        _enfantCtrl.text.isEmpty ||
+        _mois == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Veuillez remplir tous les champs obligatoires.')),
       );
-}
+      return;
+    }
 
-class _SheetField extends StatelessWidget {
-  const _SheetField({required this.controller, this.keyboardType, this.hint});
-  final TextEditingController controller;
-  final TextInputType? keyboardType;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) => TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: _sheetInputDeco().copyWith(
-          hintText: hint,
-          hintStyle:
-              AppTextStyles.bodyMedium.copyWith(color: AppColors.hint),
-        ),
-        style: AppTextStyles.bodyMedium,
-      );
-}
-
-// ─── Modal : Nouvelle promesse d'embauche ─────────────────────────────────────
-
-class _NewPromesseSheet extends StatefulWidget {
-  const _NewPromesseSheet();
-
-  @override
-  State<_NewPromesseSheet> createState() => _NewPromesseSheetState();
-}
-
-class _NewPromesseSheetState extends State<_NewPromesseSheet> {
-  final _familleCtrl = TextEditingController();
-  final _prenomCtrl = TextEditingController();
-  final _naissanceCtrl = TextEditingController();
-  final _debutCtrl = TextEditingController();
-  final _heuresCtrl = TextEditingController(text: '40');
-  final _joursCtrl = TextEditingController();
-  final _conditionsCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _familleCtrl.dispose();
-    _prenomCtrl.dispose();
-    _naissanceCtrl.dispose();
-    _debutCtrl.dispose();
-    _heuresCtrl.dispose();
-    _joursCtrl.dispose();
-    _conditionsCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate(TextEditingController ctrl) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2040),
-      locale: const Locale('fr'),
-    );
-    if (picked != null) {
-      ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-      setState(() {});
+    setState(() => _loading = true);
+    try {
+      final assmatProfile = ref.read(assmatProfileProvider).valueOrNull;
+      await ref.read(invoiceRepositoryProvider).createInvoice(
+            assmatUid: user.uid,
+            parentUid: '',
+            assmatName: assmatProfile?.firstName ?? user.displayName ?? '',
+            familyName: _familleCtrl.text.trim(),
+            childName: _enfantCtrl.text.trim(),
+            month: _mois!,
+            year: DateTime.now().year,
+            hours: double.tryParse(_heuresCtrl.text) ?? 0,
+            hourlyRate: double.tryParse(_tauxHoraireCtrl.text) ?? 0,
+            meals: int.tryParse(_repasCtrl.text) ?? 0,
+            mealRate: double.tryParse(_tauxRepasCtrl.text) ?? 0,
+            overtimeHours: double.tryParse(_heuresComplCtrl.text) ?? 0,
+            maintenanceAllowance: double.tryParse(_entretienCtrl.text) ?? 0,
+          );
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.md + bottom),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        top: AppSpacing.lg,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Header ──────────────────────────────────
-            Row(
-              children: [
-                const Spacer(),
-                Text(
-                  'Promesse d\'embauche',
-                  style: AppTextStyles.titleMedium
-                      .copyWith(fontWeight: FontWeight.w600),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  color: AppColors.secondaryText,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Nom famille / Prénom enfant ──────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Nom de la famille'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                        controller: _familleCtrl,
-                        hint: 'Famille…',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Prénom de l\'enfant'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                        controller: _prenomCtrl,
-                        hint: 'Prénom',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Dates ────────────────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Date de naissance\nenfant'),
-                      const SizedBox(height: 6),
-                      _SheetDateField(
-                        controller: _naissanceCtrl,
-                        onTap: () => _pickDate(_naissanceCtrl),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Date de début prévue'),
-                      const SizedBox(height: 6),
-                      _SheetDateField(
-                        controller: _debutCtrl,
-                        onTap: () => _pickDate(_debutCtrl),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Heures / Jours ───────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Heures / semaine\nprévues'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                        controller: _heuresCtrl,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _SheetLabel('Jours d\'accueil prévus'),
-                      const SizedBox(height: 6),
-                      _SheetField(
-                        controller: _joursCtrl,
-                        hint: 'Lundi – Vendredi',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Conditions particulières ─────────────────
-            _SheetLabel('Conditions particulières'),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _conditionsCtrl,
-              maxLines: 4,
-              decoration: _sheetInputDeco().copyWith(
-                hintText: 'Conditions spécifiques…',
-                hintStyle: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.hint),
+      child: Form(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              HandleBar(),
+              const SizedBox(height: AppSpacing.md),
+              Text('Nouvelle facture',
+                  style: AppTextStyles.titleLarge
+                      .copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _familleCtrl,
+                decoration: const InputDecoration(labelText: 'Nom de la famille *'),
               ),
-              style: AppTextStyles.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // ── Bouton ───────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.description_outlined, size: 20),
-                label: const Text('Générer la promesse'),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _enfantCtrl,
+                decoration: const InputDecoration(labelText: "Prénom de l'enfant *"),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              DropdownButtonFormField<int>(
+                value: _mois,
+                decoration: const InputDecoration(labelText: 'Mois *'),
+                items: List.generate(12, (i) => DropdownMenuItem(
+                  value: i + 1,
+                  child: Text(_months[i]),
+                )),
+                onChanged: (v) => setState(() => _mois = v),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _heuresCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Heures d'accueil"),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _tauxHoraireCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Taux horaire (€)'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _repasCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Repas'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _tauxRepasCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Prix repas (€)'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _heuresComplCtrl,
+                keyboardType: TextInputType.number,
+                decoration:
+                    const InputDecoration(labelText: 'Heures complémentaires'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _entretienCtrl,
+                keyboardType: TextInputType.number,
+                decoration:
+                    const InputDecoration(labelText: "Frais d'entretien (€)"),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton(
+                onPressed: _loading ? null : _submit,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 52),
-                  textStyle: AppTextStyles.labelLarge
-                      .copyWith(fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                  ),
+                  minimumSize: const Size(double.infinity, 48),
                 ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Créer la facture'),
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.lg),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _SheetDateField extends StatelessWidget {
-  const _SheetDateField({required this.controller, required this.onTap});
-  final TextEditingController controller;
-  final VoidCallback onTap;
+class HandleBar extends StatelessWidget {
+  const HandleBar();
 
   @override
-  Widget build(BuildContext context) => TextFormField(
-        controller: controller,
-        readOnly: true,
-        onTap: onTap,
-        decoration: _sheetInputDeco().copyWith(
-          hintText: 'jj/mm/aaaa',
-          hintStyle:
-              AppTextStyles.bodyMedium.copyWith(color: AppColors.hint),
-          suffixIcon: const Icon(Icons.calendar_today_outlined,
-              size: 18, color: AppColors.secondaryText),
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.divider,
+          borderRadius: BorderRadius.circular(2),
         ),
-        style: AppTextStyles.bodyMedium,
-      );
+      ),
+    );
+  }
 }

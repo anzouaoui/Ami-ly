@@ -49,6 +49,8 @@ class AssmatProfileModel {
     this.isIdentityVerified = false,
     this.identityVerifiedAt,
     this.homePhotos = const [],
+    this.stripeConnected = false,
+    this.stripeAccountId,
   });
 
   final String uid;
@@ -121,6 +123,10 @@ class AssmatProfileModel {
   final DateTime? identityVerifiedAt;
   final List<String> homePhotos;
 
+  /// Stripe Connect
+  final bool stripeConnected;
+  final String? stripeAccountId;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -173,6 +179,8 @@ class AssmatProfileModel {
       isIdentityVerified: data['isIdentityVerified'] as bool? ?? false,
       identityVerifiedAt: (data['identityVerifiedAt'] as Timestamp?)?.toDate(),
       homePhotos: List<String>.from(data['homePhotos'] as List? ?? []),
+      stripeConnected: data['stripeConnected'] as bool? ?? false,
+      stripeAccountId: data['stripeAccountId'] as String?,
     );
   }
 
@@ -224,6 +232,8 @@ class AssmatProfileModel {
         if (identityVerifiedAt != null)
           'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt!),
         'homePhotos': homePhotos,
+        'stripeConnected': stripeConnected,
+        if (stripeAccountId != null) 'stripeAccountId': stripeAccountId,
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -290,6 +300,9 @@ class AssmatProfileModel {
     DateTime? identityVerifiedAt,
     bool clearIdentityVerifiedAt = false,
     List<String>? homePhotos,
+    bool? stripeConnected,
+    String? stripeAccountId,
+    bool clearStripeAccountId = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -344,5 +357,9 @@ class AssmatProfileModel {
             ? null
             : (identityVerifiedAt ?? this.identityVerifiedAt),
         homePhotos: homePhotos ?? this.homePhotos,
+        stripeConnected: stripeConnected ?? this.stripeConnected,
+        stripeAccountId: clearStripeAccountId
+            ? null
+            : (stripeAccountId ?? this.stripeAccountId),
       );
 }

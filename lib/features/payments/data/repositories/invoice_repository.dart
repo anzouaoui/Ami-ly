@@ -1,14 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/firebase_service.dart';
 import '../models/invoice_model.dart';
 
 class InvoiceRepository {
-  InvoiceRepository({required FirebaseService firebaseService})
-      : _firestore = firebaseService.firestore;
+  InvoiceRepository({
+    required FirebaseService firebaseService,
+    FirebaseFunctions? functions,
+  })  : _firestore = firebaseService.firestore,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   CollectionReference<Map<String, dynamic>> get _invoices =>
       _firestore.collection('invoices');
@@ -31,7 +36,8 @@ class InvoiceRepository {
     final baseSalary = hours * hourlyRate;
     final mealCost = meals * mealRate;
     final overtimeAmount = overtimeHours * hourlyRate * 1.25;
-    final totalAmount = baseSalary + mealCost + overtimeAmount + maintenanceAllowance;
+    final totalAmount =
+        baseSalary + mealCost + overtimeAmount + maintenanceAllowance;
 
     final doc = _invoices.doc();
     final invoice = InvoiceModel(
@@ -80,33 +86,27 @@ class InvoiceRepository {
   }
 
   Future<String> getOnboardingLink(String assmatUid) async {
-    final result = await FirebaseFirestore.instance
-        .collection('_callables')
-        .doc('createStripeOnboardingLink')
-        .collection('calls')
-        .add({
+    final result =
+        await _functions.httpsCallable('createStripeOnboardingLink').call({
       'assmatUid': assmatUid,
-      'createdAt': FieldValue.serverTimestamp(),
     });
-
-    final snap = await result.get();
-    final data = snap.data();
-    return data?['url'] as String? ?? '';
+    return result.data['url'] as String;
   }
 
   Future<bool> checkStripeConnected(String assmatUid) async {
-    final result = await FirebaseFirestore.instance
-        .collection('_callables')
-        .doc('checkStripeAccountStatus')
-        .collection('calls')
-        .add({
+    final result =
+        await _functions.httpsCallable('checkStripeAccountStatus').call({
       'assmatUid': assmatUid,
-      'createdAt': FieldValue.serverTimestamp(),
     });
+    return result.data['connected'] as bool;
+  }
 
-    final snap = await result.get();
-    final data = snap.data();
-    return data?['connected'] as bool? ?? false;
+  Future<String> createPaymentIntent(String invoiceId) async {
+    final result =
+        await _functions.httpsCallable('createPaymentIntent').call({
+      'invoiceId': invoiceId,
+    });
+    return result.data['clientSecret'] as String;
   }
 }
 

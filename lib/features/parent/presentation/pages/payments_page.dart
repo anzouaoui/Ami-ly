@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/services/stripe_service.dart';
 import '../../../payments/data/models/invoice_model.dart';
+import '../../../payments/data/repositories/invoice_repository.dart';
 import '../../../payments/presentation/providers/invoice_providers.dart';
 import '../widgets/parent_navigation_drawer.dart';
 
@@ -142,29 +143,25 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _ParentInvoiceTile extends StatefulWidget {
+class _ParentInvoiceTile extends ConsumerStatefulWidget {
   const _ParentInvoiceTile({required this.invoice});
   final InvoiceModel invoice;
 
   @override
-  State<_ParentInvoiceTile> createState() => _ParentInvoiceTileState();
+  ConsumerState<_ParentInvoiceTile> createState() =>
+      _ParentInvoiceTileState();
 }
 
-class _ParentInvoiceTileState extends State<_ParentInvoiceTile> {
+class _ParentInvoiceTileState extends ConsumerState<_ParentInvoiceTile> {
   bool _isPaying = false;
 
   Future<void> _pay() async {
-    final secret = widget.invoice.stripeClientSecret;
-    if (secret == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Erreur: Facture non initialisée avec Stripe')),
-      );
-      return;
-    }
-
     setState(() => _isPaying = true);
     try {
+      final repo = ref.read(invoiceRepositoryProvider);
+      final secret =
+          await repo.createPaymentIntent(widget.invoice.id);
+
       final success = await StripeService.payInvoice(
         clientSecret: secret,
         assmatName: widget.invoice.assmatName,
