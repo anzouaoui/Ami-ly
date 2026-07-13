@@ -170,6 +170,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── invoices/{invoiceId} ───────────────────────────────────────────────────
+    // Factures créées par l'assmat, payées par le parent via Stripe.
+    //   Création : l'uid de l'assmat correspond à l'utilisateur authentifié.
+    //   Lecture : l'assmat ou le parent concerné.
+    //   Mise à jour : l'assmat (statut, contenu) ou le parent (stripeClientSecret
+    //                 mis à jour par createPaymentIntent).
+    //   Suppression : interdite.
+    match /invoices/{invoiceId} {
+      function isParticipant() {
+        return isAuth() && (
+          resource.data.assmatUid == request.auth.uid ||
+          resource.data.parentUid == request.auth.uid
+        );
+      }
+
+      allow create: if isAuth() &&
+        request.resource.data.assmatUid == request.auth.uid;
+      allow read:   if isParticipant();
+      allow update: if isParticipant();
+      allow delete: if false;
+    }
+
     // ── Blocage par défaut ───────────────────────────────────────────────────
     // Toute collection non listée ci-dessus est refusée.
     match /{document=**} {
