@@ -1,6 +1,5 @@
 const functions = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { defineSecret } = require('firebase-functions/v2/params');
 const admin = require('firebase-admin');
 const docusign = require('docusign-esign');
 
@@ -414,8 +413,6 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const STRIPE_WEBHOOK_SECRET = functions.defineSecret('stripe_webhook_secret');
-
 /**
  * Crée un lien d'onboarding Stripe Connect Express pour une assmat.
  * Appelé par le client Flutter (assmat_invoice_page).
@@ -560,7 +557,6 @@ exports.createPaymentIntent = functions.onCall(
  * et met à jour le statut de la facture dans Firestore.
  */
 exports.stripeWebhook = functions.onRequest(
-  { secrets: [STRIPE_WEBHOOK_SECRET] },
   async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
