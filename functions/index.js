@@ -1,5 +1,6 @@
 const functions = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { defineSecret } = require('firebase-functions/v2/params');
 const admin = require('firebase-admin');
 const docusign = require('docusign-esign');
 
