@@ -20,7 +20,7 @@ final videoCallDatasourceProvider = Provider<VideoCallRemoteDatasource>((ref) {
   final firebase = ref.watch(firebaseServiceProvider);
   return VideoCallRemoteDatasource(
     firestore: firebase.firestore,
-    functions: FirebaseFunctions.instance,
+    functions: FirebaseFunctions.instanceFor(region: 'europe-west1'),
   );
 });
 
