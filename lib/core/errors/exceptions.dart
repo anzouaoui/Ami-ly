@@ -23,3 +23,11 @@ class StorageException implements Exception {
   @override
   String toString() => 'StorageException: $message';
 }
+
+class VideoCallException implements Exception {
+  VideoCallException(this.message);
+  final String message;
+
+  @override
+  String toString() => 'VideoCallException: $message';
+}

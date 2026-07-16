@@ -6,6 +6,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/services/visio_service.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -942,10 +943,20 @@ class _VisioCard extends ConsumerWidget {
     );
   }
 
-  void _joinVisio(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('La visioconférence arrivera bientôt !')),
-    );
+  Future<void> _joinVisio(BuildContext context) async {
+    if (convId == null) return;
+    try {
+      await VisioService.joinVisio(
+        conversationId: convId!,
+        userName: parentUid ?? 'Parent',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de lancer la visio : $e')),
+        );
+      }
+    }
   }
 
   Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {

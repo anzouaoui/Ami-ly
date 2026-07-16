@@ -65,7 +65,9 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ami-ly a besoin d'accéder à votre galerie pour choisir une photo de profil.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Ami-ly a besoin d'accéder à votre appareil photo pour prendre une photo de profil.</string>
+	<string>Ami-ly a besoin d'accéder à votre appareil photo pour les visioconférences et les photos de profil.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ami-ly a besoin d'accéder à votre microphone pour les visioconférences.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

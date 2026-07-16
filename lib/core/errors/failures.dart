@@ -29,3 +29,7 @@ class NetworkFailure extends Failure {
 class UnknownFailure extends Failure {
   const UnknownFailure([super.message = 'Une erreur inattendue est survenue.']);
 }
+
+class VideoCallFailure extends Failure {
+  const VideoCallFailure(super.message);
+}
