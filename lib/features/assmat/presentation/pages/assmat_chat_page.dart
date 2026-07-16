@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,7 +6,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../core/services/visio_service.dart';
+import '../../../video_call/presentation/providers/video_call_providers.dart';
+import '../../../video_call/presentation/screens/video_call_screen.dart';
 import '../../../../shared/models/message_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -534,11 +536,42 @@ class _AssmatVisioCard extends ConsumerWidget {
 
   Future<void> _joinVisio(BuildContext context, WidgetRef ref) async {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final parentUid = conversationId.split('_').last;
+
+    // Récupère le nom du parent depuis Firestore
+    String parentName = 'Parent';
     try {
-      await VisioService.joinVisio(
-        conversationId: conversationId,
-        userName: currentUser?.displayName ?? 'Assistante maternelle',
+      final doc = await FirebaseFirestore.instance
+          .collection('parents')
+          .doc(parentUid)
+          .get();
+      if (doc.exists) {
+        final data = doc.data();
+        final first = data?['firstName'] as String? ?? '';
+        final last = data?['lastName'] as String? ?? '';
+        parentName = '$first $last'.trim();
+        if (parentName.isEmpty) parentName = 'Parent';
+      }
+    } catch (_) {}
+
+    final controller = ref.read(videoCallControllerProvider.notifier);
+    try {
+      await controller.startCall(
+        callerId: currentUser.uid,
+        calleeId: parentUid,
+        callerName: currentUser.displayName ?? 'Assistante maternelle',
+        calleeName: parentName,
       );
+      final callId = ref.read(videoCallControllerProvider).call?.id;
+      if (callId != null && context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => VideoCallScreen(callId: callId),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

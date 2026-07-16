@@ -6,11 +6,12 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../../../core/services/visio_service.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
+import '../../../video_call/presentation/providers/video_call_providers.dart';
+import '../../../video_call/presentation/screens/video_call_screen.dart';
 import '../../../../shared/models/message_model.dart';
 import 'engagement_contract_page.dart';
 
@@ -766,7 +767,7 @@ class _VisioCard extends ConsumerWidget {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: convId != null
-                                ? () => _joinVisio(context)
+                                ? () => _joinVisio(context, ref)
                                 : null,
                             icon: const Icon(Icons.videocam_rounded, size: 16),
                             label: const Text('Rejoindre la visio'),
@@ -943,13 +944,27 @@ class _VisioCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _joinVisio(BuildContext context) async {
+  Future<void> _joinVisio(BuildContext context, WidgetRef ref) async {
     if (convId == null) return;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final controller = ref.read(videoCallControllerProvider.notifier);
     try {
-      await VisioService.joinVisio(
-        conversationId: convId!,
-        userName: parentUid ?? 'Parent',
+      await controller.startCall(
+        callerId: currentUser.uid,
+        calleeId: assmatUid ?? '',
+        callerName: currentUser.displayName ?? 'Parent',
+        calleeName: assmatName ?? 'Assistante maternelle',
       );
+      final callId = ref.read(videoCallControllerProvider).call?.id;
+      if (callId != null && context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => VideoCallScreen(callId: callId),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
