@@ -316,6 +316,7 @@ class _AssmatVisioCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final effectiveStatus = responseStatus ?? message.visioStatus;
+    final bool isAccepted = effectiveStatus == VisioStatus.accepted;
     final (Color bgColor, Color borderColor, String statusText) =
         switch (effectiveStatus) {
       VisioStatus.accepted => (
@@ -459,6 +460,46 @@ class _AssmatVisioCard extends ConsumerWidget {
                 ],
               ),
             ],
+            // ── Visio acceptée : rejoindre / terminer ──────────────────
+            if (isAccepted) ...[
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _joinVisio(context),
+                      icon: const Icon(Icons.videocam_rounded, size: 16),
+                      label: const Text('Rejoindre la visio'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _markCompleted(context, ref),
+                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                      label: const Text('Visio terminée'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.success,
+                        side: BorderSide.none,
+                        backgroundColor: AppColors.success.withValues(alpha: 0.08),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -488,6 +529,46 @@ class _AssmatVisioCard extends ConsumerWidget {
             status: status,
           );
     } catch (_) {}
+  }
+
+  void _joinVisio(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('La visioconférence arrivera bientôt !')),
+    );
+  }
+
+  Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final datasource = ref.read(messagingDatasourceProvider);
+    try {
+      await datasource.respondToVisio(
+        convId: conversationId,
+        msgId: message.id,
+        status: VisioStatus.completed,
+        responderIsParent: false,
+        responderUid: currentUser.uid,
+      );
+
+      // Notification in-app pour le parent
+      try {
+        final parentUid = conversationId.split('_').first;
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: parentUid,
+              senderUid: currentUser.uid,
+              senderName: currentUser.displayName ?? 'Une assistante maternelle',
+              conversationId: conversationId,
+              status: VisioStatus.completed,
+            );
+      } catch (_) {}
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
   }
 }
 
