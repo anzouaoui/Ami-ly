@@ -226,16 +226,17 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                   ),
 
                   // Vidéo locale (petite fenêtre)
-                  Positioned(
-                    right: 16,
-                    top: 16,
-                    width: 120,
-                    height: 160,
-                    child: LocalVideoView(
-                      engine: _engine!,
-                      enabled: videoState.isVideoEnabled,
+                  if (!_isLoading && _engine != null)
+                    Positioned(
+                      right: 16,
+                      top: 16,
+                      width: 120,
+                      height: 160,
+                      child: LocalVideoView(
+                        engine: _engine!,
+                        enabled: videoState.isVideoEnabled,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
