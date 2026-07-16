@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -14,8 +15,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Logique d'arrière-plan si nécessaire
   debugPrint("Handling a background message: ${message.messageId}");
+}
+
+void _initDeferredServices() {
+  StripeService.initStripe();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 }
 
 Future<void> main() async {
@@ -25,13 +30,13 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  StripeService.initStripe();
-
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
   runApp(
     const ProviderScope(
       child: AmilyApp(),
     ),
   );
+
+  SchedulerBinding.instance.addPostFrameCallback((_) {
+    _initDeferredServices();
+  });
 }
