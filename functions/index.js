@@ -1,6 +1,6 @@
 const functions = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { defineSecret } = require('firebase-functions/params');
+const { defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const docusign = require('docusign-esign');
 
@@ -414,7 +414,7 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const STRIPE_WEBHOOK_SECRET = defineSecret('stripe_webhook_secret');
+const STRIPE_WEBHOOK_SECRET = defineString('STRIPE_WEBHOOK_SECRET');
 
 /**
  * Crée un lien d'onboarding Stripe Connect Express pour une assmat.
