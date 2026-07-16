@@ -89,7 +89,10 @@ class VideoCallRemoteDatasource {
       });
       return result.data['token'] as String;
     } on FirebaseFunctionsException catch (e) {
-      throw VideoCallException(e.message ?? 'Erreur génération token Agora');
+      final msg = e.code == 'not-found'
+          ? 'Cloud Function generateAgoraToken non déployée. Lancez: firebase deploy --only functions'
+          : e.message ?? 'Erreur génération token Agora';
+      throw VideoCallException(msg);
     }
   }
 }
