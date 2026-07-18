@@ -10,6 +10,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../contract/data/models/contract_model.dart';
+import '../../../messaging/providers/messaging_providers.dart';
 import '../../../parent/presentation/widgets/action_list_button.dart';
 import '../../../parent/presentation/widgets/stat_card.dart';
 import 'assmat_invoice_page.dart';
@@ -1210,6 +1211,7 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final unreadMessages = ref.watch(assmatUnreadMessageCountProvider);
 
     return Drawer(
       backgroundColor: AppColors.background,
@@ -1368,7 +1370,7 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                     _DrawerItem(
                       icon: Icons.chat_bubble_outline_rounded,
                       label: 'Messages',
-                      badgeCount: 3,
+                      badgeCount: unreadMessages > 0 ? unreadMessages : null,
                       onTap: () => _go(const AssMatMessagesPage()),
                     ),
                     _DrawerItem(

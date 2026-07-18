@@ -7,6 +7,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../messaging/providers/messaging_providers.dart';
 import '../pages/assistant_page.dart';
 import '../pages/book_year_page.dart';
 import '../pages/contract_page.dart';
@@ -59,6 +60,7 @@ class _ParentNavigationDrawerState
   @override
   Widget build(BuildContext context) {
     final currentTab = ref.watch(parentShellIndexProvider);
+    final unreadMessages = ref.watch(parentUnreadMessageCountProvider);
     return Drawer(
       backgroundColor: AppColors.background,
       width: 300,
@@ -222,6 +224,7 @@ class _ParentNavigationDrawerState
                     _DrawerItem(
                       icon: Icons.chat_bubble_outline_rounded,
                       label: 'Messages',
+                      badgeCount: unreadMessages > 0 ? unreadMessages : null,
                       onTap: () => _go(const MessagesPage()),
                     ),
                     _DrawerItem(

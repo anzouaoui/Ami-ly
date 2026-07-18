@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/services/badge_service.dart';
 import '../../../../core/widgets/app_error_screen.dart';
 import '../../../../core/widgets/app_splash_screen.dart';
 import '../../../../shared/models/user_role.dart';
@@ -11,6 +12,7 @@ import '../../../parent/presentation/pages/parent_shell.dart';
 import '../providers/auth_providers.dart';
 import '../../../../core/services/push_notification_service.dart';
 import '../../../../core/helpers/notification_navigation_helper.dart';
+import '../../../notifications/presentation/providers/notifications_providers.dart';
 import '../../../../app/app.dart';
 
 /// Widget racine qui décide quoi afficher selon l'état d'authentification
@@ -64,6 +66,12 @@ class AuthWrapper extends ConsumerWidget {
         }
       }
     };
+
+    // ── App icon badge ────────────────────────────────────────────────────────
+    ref.listen(unreadNotificationsCountProvider, (previous, next) {
+      final count = next.valueOrNull ?? 0;
+      BadgeService.setCount(count);
+    });
 
     final userAsync = ref.watch(currentUserProvider);
 

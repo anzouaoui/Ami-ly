@@ -383,23 +383,25 @@ class _ConversationTile extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
-                        SizedBox(
-                          height: 28,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => EngagementContractPage(
-                                  assmatUid: conv.assmatUid,
-                                  assmatName: conv.assmatName,
+                        Flexible(
+                          child: SizedBox(
+                            height: 28,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => EngagementContractPage(
+                                    assmatUid: conv.assmatUid,
+                                    assmatName: conv.assmatName,
+                                  ),
                                 ),
                               ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                textStyle: const TextStyle(fontSize: 11),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(actionLabel, overflow: TextOverflow.ellipsis),
                             ),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              textStyle: const TextStyle(fontSize: 11),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            child: Text(actionLabel),
                           ),
                         ),
                       ],

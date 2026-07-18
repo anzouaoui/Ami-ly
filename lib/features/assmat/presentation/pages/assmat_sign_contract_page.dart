@@ -10,14 +10,11 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../contract/data/models/contract_form_data.dart';
 import '../../../contract/data/models/contract_model.dart';
-import '../../../contract/data/models/signature_audit_model.dart';
 import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
-import '../../../contract/presentation/widgets/in_app_signature_widget.dart';
 import '../../../../core/services/firebase_service.dart';
-import '../../../../core/models/notification_model.dart';
-import '../../../../core/services/notification_service.dart';
+import '../../../notifications/presentation/providers/notification_triggers.dart';
 
 class AssmatSignContractPage extends ConsumerWidget {
   const AssmatSignContractPage({super.key});
@@ -369,7 +366,6 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
             ? formData.prenomEnfant
             : 'l\'enfant';
     final isEngagement = contractType == 'engagement';
-    final documentLabel = isEngagement ? "l'engagement réciproque" : 'le contrat CDI';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -457,28 +453,20 @@ class _AssmatSignContractDetailPage extends ConsumerWidget {
                                 final parentUid =
                                     contractDoc.data()?['parentUid'] as String? ?? '';
                                 if (parentUid.isNotEmpty) {
-                                  final notifService = ref.read(notificationServiceProvider);
-                                  await notifService.createNotification(
+                                  final trigRef = ref.read(notificationTriggersProvider);
+                                  await trigRef.onContractSigned(
                                     recipientUid: parentUid,
                                     senderUid: assmatUid,
-                                    type: NotificationType.contractSigned,
                                     contractId: contractId,
-                                    title: isEngagement
-                                        ? "Engagement réciproque signé"
-                                        : 'Contrat signé',
-                                    body: isEngagement
-                                        ? "L'assistante maternelle a signé l'engagement réciproque."
-                                        : "L'assistante maternelle a signé le contrat CDI.",
+                                    senderIsParent: false,
+                                    childName: childName,
                                   );
-
-                                  // Notification contrat activé
-                                  await notifService.createNotification(
+                                  await trigRef.onContractStatusChanged(
                                     recipientUid: parentUid,
                                     senderUid: assmatUid,
-                                    type: NotificationType.contractStatusChanged,
                                     contractId: contractId,
-                                    title: 'Contrat activé',
-                                    body: 'Le contrat est maintenant actif.',
+                                    newStatus: 'active',
+                                    childName: childName,
                                   );
                                 }
                               } catch (_) {}

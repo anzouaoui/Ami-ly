@@ -341,10 +341,33 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
     return;
   }
 
+  // Compter les notifications non lues pour le badge iOS
+  const unreadSnapshot = await db
+    .collection('notifications')
+    .where('recipientUid', '==', recipientUid)
+    .where('read', '==', false)
+    .count()
+    .get();
+  const unreadCount = unreadSnapshot.data().count;
+
   const payload = {
     notification: {
       title: notification.title || 'Nouvelle notification',
       body: notification.body || '',
+    },
+    android: {
+      notification: {
+        channelId: 'amily_high_importance_channel',
+        priority: 'high',
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: 'default',
+          badge: unreadCount,
+        },
+      },
     },
     data: {
       type: notification.type || 'unknown',
@@ -358,6 +381,8 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
     const response = await admin.messaging().sendEachForMulticast({
       tokens: tokens,
       notification: payload.notification,
+      android: payload.android,
+      apns: payload.apns,
       data: payload.data,
       android: {
         priority: 'high',
@@ -397,3 +422,305 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
     console.error('Error sending push notification:', error);
   }
 });
+
+// ──────────────────────────────────────────────
+// Stripe Connect
+// ──────────────────────────────────────────────
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+/**
+ * Crée un lien d'onboarding Stripe Connect Express pour une assmat.
+ * Appelé par le client Flutter (assmat_invoice_page).
+ */
+exports.createStripeOnboardingLink = functions.onCall(
+  { secrets: [] },
+  async (request) => {
+    const { assmatUid } = request.data;
+    if (!assmatUid) {
+      throw new functions.HttpsError('invalid-argument', 'assmatUid requis');
+    }
+
+    const db = admin.firestore();
+    const usersRef = db.collection('users').doc(assmatUid);
+    const userSnap = await usersRef.get();
+    const email = userSnap.data()?.email;
+
+    // Créer ou récupérer le compte Stripe Connect existant
+    const assmatRef = db.collection('assmats').doc(assmatUid);
+    const assmatSnap = await assmatRef.get();
+    let stripeAccountId = assmatSnap.data()?.stripeAccountId;
+
+    if (!stripeAccountId) {
+      const account = await stripe.accounts.create({
+        type: 'express',
+        email,
+        capabilities: {
+          transfers: { requested: true },
+        },
+        business_type: 'individual',
+      });
+      stripeAccountId = account.id;
+      await assmatRef.update({ stripeAccountId });
+    }
+
+    // Générer le lien d'onboarding
+    const accountLink = await stripe.accountLinks.create({
+      account: stripeAccountId,
+      refresh_url: 'https://ami-ly.app/reauth',
+      return_url: 'https://ami-ly.app/dashboard',
+      type: 'account_onboarding',
+    });
+
+    return { url: accountLink.url };
+  }
+);
+
+/**
+ * Vérifie si le compte Stripe Connect d'une assmat est actif.
+ */
+exports.checkStripeAccountStatus = functions.onCall(
+  { secrets: [] },
+  async (request) => {
+    const { assmatUid } = request.data;
+    if (!assmatUid) {
+      throw new functions.HttpsError('invalid-argument', 'assmatUid requis');
+    }
+
+    const db = admin.firestore();
+    const assmatRef = db.collection('assmats').doc(assmatUid);
+    const assmatSnap = await assmatRef.get();
+    const stripeAccountId = assmatSnap.data()?.stripeAccountId;
+
+    if (!stripeAccountId) {
+      return { connected: false };
+    }
+
+    try {
+      const account = await stripe.accounts.retrieve(stripeAccountId);
+      const connected = account.charges_enabled && account.payouts_enabled;
+      if (connected !== assmatSnap.data()?.stripeConnected) {
+        await assmatRef.update({ stripeConnected: connected });
+      }
+      return { connected };
+    } catch (e) {
+      console.error('checkStripeAccountStatus error:', e);
+      return { connected: false };
+    }
+  }
+);
+
+/**
+ * Crée un PaymentIntent Stripe, sauvegarde le client_secret dans Firestore,
+ * et configure le transfert vers le compte Stripe Connect de l'assmat.
+ */
+exports.createPaymentIntent = functions.onCall(
+  { secrets: [] },
+  async (request) => {
+    const { invoiceId } = request.data;
+    if (!invoiceId) {
+      throw new functions.HttpsError('invalid-argument', 'invoiceId requis');
+    }
+
+    const db = admin.firestore();
+    const invoiceRef = db.collection('invoices').doc(invoiceId);
+    const invoiceSnap = await invoiceRef.get();
+
+    if (!invoiceSnap.exists) {
+      throw new functions.HttpsError('not-found', 'Facture introuvable');
+    }
+
+    const invoice = invoiceSnap.data();
+    const assmatRef = db.collection('assmats').doc(invoice.assmatUid);
+    const assmatSnap = await assmatRef.get();
+    const stripeAccountId = assmatSnap.data()?.stripeAccountId;
+
+    if (!stripeAccountId) {
+      throw new functions.HttpsError(
+        'failed-precondition',
+        "L'assmat n'a pas de compte Stripe Connect"
+      );
+    }
+
+    const amountCents = Math.round(invoice.totalAmount * 100);
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'eur',
+      automatic_payment_methods: { enabled: true },
+      transfer_data: {
+        destination: stripeAccountId,
+      },
+      metadata: {
+        invoiceId,
+        assmatUid: invoice.assmatUid,
+      },
+    });
+
+    await invoiceRef.update({
+      stripePaymentIntentId: paymentIntent.id,
+      stripeClientSecret: paymentIntent.client_secret,
+    });
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+    };
+  }
+);
+
+/**
+ * Webhook Stripe : écoute les événements payment_intent.succeeded/failed
+ * et met à jour le statut de la facture dans Firestore.
+ */
+exports.stripeWebhook = functions.onRequest(
+  { secrets: [] },
+  async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.rawBody,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
+    }
+
+    const db = admin.firestore();
+
+    switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object;
+        const invoiceId = paymentIntent.metadata.invoiceId;
+
+        await db.collection('invoices').doc(invoiceId).update({
+          status: 'paid',
+          paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Notification pour l'assmat
+        const invoiceSnap = await db.collection('invoices').doc(invoiceId).get();
+        const invoiceData = invoiceSnap.data();
+        if (invoiceData?.assmatUid) {
+          await db.collection('notifications').add({
+            recipientUid: invoiceData.assmatUid,
+            type: 'invoicePaid',
+            title: 'Facture payée !',
+            body: `La famille ${invoiceData.familyName ?? ''} a réglé la facture de ${(paymentIntent.amount / 100).toFixed(2)} €.`,
+            read: false,
+            invoiceId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        break;
+      }
+
+      case 'payment_intent.payment_failed': {
+        const paymentIntent = event.data.object;
+        const invoiceId = paymentIntent.metadata.invoiceId;
+
+        await db.collection('invoices').doc(invoiceId).update({
+          status: 'failed',
+        });
+
+        // Notification pour l'assmat
+        const invoiceSnap = await db.collection('invoices').doc(invoiceId).get();
+        const invoiceData = invoiceSnap.data();
+        if (invoiceData?.assmatUid) {
+          await db.collection('notifications').add({
+            recipientUid: invoiceData.assmatUid,
+            type: 'invoicePaymentFailed',
+            title: 'Paiement échoué',
+            body: `Le paiement de la facture pour ${invoiceData.familyName ?? ''} a échoué.`,
+            read: false,
+            invoiceId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        break;
+      }
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
+    }
+
+    res.json({ received: true });
+  }
+);
+
+// ─── Agora Token Generation ───────────────────────────────────────────────
+
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
+
+const AGORA_APP_ID = process.env.AGORA_APP_ID;
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+
+exports.generateAgoraToken = functions.onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    // 1. Vérifier l'authentification
+    if (!request.auth) {
+      throw new functions.HttpsError(
+        'unauthenticated',
+        'Utilisateur non authentifié.'
+      );
+    }
+
+    const { channelName, uid } = request.data;
+
+    if (!channelName || uid === undefined) {
+      throw new functions.HttpsError(
+        'invalid-argument',
+        'channelName et uid requis.'
+      );
+    }
+
+    // 2. Vérifier que l'utilisateur est bien participant à l'appel
+    const caller = request.auth.uid;
+
+    // Chercher le document call correspondant au channelName
+    const callsRef = admin.firestore().collection('calls');
+    const callSnapshot = await callsRef
+      .where('channelName', '==', channelName)
+      .limit(1)
+      .get();
+
+    if (callSnapshot.empty) {
+      throw new functions.HttpsError(
+        'not-found',
+        'Aucun appel trouvé pour ce canal.'
+      );
+    }
+
+    const callData = callSnapshot.docs[0].data();
+    if (callData.callerId !== caller && callData.calleeId !== caller) {
+      throw new functions.HttpsError(
+        'permission-denied',
+        'Vous n\'êtes pas participant à cet appel.'
+      );
+    }
+
+    // 3. Générer le token Agora (TTL: 3600 secondes)
+    const expirationTimeInSeconds = 3600;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpireTime = currentTimestamp + expirationTimeInSeconds;
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      AGORA_APP_ID,
+      AGORA_APP_CERTIFICATE,
+      channelName,
+      uid,
+      RtcRole.PUBLISHER,
+      privilegeExpireTime
+    );
+
+    return {
+      token,
+      expiration: privilegeExpireTime,
+    };
+  }
+);

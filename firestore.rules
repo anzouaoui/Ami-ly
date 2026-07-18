@@ -170,6 +170,34 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── calls/{callId} ────────────────────────────────────────────────────────
+    // Appels vidéo 1-to-1 entre parent et assmat.
+    //   Création : tout utilisateur authentifié (qui est caller ou callee).
+    //   Lecture : les participants de l'appel.
+    //   Mise à jour : les participants de l'appel.
+    //   Suppression : interdite.
+    match /calls/{callId} {
+      function isCallParticipant() {
+        return isAuth() && (
+          resource.data.callerId == request.auth.uid ||
+          resource.data.calleeId == request.auth.uid
+        );
+      }
+
+      function isCallParticipantOnCreate() {
+        let data = request.resource.data;
+        return isAuth() && (
+          request.auth.uid == data.callerId ||
+          request.auth.uid == data.calleeId
+        );
+      }
+
+      allow read: if isCallParticipant();
+      allow create: if isCallParticipantOnCreate();
+      allow update: if isCallParticipant();
+      allow delete: if false;
+    }
+
     // ── Blocage par défaut ───────────────────────────────────────────────────
     // Toute collection non listée ci-dessus est refusée.
     match /{document=**} {

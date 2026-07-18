@@ -41,10 +41,13 @@ class PushNotificationService {
     _listenBackground();
   }
 
+  static const _androidChannelId = 'amily_high_importance_channel';
+  static const _androidChannelName = 'Ami-ly Notifications';
+
   Future<void> _initLocalNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    
+
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -83,17 +86,50 @@ class PushNotificationService {
         }
       },
     );
+
+    if (Platform.isAndroid) {
+      await _createAndroidChannel();
+    }
   }
 
-  /// Demande de permission (iOS principalement, Android l'accorde par défaut).
+  Future<void> _createAndroidChannel() async {
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+
+    const channel = AndroidNotificationChannel(
+      _androidChannelId,
+      _androidChannelName,
+      importance: Importance.max,
+      description: 'Notifications de messages, contrats et visio Ami-ly',
+    );
+    await androidPlugin.createNotificationChannel(channel);
+    debugPrint('[PushNotif] Android channel created: $_androidChannelId');
+  }
+
+  /// Demande de permission (iOS : popup natif, Android 13+ : POST_NOTIFICATIONS).
   Future<void> _requestPermission() async {
+    // FirebaseMessaging.requestPermission() gère le popup iOS.
     final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
     );
-    debugPrint('[PushNotif] Permission: ${settings.authorizationStatus}');
+    debugPrint('[PushNotif] FCM Permission: ${settings.authorizationStatus}');
+
+    // Sur Android 13+ (API 33), il faut aussi demander la permission
+    // POST_NOTIFICATIONS via flutter_local_notifications.
+    if (Platform.isAndroid) {
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final granted = await androidPlugin.requestNotificationsPermission();
+        debugPrint('[PushNotif] Android local notif permission: $granted');
+      }
+    }
   }
 
   /// Enregistre le token FCM dans le document utilisateur.
@@ -142,8 +178,8 @@ class PushNotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'amily_high_importance_channel', // id
-      'Ami-ly Notifications', // title
+      _androidChannelId,
+      _androidChannelName,
       importance: Importance.max,
       priority: Priority.high,
     );

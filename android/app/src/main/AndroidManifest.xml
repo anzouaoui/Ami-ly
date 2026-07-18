@@ -1,7 +1,35 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Réseau (Firebase, FCM, Stripe, etc.) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Géolocalisation (Geolocator — premier plan uniquement) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Notifications push (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Foreground service requis par Geolocator sur Android 14+ (API 34) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- Wake lock pour maintenir le CPU actif pendant les opérations de localisation -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Visioconférence (Agora RTC) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Badge permissions for various launchers -->
+    <uses-permission android:name="com.sec.android.provider.badge.permission.READ" />
+    <uses-permission android:name="com.sec.android.provider.badge.permission.WRITE" />
+    <uses-permission android:name="com.huawei.android.launcher.permission.CHANGE_BADGE" />
+    <uses-permission android:name="com.huawei.android.launcher.permission.READ_SETTINGS" />
+    <uses-permission android:name="com.oppo.launcher.permission.READ_SETTINGS" />
+    <uses-permission android:name="com.oppo.launcher.permission.WRITE_BADGE" />
+    <uses-permission android:name="com.sonyericsson.home.permission.BADGE_INSERT" />
+    <uses-permission android:name="com.sonyericsson.home.permission.BADGE_READ" />
 
     <application
         android:label="amily"
@@ -35,6 +63,22 @@
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
+        <!-- Google Play Services version — requis par Geolocator pour résoudre
+             correctement les intents vers Google Play Services. Sans cette meta-data,
+             le Parcel log "Reading a NULL string not supported here" au démarrage. -->
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+
+        <!-- Firebase Cloud Messaging — channel et icône par défaut -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="amily_high_importance_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
