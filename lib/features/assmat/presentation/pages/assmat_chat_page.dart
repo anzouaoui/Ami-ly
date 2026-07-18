@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../video_call/presentation/providers/video_call_providers.dart';
+import '../../../video_call/presentation/screens/video_call_screen.dart';
 import '../../../../shared/models/message_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -316,6 +319,7 @@ class _AssmatVisioCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final effectiveStatus = responseStatus ?? message.visioStatus;
+    final bool isAccepted = effectiveStatus == VisioStatus.accepted;
     final (Color bgColor, Color borderColor, String statusText) =
         switch (effectiveStatus) {
       VisioStatus.accepted => (
@@ -459,6 +463,46 @@ class _AssmatVisioCard extends ConsumerWidget {
                 ],
               ),
             ],
+            // ── Visio acceptée : rejoindre / terminer ──────────────────
+            if (isAccepted) ...[
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _joinVisio(context, ref),
+                      icon: const Icon(Icons.videocam_rounded, size: 16),
+                      label: const Text('Rejoindre la visio'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _markCompleted(context, ref),
+                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                      label: const Text('Visio terminée'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.success,
+                        side: BorderSide.none,
+                        backgroundColor: AppColors.success.withValues(alpha: 0.08),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -488,6 +532,87 @@ class _AssmatVisioCard extends ConsumerWidget {
             status: status,
           );
     } catch (_) {}
+  }
+
+  Future<void> _joinVisio(BuildContext context, WidgetRef ref) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final parentUid = conversationId.split('_').last;
+
+    // Récupère le nom du parent depuis Firestore
+    String parentName = 'Parent';
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('parents')
+          .doc(parentUid)
+          .get();
+      if (doc.exists) {
+        final data = doc.data();
+        final first = data?['firstName'] as String? ?? '';
+        final last = data?['lastName'] as String? ?? '';
+        parentName = '$first $last'.trim();
+        if (parentName.isEmpty) parentName = 'Parent';
+      }
+    } catch (_) {}
+
+    final controller = ref.read(videoCallControllerProvider.notifier);
+    try {
+      await controller.startCall(
+        callerId: currentUser.uid,
+        calleeId: parentUid,
+        callerName: currentUser.displayName ?? 'Assistante maternelle',
+        calleeName: parentName,
+      );
+      final callId = ref.read(videoCallControllerProvider).call?.id;
+      if (callId != null && context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => VideoCallScreen(callId: callId),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de lancer la visio : $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final datasource = ref.read(messagingDatasourceProvider);
+    try {
+      await datasource.respondToVisio(
+        convId: conversationId,
+        msgId: message.id,
+        status: VisioStatus.completed,
+        responderIsParent: false,
+        responderUid: currentUser.uid,
+      );
+
+      // Notification in-app pour le parent
+      try {
+        final parentUid = conversationId.split('_').first;
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: parentUid,
+              senderUid: currentUser.uid,
+              senderName: currentUser.displayName ?? 'Une assistante maternelle',
+              conversationId: conversationId,
+              status: VisioStatus.completed,
+            );
+      } catch (_) {}
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
   }
 }
 

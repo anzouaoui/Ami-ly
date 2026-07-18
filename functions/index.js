@@ -413,8 +413,6 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const STRIPE_WEBHOOK_SECRET = functions.defineSecret('stripe_webhook_secret');
-
 /**
  * Crée un lien d'onboarding Stripe Connect Express pour une assmat.
  * Appelé par le client Flutter (assmat_invoice_page).
@@ -559,7 +557,7 @@ exports.createPaymentIntent = functions.onCall(
  * et met à jour le statut de la facture dans Firestore.
  */
 exports.stripeWebhook = functions.onRequest(
-  { secrets: [STRIPE_WEBHOOK_SECRET] },
+  { secrets: [] },
   async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -635,5 +633,78 @@ exports.stripeWebhook = functions.onRequest(
     }
 
     res.json({ received: true });
+  }
+);
+
+// ─── Agora Token Generation ───────────────────────────────────────────────
+
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
+
+const AGORA_APP_ID = process.env.AGORA_APP_ID;
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+
+exports.generateAgoraToken = functions.onCall(
+  { region: 'europe-west1' },
+  async (request) => {
+    // 1. Vérifier l'authentification
+    if (!request.auth) {
+      throw new functions.HttpsError(
+        'unauthenticated',
+        'Utilisateur non authentifié.'
+      );
+    }
+
+    const { channelName, uid } = request.data;
+
+    if (!channelName || uid === undefined) {
+      throw new functions.HttpsError(
+        'invalid-argument',
+        'channelName et uid requis.'
+      );
+    }
+
+    // 2. Vérifier que l'utilisateur est bien participant à l'appel
+    const caller = request.auth.uid;
+
+    // Chercher le document call correspondant au channelName
+    const callsRef = admin.firestore().collection('calls');
+    const callSnapshot = await callsRef
+      .where('channelName', '==', channelName)
+      .limit(1)
+      .get();
+
+    if (callSnapshot.empty) {
+      throw new functions.HttpsError(
+        'not-found',
+        'Aucun appel trouvé pour ce canal.'
+      );
+    }
+
+    const callData = callSnapshot.docs[0].data();
+    if (callData.callerId !== caller && callData.calleeId !== caller) {
+      throw new functions.HttpsError(
+        'permission-denied',
+        'Vous n\'êtes pas participant à cet appel.'
+      );
+    }
+
+    // 3. Générer le token Agora (TTL: 3600 secondes)
+    const expirationTimeInSeconds = 3600;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpireTime = currentTimestamp + expirationTimeInSeconds;
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      AGORA_APP_ID,
+      AGORA_APP_CERTIFICATE,
+      channelName,
+      uid,
+      RtcRole.PUBLISHER,
+      privilegeExpireTime
+    );
+
+    return {
+      token,
+      expiration: privilegeExpireTime,
+    };
   }
 );
