@@ -1,0 +1,39 @@
+workflows:
+  ios-workflow:
+    name: Ami-ly iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - agora_credentials   # groupe de variables créé dans Codemagic UI, contenant AGORA_APP_ID
+      vars:
+        BUNDLE_ID: "com.app.amily"   # <-- à remplacer par ton vrai bundle ID
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      xcode: latest
+      cocoapods: default
+      flutter: stable
+    scripts:
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Flutter build ipa
+        script: |
+          flutter build ipa --release \
+            --dart-define=AGORA_APP_ID=a0d27abc78f4dde91919c3ff3ad4c0d \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # submit_to_app_store: true   # décommente si tu veux publier direct sur l'App Store
+      email:
+        recipients:
+          - anouk.zouaoui@anoukzouaoui.fr   # <-- à remplacer par ton email
