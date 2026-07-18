@@ -235,6 +235,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                         : RemoteVideoView(
                             engine: _engine!,
                             remoteUid: videoState.remoteUid,
+                            channelId: videoState.call?.channelName ?? '',
                           ),
                   ),
 

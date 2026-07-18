@@ -8,10 +8,12 @@ class RemoteVideoView extends StatelessWidget {
     super.key,
     required this.engine,
     required this.remoteUid,
+    required this.channelId,
   });
 
   final RtcEngine engine;
   final int? remoteUid;
+  final String channelId;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +45,7 @@ class RemoteVideoView extends StatelessWidget {
         controller: VideoViewController.remote(
           rtcEngine: engine,
           canvas: VideoCanvas(uid: remoteUid!),
-          connection: const RtcConnection(channelId: ''),
+          connection: RtcConnection(channelId: channelId),
         ),
       ),
     );
