@@ -59,7 +59,10 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
     try {
       // Vérifie que l'App ID Agora est configuré
-      final appId = const String.fromEnvironment('AGORA_APP_ID', defaultValue: '').trim();
+      final appId = const String.fromEnvironment('AGORA_APP_ID', defaultValue: '')
+          .replaceAll('"', '')
+          .replaceAll("'", '')
+          .trim();
       if (appId.isEmpty) {
         setState(() {
           _error = 'AGORA_APP_ID manquant. Lancez avec:\nflutter run --dart-define=AGORA_APP_ID=votre_id';

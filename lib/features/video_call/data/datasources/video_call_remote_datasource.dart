@@ -26,8 +26,8 @@ class VideoCallRemoteDatasource {
     required String calleeName,
   }) async {
     try {
-      final channelName = '${callerId}_$calleeId}_${DateTime.now().millisecondsSinceEpoch}';
       final docRef = _calls.doc();
+      final channelName = docRef.id;
       final call = CallModel(
         id: docRef.id,
         channelName: channelName,
