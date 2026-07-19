@@ -71,6 +71,27 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
   }
 
   @override
+  Future<Either<Failure, Call?>> findExistingRingingCall(
+      String userA, String userB) async {
+    try {
+      final model = await _remote.findExistingRingingCall(userA, userB);
+      return Right(model?.toEntity());
+    } catch (_) {
+      return const Right(null);
+    }
+  }
+
+  @override
+  Future<Either<Failure, Call?>> getCallById(String callId) async {
+    try {
+      final model = await _remote.getCallById(callId);
+      return Right(model?.toEntity());
+    } catch (_) {
+      return const Right(null);
+    }
+  }
+
+  @override
   Future<Either<Failure, String>> getAgoraToken({
     required String channelName,
     required int uid,

@@ -7,7 +7,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
-import '../../../video_call/presentation/screens/video_call_screen.dart';
+import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../../shared/models/message_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -228,6 +228,7 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                                   return _AssmatVisioCard(
                                     message: msg,
                                     responseStatus: lastResponse?.visioStatus,
+                                    callId: lastResponse?.callId,
                                     conversationId: widget.conversationId,
                                   );
                                 }
@@ -310,11 +311,13 @@ class _AssmatVisioCard extends ConsumerWidget {
     required this.message,
     required this.conversationId,
     this.responseStatus,
+    this.callId,
   });
 
   final MessageModel message;
   final String conversationId;
   final VisioStatus? responseStatus;
+  final String? callId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -513,12 +516,42 @@ class _AssmatVisioCard extends ConsumerWidget {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
 
+    String? createdCallId;
+
+    if (status == VisioStatus.accepted) {
+      final parentUid = conversationId.split('_').first;
+      String parentName = 'Parent';
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('parents')
+            .doc(parentUid)
+            .get();
+        if (doc.exists) {
+          final data = doc.data();
+          final first = data?['firstName'] as String? ?? '';
+          final last = data?['lastName'] as String? ?? '';
+          parentName = '$first $last'.trim();
+          if (parentName.isEmpty) parentName = 'Parent';
+        }
+      } catch (_) {}
+
+      final controller = ref.read(videoCallControllerProvider.notifier);
+      await controller.startCall(
+        callerId: currentUser.uid,
+        calleeId: parentUid,
+        callerName: currentUser.displayName ?? 'Assistante maternelle',
+        calleeName: parentName,
+      );
+      createdCallId = ref.read(videoCallControllerProvider).call?.id;
+    }
+
     await ref.read(messagingDatasourceProvider).respondToVisio(
           convId: conversationId,
           msgId: message.id,
           status: status,
           responderIsParent: false,
           responderUid: currentUser.uid,
+          callId: createdCallId,
         );
 
     // Notification in-app pour le parent
@@ -538,9 +571,8 @@ class _AssmatVisioCard extends ConsumerWidget {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
 
-    final parentUid = conversationId.split('_').last;
+    final parentUid = conversationId.split('_').first;
 
-    // Récupère le nom du parent depuis Firestore
     String parentName = 'Parent';
     try {
       final doc = await FirebaseFirestore.instance
@@ -556,29 +588,19 @@ class _AssmatVisioCard extends ConsumerWidget {
       }
     } catch (_) {}
 
-    final controller = ref.read(videoCallControllerProvider.notifier);
-    try {
-      await controller.startCall(
-        callerId: currentUser.uid,
-        calleeId: parentUid,
-        callerName: currentUser.displayName ?? 'Assistante maternelle',
-        calleeName: parentName,
-      );
-      final callId = ref.read(videoCallControllerProvider).call?.id;
-      if (callId != null && context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => VideoCallScreen(callId: callId),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible de lancer la visio : $e')),
-        );
-      }
-    }
+    if (!context.mounted) return;
+
+    await joinVisioCall(
+      context: context,
+      ref: ref,
+      convId: conversationId,
+      messageId: message.id,
+      callId: callId,
+      currentUserUid: currentUser.uid,
+      currentUserDisplayName: currentUser.displayName ?? 'Assistante maternelle',
+      otherUid: parentUid,
+      otherName: parentName,
+    );
   }
 
   Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {

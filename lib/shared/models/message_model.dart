@@ -19,6 +19,7 @@ class MessageModel {
     this.visioStatus,
     this.visioProposalId,
     this.reflectionDeadline,
+    this.callId,
   });
 
   final String id;
@@ -31,6 +32,7 @@ class MessageModel {
   final VisioStatus? visioStatus;
   final String? visioProposalId;
   final DateTime? reflectionDeadline;
+  final String? callId;
 
   bool get isRead => readAt != null;
 
@@ -65,6 +67,7 @@ class MessageModel {
       visioStatus: _parseVisioStatus(d['visioStatus'] as String?),
       visioProposalId: d['visioProposalId'] as String?,
       reflectionDeadline: (d['reflectionDeadline'] as Timestamp?)?.toDate(),
+      callId: d['callId'] as String?,
     );
   }
 
@@ -100,6 +103,7 @@ class MessageModel {
         if (visioProposalId != null) 'visioProposalId': visioProposalId,
         if (reflectionDeadline != null)
           'reflectionDeadline': Timestamp.fromDate(reflectionDeadline!),
+        if (callId != null) 'callId': callId,
       };
 
   String _typeToFirestore() {

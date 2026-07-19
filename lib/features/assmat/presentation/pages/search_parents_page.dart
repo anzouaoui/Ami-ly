@@ -8,8 +8,10 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../messaging/providers/messaging_providers.dart';
 import '../../../parent/data/models/child_model.dart';
 import '../../data/models/parent_with_children.dart';
+import '../../presentation/pages/assmat_chat_page.dart';
 import '../providers/assmat_search_providers.dart';
 
 /// Page "Parents en recherche" pour les assistantes maternelles.
@@ -223,11 +225,12 @@ class _SearchParentsPageState extends ConsumerState<SearchParentsPage> {
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) =>
                       const SizedBox(height: AppSpacing.md),
-                  itemBuilder: (context, i) =>
-                      _FamilyCard(
-                        parentWithChildren: filtered[i],
-                        assmatProfile: assmatProfile,
-                      ),
+                  itemBuilder: (context, i) => Consumer(
+                    builder: (context, ref, _) => _FamilyCard(
+                      parentWithChildren: filtered[i],
+                      assmatProfile: assmatProfile,
+                    ),
+                  ),
                 );
               },
             ),
@@ -242,7 +245,7 @@ class _SearchParentsPageState extends ConsumerState<SearchParentsPage> {
 // Family card
 // ---------------------------------------------------------------------------
 
-class _FamilyCard extends StatefulWidget {
+class _FamilyCard extends ConsumerWidget {
   const _FamilyCard({
     required this.parentWithChildren,
     this.assmatProfile,
@@ -253,15 +256,8 @@ class _FamilyCard extends StatefulWidget {
   final Object? assmatProfile;
 
   @override
-  State<_FamilyCard> createState() => _FamilyCardState();
-}
-
-class _FamilyCardState extends State<_FamilyCard> {
-  bool _contacted = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final w = widget.parentWithChildren;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final w = parentWithChildren;
     final p = w.parent;
 
     final displayName = '${p.firstName} ${p.lastName}'.trim();
@@ -367,47 +363,23 @@ class _FamilyCardState extends State<_FamilyCard> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // Action button
+          // Action buttons
           Row(
             children: [
               Expanded(
-                child: _contacted
-                    ? OutlinedButton.icon(
-                        onPressed: null,
-                        icon: const Icon(
-                            Icons.check_circle_outline_rounded, size: 18),
-                        label: const Text('Demande envoyée'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4CAF50),
-                          side: const BorderSide(color: Color(0xFF4CAF50)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadii.md),
-                          ),
-                        ),
-                      )
-                    : FilledButton.icon(
-                        onPressed: () => _sendContactRequest(p),
-                        icon: const Icon(Icons.send_outlined, size: 18),
-                        label: const Text('Demander un contact'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadii.md),
-                          ),
-                        ),
-                      ),
-              ),
-              if (!_contacted) ...[
-                const SizedBox(width: AppSpacing.md),
-                Flexible(
-                  child: Text(
-                    'Le parent recevra\nvotre profil',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.secondaryText),
+                child: FilledButton.icon(
+                  onPressed: () => _openChat(context, ref, p, displayName),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                  label: const Text('Message'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                    ),
                   ),
                 ),
-              ],
+              ),
             ],
           ),
         ],
@@ -415,15 +387,43 @@ class _FamilyCardState extends State<_FamilyCard> {
     );
   }
 
-  void _sendContactRequest(ParentProfileModel parent) {
-    // TODO: envoyer une notification / créer un message système
-    setState(() => _contacted = true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Demande de contact envoyée à ${parent.firstName}'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _openChat(
+    BuildContext context,
+    WidgetRef ref,
+    ParentProfileModel parent,
+    String parentName,
+  ) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final datasource = ref.read(messagingDatasourceProvider);
+    final assmatProfile = ref.read(assmatProfileProvider).valueOrNull;
+    final assmatName = assmatProfile != null
+        ? '${assmatProfile.firstName} ${assmatProfile.lastName}'.trim()
+        : currentUser.displayName ?? 'Assistante maternelle';
+
+    final result = await datasource.getOrCreateConversation(
+      parentUid: parent.uid,
+      assmatUid: currentUser.uid,
+      parentName: parentName.isNotEmpty ? parentName : 'Parent',
+      assmatName: assmatName,
     );
+
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AssMatChatPage(
+            contact: ChatContact(
+              name: parentName.isNotEmpty ? parentName : 'Parent',
+              initials: parentName.isNotEmpty
+                  ? parentName.split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join()
+                  : 'P',
+            ),
+            conversationId: result.convId,
+          ),
+        ),
+      );
+    }
   }
 }
 

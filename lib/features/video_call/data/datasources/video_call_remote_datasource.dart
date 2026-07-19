@@ -66,6 +66,17 @@ class VideoCallRemoteDatasource {
     });
   }
 
+  /// Récupère un document d'appel (une seule lecture).
+  Future<CallModel?> getCallById(String callId) async {
+    try {
+      final snap = await _calls.doc(callId).get();
+      if (!snap.exists) return null;
+      return CallModel.fromFirestore(snap);
+    } on FirebaseException catch (_) {
+      return null;
+    }
+  }
+
   /// Écoute les appels entrants (calleeId == userId, status == ringing).
   Stream<List<CallModel>> watchIncomingCalls(String userId) {
     return _calls
@@ -74,6 +85,39 @@ class VideoCallRemoteDatasource {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map(CallModel.fromFirestore).toList());
+  }
+
+  /// Cherche un appel ringing existant entre deux utilisateurs.
+  /// Retourne le premier appel ringing trouvé où (callerId == a && calleeId == b)
+  /// ou (callerId == b && calleeId == a), ou null sinon.
+  Future<CallModel?> findExistingRingingCall(String userA, String userB) async {
+    try {
+      final snapA = await _calls
+          .where('callerId', isEqualTo: userA)
+          .where('calleeId', isEqualTo: userB)
+          .where('status', isEqualTo: 'ringing')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+      if (snapA.docs.isNotEmpty) {
+        return CallModel.fromFirestore(snapA.docs.first);
+      }
+
+      final snapB = await _calls
+          .where('callerId', isEqualTo: userB)
+          .where('calleeId', isEqualTo: userA)
+          .where('status', isEqualTo: 'ringing')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+      if (snapB.docs.isNotEmpty) {
+        return CallModel.fromFirestore(snapB.docs.first);
+      }
+
+      return null;
+    } on FirebaseException catch (_) {
+      return null;
+    }
   }
 
   /// Appelle la Cloud Function pour obtenir un token Agora signé.

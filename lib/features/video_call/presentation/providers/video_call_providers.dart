@@ -124,11 +124,14 @@ class VideoCallController extends Notifier<VideoCallState> {
   }
 
   /// Accepte un appel entrant.
-  Future<void> acceptCall(String callId) async {
+  Future<void> acceptCall(String callId, {Call? callData}) async {
     final result = await ref.read(joinCallUseCaseProvider).call(callId);
     result.fold(
       (failure) => state = state.copyWith(error: failure.message),
       (_) {
+        if (callData != null) {
+          state = state.copyWith(call: callData, state: CallState.ringing);
+        }
         _listenToCall(callId);
       },
     );

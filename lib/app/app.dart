@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/constants/app_constants.dart';
 import '../features/auth/presentation/widgets/auth_wrapper.dart';
+import '../features/video_call/presentation/widgets/incoming_call_listener.dart';
 import 'theme/app_theme.dart';
 
 /// Shell de l'application : thème + localisation + point d'entrée [AuthWrapper].
@@ -33,6 +34,7 @@ class AmilyApp extends StatelessWidget {
         Locale('en', 'US'),
       ],
       locale: const Locale('fr', 'FR'),
+      builder: (context, child) => IncomingCallListener(child: child ?? const SizedBox.shrink()),
       home: const AuthWrapper(),
     );
   }

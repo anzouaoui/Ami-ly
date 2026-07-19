@@ -24,6 +24,12 @@ abstract class VideoCallRepository {
   /// Écoute les appels entrants pour un utilisateur donné.
   Stream<List<Call>> watchIncomingCalls(String userId);
 
+  /// Cherche un appel ringing existant entre deux utilisateurs.
+  Future<Either<Failure, Call?>> findExistingRingingCall(String userA, String userB);
+
+  /// Récupère un appel par son ID (une seule lecture, pas un stream).
+  Future<Either<Failure, Call?>> getCallById(String callId);
+
   /// Récupère un token Agora signé depuis la Cloud Function.
   Future<Either<Failure, String>> getAgoraToken({
     required String channelName,
