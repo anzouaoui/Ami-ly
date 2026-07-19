@@ -81,14 +81,20 @@ class VideoCallRemoteDatasource {
     }
   }
 
-  /// Écoute les appels entrants (calleeId == userId, status == ringing).
+  /// Écoute les appels ringing où l'utilisateur est impliqué
+  /// (soit callerId, soit calleeId).
   Stream<List<CallModel>> watchIncomingCalls(String userId) {
     return _calls
-        .where('calleeId', isEqualTo: userId)
         .where('status', isEqualTo: 'ringing')
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(CallModel.fromFirestore).toList());
+        .map((snap) {
+      final calls = snap.docs
+          .map(CallModel.fromFirestore)
+          .where((call) => call.callerId == userId || call.calleeId == userId)
+          .toList();
+      calls.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return calls;
+    });
   }
 
   /// Cherche un appel ringing existant entre deux utilisateurs.

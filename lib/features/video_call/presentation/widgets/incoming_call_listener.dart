@@ -22,6 +22,9 @@ class IncomingCallListener extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final incomingCalls = ref.watch(incomingCallsProvider);
+    final videoState = ref.watch(videoCallControllerProvider);
+
+    if (videoState.call != null) return child;
 
     return Stack(
       children: [
