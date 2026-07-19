@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum CallStatus { ringing, accepted, ended }
+enum CallStatus { pending, ringing, accepted, ended }
 
 class Call extends Equatable {
   const Call({

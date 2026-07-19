@@ -10,8 +10,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
-import '../../../video_call/presentation/providers/video_call_providers.dart';
-import '../../../video_call/presentation/screens/video_call_screen.dart';
+import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../../shared/models/message_model.dart';
 import 'engagement_contract_page.dart';
 
@@ -321,15 +320,16 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                                 ).toList();
                                 final lastResponse = responses.isNotEmpty ? responses.last : null;
                                  return _VisioCard(
-                                   message: msg,
-                                   responseStatus: lastResponse?.visioStatus,
-                                   reflectionDeadline: lastResponse?.reflectionDeadline,
-                                   isMe: msg.senderUid == myUid,
-                                   convId: _convId,
-                                   parentUid: myUid,
-                                   assmatName: widget.assmatName,
-                                   assmatUid: widget.assmatUid,
-                                 );
+                                    message: msg,
+                                    responseStatus: lastResponse?.visioStatus,
+                                    reflectionDeadline: lastResponse?.reflectionDeadline,
+                                    callId: lastResponse?.callId,
+                                    isMe: msg.senderUid == myUid,
+                                    convId: _convId,
+                                    parentUid: myUid,
+                                    assmatName: widget.assmatName,
+                                    assmatUid: widget.assmatUid,
+                                  );
                               }
                               if (msg.type == MessageType.visioResponse) {
                                 return const SizedBox.shrink();
@@ -641,6 +641,7 @@ class _VisioCard extends ConsumerWidget {
     required this.isMe,
     this.responseStatus,
     this.reflectionDeadline,
+    this.callId,
     this.convId,
     this.parentUid,
     this.assmatName,
@@ -650,6 +651,7 @@ class _VisioCard extends ConsumerWidget {
   final bool isMe;
   final VisioStatus? responseStatus;
   final DateTime? reflectionDeadline;
+  final String? callId;
   final String? convId;
   final String? parentUid;
   final String? assmatName;
@@ -949,29 +951,17 @@ class _VisioCard extends ConsumerWidget {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
 
-    final controller = ref.read(videoCallControllerProvider.notifier);
-    try {
-      await controller.startCall(
-        callerId: currentUser.uid,
-        calleeId: assmatUid ?? '',
-        callerName: currentUser.displayName ?? 'Parent',
-        calleeName: assmatName ?? 'Assistante maternelle',
-      );
-      final callId = ref.read(videoCallControllerProvider).call?.id;
-      if (callId != null && context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => VideoCallScreen(callId: callId),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible de lancer la visio : $e')),
-        );
-      }
-    }
+    await joinVisioCall(
+      context: context,
+      ref: ref,
+      convId: convId!,
+      messageId: message.id,
+      callId: callId,
+      currentUserUid: currentUser.uid,
+      currentUserDisplayName: currentUser.displayName ?? 'Parent',
+      otherUid: assmatUid ?? '',
+      otherName: assmatName ?? 'Assistante maternelle',
+    );
   }
 
   Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {

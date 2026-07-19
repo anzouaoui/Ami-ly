@@ -189,6 +189,7 @@ class MessagingDatasource {
     required VisioStatus status,
     required bool responderIsParent,
     required String responderUid,
+    String? callId,
   }) async {
     final now = DateTime.now();
     final newMsgRef = _firebase.messagesCollection(convId).doc();
@@ -227,6 +228,9 @@ class MessagingDatasource {
     if (status == VisioStatus.reflection) {
       msgData['reflectionDeadline'] =
           Timestamp.fromDate(now.add(const Duration(days: 10)));
+    }
+    if (callId != null) {
+      msgData['callId'] = callId;
     }
     batch.set(newMsgRef, msgData);
 

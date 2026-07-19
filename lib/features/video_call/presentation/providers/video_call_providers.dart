@@ -106,12 +106,14 @@ class VideoCallController extends Notifier<VideoCallState> {
     required String calleeId,
     required String callerName,
     required String calleeName,
+    CallStatus initialStatus = CallStatus.ringing,
   }) async {
     final result = await ref.read(startCallUseCaseProvider).call(
           callerId: callerId,
           calleeId: calleeId,
           callerName: callerName,
           calleeName: calleeName,
+          initialStatus: initialStatus,
         );
 
     result.fold(
@@ -123,12 +125,32 @@ class VideoCallController extends Notifier<VideoCallState> {
     );
   }
 
+  /// Rejoindre un appel en attente (pending → ringing).
+  ///
+  /// Appelé par le premier participant qui clique « Rejoindre la visio » :
+  /// on active l'appel (le popup apparaîtra pour l'autre partie) puis on
+  /// navigue vers l'écran vidéo.
+  Future<void> joinPendingCall(String callId, Call callData) async {
+    final result =
+        await ref.read(videoCallRepositoryProvider).activateCall(callId);
+    result.fold(
+      (failure) => state = state.copyWith(error: failure.message),
+      (_) {
+        state = state.copyWith(call: callData, state: CallState.ringing);
+        _listenToCall(callId);
+      },
+    );
+  }
+
   /// Accepte un appel entrant.
-  Future<void> acceptCall(String callId) async {
+  Future<void> acceptCall(String callId, {Call? callData}) async {
     final result = await ref.read(joinCallUseCaseProvider).call(callId);
     result.fold(
       (failure) => state = state.copyWith(error: failure.message),
       (_) {
+        if (callData != null) {
+          state = state.copyWith(call: callData, state: CallState.ringing);
+        }
         _listenToCall(callId);
       },
     );

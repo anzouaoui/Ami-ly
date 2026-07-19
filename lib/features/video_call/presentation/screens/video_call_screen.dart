@@ -6,18 +6,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:amily/features/auth/presentation/providers/auth_providers.dart';
+import '../../../messaging/providers/messaging_providers.dart';
+import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../providers/video_call_providers.dart';
 import '../widgets/local_video_view.dart';
 import '../widgets/remote_video_view.dart';
 import '../widgets/call_controls_bar.dart';
+import '../../../../shared/models/message_model.dart';
 
 /// Écran principal de visioconférence Agora.
 ///
 /// Reçoit [callId] pour identifier l'appel et rejoindre le bon canal.
+/// Optionnellement [convId] et [visioMessageId] pour marquer la visio
+/// comme terminée automatiquement quand l'appel se termine.
 class VideoCallScreen extends ConsumerStatefulWidget {
-  const VideoCallScreen({super.key, required this.callId});
+  const VideoCallScreen({
+    super.key,
+    required this.callId,
+    this.convId,
+    this.visioMessageId,
+  });
 
   final String callId;
+  final String? convId;
+  final String? visioMessageId;
 
   @override
   ConsumerState<VideoCallScreen> createState() => _VideoCallScreenState();
@@ -109,6 +121,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         onUserOffline: (connection, remoteUid, reason) {
           controller.setRemoteUid(null);
           controller.endCurrentCall();
+          _markVisioCompleted();
           if (mounted) Navigator.of(context).pop();
         },
         onError: (errorType, message) {
@@ -167,7 +180,40 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   Future<void> _endCall() async {
     await ref.read(videoCallControllerProvider.notifier).endCurrentCall();
+    await _markVisioCompleted();
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Marque la proposition de visio comme terminée dans la conversation.
+  Future<void> _markVisioCompleted() async {
+    final convId = widget.convId;
+    final visioMessageId = widget.visioMessageId;
+    if (convId == null || visioMessageId == null) return;
+
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final isParent = convId.startsWith(currentUser.uid);
+    try {
+      await ref.read(messagingDatasourceProvider).respondToVisio(
+            convId: convId,
+            msgId: visioMessageId,
+            status: VisioStatus.completed,
+            responderIsParent: isParent,
+            responderUid: currentUser.uid,
+          );
+
+      final otherUid = isParent ? convId.split('_').last : convId.split('_').first;
+      try {
+        ref.read(notificationTriggersProvider).onVisioResponse(
+              recipientUid: otherUid,
+              senderUid: currentUser.uid,
+              senderName: currentUser.displayName ?? 'Un participant',
+              conversationId: convId,
+              status: VisioStatus.completed,
+            );
+      } catch (_) {}
+    } catch (_) {}
   }
 
   @override
