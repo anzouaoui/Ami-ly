@@ -16,6 +16,7 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
     required String calleeId,
     required String callerName,
     required String calleeName,
+    CallStatus initialStatus = CallStatus.ringing,
   }) async {
     try {
       final model = await _remote.createCall(
@@ -23,6 +24,7 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
         calleeId: calleeId,
         callerName: callerName,
         calleeName: calleeName,
+        initialStatus: initialStatus,
       );
       return Right(model.toEntity());
     } on FirestoreException catch (e) {
@@ -38,6 +40,18 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
   Future<Either<Failure, void>> acceptCall(String callId) async {
     try {
       await _remote.updateCallStatus(callId, CallStatus.accepted);
+      return const Right(null);
+    } on FirestoreException catch (e) {
+      return Left(FirestoreFailure(e.message));
+    } catch (_) {
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> activateCall(String callId) async {
+    try {
+      await _remote.updateCallStatus(callId, CallStatus.ringing);
       return const Right(null);
     } on FirestoreException catch (e) {
       return Left(FirestoreFailure(e.message));

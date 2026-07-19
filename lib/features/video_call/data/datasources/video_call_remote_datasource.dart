@@ -19,11 +19,15 @@ class VideoCallRemoteDatasource {
       _firestore.collection('calls');
 
   /// Crée un document d'appel dans Firestore.
+  /// [initialStatus] permet de créer un appel en attente (pending) sans
+  /// déclencher le popup d'appel entrant — le statut passe à ringing
+  /// uniquement quand un participant clique sur "Rejoindre la visio".
   Future<CallModel> createCall({
     required String callerId,
     required String calleeId,
     required String callerName,
     required String calleeName,
+    CallStatus initialStatus = CallStatus.ringing,
   }) async {
     try {
       final docRef = _calls.doc();
@@ -35,7 +39,7 @@ class VideoCallRemoteDatasource {
         calleeId: calleeId,
         callerName: callerName,
         calleeName: calleeName,
-        status: CallStatus.ringing,
+        status: initialStatus,
         createdAt: DateTime.now(),
       );
       await docRef.set(call.toFirestore());

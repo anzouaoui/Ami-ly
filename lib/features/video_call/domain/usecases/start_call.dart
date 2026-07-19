@@ -13,12 +13,14 @@ class StartCall {
     required String calleeId,
     required String callerName,
     required String calleeName,
+    CallStatus initialStatus = CallStatus.ringing,
   }) {
     return _repository.startCall(
       callerId: callerId,
       calleeId: calleeId,
       callerName: callerName,
       calleeName: calleeName,
+      initialStatus: initialStatus,
     );
   }
 }

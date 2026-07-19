@@ -6,6 +6,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../../shared/models/message_model.dart';
@@ -541,6 +542,7 @@ class _AssmatVisioCard extends ConsumerWidget {
         calleeId: parentUid,
         callerName: currentUser.displayName ?? 'Assistante maternelle',
         calleeName: parentName,
+        initialStatus: CallStatus.pending,
       );
       createdCallId = ref.read(videoCallControllerProvider).call?.id;
     }
