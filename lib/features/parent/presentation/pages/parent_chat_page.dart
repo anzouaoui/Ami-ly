@@ -11,7 +11,9 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
+import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
+import '../../../video_call/presentation/providers/video_call_providers.dart';
 import '../../../../shared/models/message_model.dart';
 import 'engagement_contract_page.dart';
 
@@ -778,9 +780,66 @@ class _VisioCard extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  // ── Visio acceptée : rejoindre / terminer ──────────────
-                  if (isAccepted) ...[
+                   ),
+                   // ── Proposition de l'assmat en attente : accepter / refuser ──
+                   if (effectiveStatus == VisioStatus.pending && !isMe && !isExpired) ...[
+                     const SizedBox(height: AppSpacing.md),
+                     Row(
+                       children: [
+                         Expanded(
+                           child: OutlinedButton.icon(
+                             onPressed: () => _respond(context, ref, VisioStatus.refused),
+                             icon: const Icon(Icons.close_rounded, size: 16),
+                             label: const Text('Refuser'),
+                             style: OutlinedButton.styleFrom(
+                               foregroundColor: AppColors.error,
+                               side: const BorderSide(color: AppColors.error),
+                               padding: const EdgeInsets.symmetric(vertical: 10),
+                               shape: RoundedRectangleBorder(
+                                 borderRadius: BorderRadius.circular(AppRadii.md),
+                               ),
+                             ),
+                           ),
+                         ),
+                         const SizedBox(width: AppSpacing.sm),
+                         Expanded(
+                           child: FilledButton.icon(
+                             onPressed: () => _respond(context, ref, VisioStatus.accepted),
+                             icon: const Icon(Icons.check_rounded, size: 16),
+                             label: const Text('Accepter'),
+                             style: FilledButton.styleFrom(
+                               backgroundColor: AppColors.primary,
+                               padding: const EdgeInsets.symmetric(vertical: 10),
+                               shape: RoundedRectangleBorder(
+                                 borderRadius: BorderRadius.circular(AppRadii.md),
+                               ),
+                             ),
+                           ),
+                         ),
+                       ],
+                     ),
+                   ],
+                   if (effectiveStatus == VisioStatus.pending && !isMe && isExpired) ...[
+                     const SizedBox(height: AppSpacing.md),
+                     Container(
+                       width: double.infinity,
+                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 8),
+                       decoration: BoxDecoration(
+                         color: AppColors.error.withValues(alpha: 0.08),
+                         borderRadius: BorderRadius.circular(AppRadii.sm),
+                       ),
+                       child: Text(
+                         'Proposition expirée',
+                         style: AppTextStyles.labelSmall.copyWith(
+                           color: AppColors.error,
+                           fontWeight: FontWeight.w600,
+                         ),
+                         textAlign: TextAlign.center,
+                       ),
+                     ),
+                   ],
+                   // ── Visio acceptée : rejoindre / terminer ──────────────
+                   if (isAccepted) ...[
                     const SizedBox(height: AppSpacing.md),
                     Builder(
                       builder: (context) {
@@ -998,6 +1057,48 @@ class _VisioCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _respond(BuildContext context, WidgetRef ref, VisioStatus status) async {
+    if (convId == null) return;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    String? createdCallId;
+
+    if (status == VisioStatus.accepted) {
+      final assmatUid = convId!.split('_').last;
+      final controller = ref.read(videoCallControllerProvider.notifier);
+      await controller.startCall(
+        callerId: currentUser.uid,
+        calleeId: assmatUid,
+        callerName: currentUser.displayName ?? 'Parent',
+        calleeName: assmatName ?? 'Assistante maternelle',
+        initialStatus: CallStatus.pending,
+        scheduledFor: message.visioDate,
+      );
+      createdCallId = ref.read(videoCallControllerProvider).call?.id;
+    }
+
+    await ref.read(messagingDatasourceProvider).respondToVisio(
+          convId: convId!,
+          msgId: message.id,
+          status: status,
+          responderIsParent: true,
+          responderUid: currentUser.uid,
+          callId: createdCallId,
+        );
+
+    try {
+      final assmatUid = convId!.split('_').last;
+      ref.read(notificationTriggersProvider).onVisioResponse(
+            recipientUid: assmatUid,
+            senderUid: currentUser.uid,
+            senderName: currentUser.displayName ?? 'Un parent',
+            conversationId: convId!,
+            status: status,
+          );
+    } catch (_) {}
   }
 
   Future<void> _joinVisio(BuildContext context, WidgetRef ref) async {
