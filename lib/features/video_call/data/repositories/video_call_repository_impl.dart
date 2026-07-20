@@ -17,6 +17,7 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
     required String callerName,
     required String calleeName,
     CallStatus initialStatus = CallStatus.ringing,
+    DateTime? scheduledFor,
   }) async {
     try {
       final model = await _remote.createCall(
@@ -25,6 +26,7 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
         callerName: callerName,
         calleeName: calleeName,
         initialStatus: initialStatus,
+        scheduledFor: scheduledFor,
       );
       return Right(model.toEntity());
     } on FirestoreException catch (e) {

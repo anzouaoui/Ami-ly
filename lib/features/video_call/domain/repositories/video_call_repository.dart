@@ -11,6 +11,7 @@ abstract class VideoCallRepository {
     required String callerName,
     required String calleeName,
     CallStatus initialStatus = CallStatus.ringing,
+    DateTime? scheduledFor,
   });
 
   /// Met à jour le statut de l'appel à 'accepted'.

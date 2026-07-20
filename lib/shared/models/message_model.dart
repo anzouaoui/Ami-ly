@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum MessageType { text, visioProposal, visioResponse }
 
 /// Statut d'une proposition de visio.
-enum VisioStatus { pending, accepted, refused, completed, match, reflection, rejected }
+enum VisioStatus { pending, accepted, refused, completed, match, reflection, rejected, expired }
 
 /// Document `conversations/{convId}/messages/{msgId}`.
 class MessageModel {
@@ -41,6 +41,13 @@ class MessageModel {
   bool get isVisioAccepted => visioStatus == VisioStatus.accepted;
   bool get isVisioRefused => visioStatus == VisioStatus.refused;
   bool get isVisioPending => visioStatus == VisioStatus.pending;
+
+  /// Une proposition est considérée expirée si elle est encore `pending`
+  /// mais que sa `visioDate` est dépassée depuis plus de 2 heures.
+  bool get isVisioExpired {
+    if (visioStatus != VisioStatus.pending || visioDate == null) return false;
+    return DateTime.now().isAfter(visioDate!.add(const Duration(hours: 2)));
+  }
 
   factory MessageModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -87,6 +94,8 @@ class MessageModel {
         return VisioStatus.reflection;
       case 'rejected':
         return VisioStatus.rejected;
+      case 'expired':
+        return VisioStatus.expired;
       default:
         return null;
     }

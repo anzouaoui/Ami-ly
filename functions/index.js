@@ -724,3 +724,62 @@ exports.generateAgoraToken = functions.onCall(
     };
   }
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RAPPEL VISIO (squelette)
+// ─────────────────────────────────────────────────────────────────────────────
+// Pour activer les rappels avant visio, déployez cette fonction avec :
+//   firebase deploy --only functions:sendVisioReminder
+//
+// Cette Cloud Function est déclenchée par Cloud Scheduler (toutes les 5 min)
+// via un topic Pub/Sub. Elle interroge les appels `calls` dont le statut
+// est `pending` ou `ringing` et dont `scheduledFor` est dans 10-15 minutes,
+// puis envoie une notification FCM aux deux participants.
+//
+// Configuration Cloud Scheduler :
+//   gcloud scheduler jobs create http visio-reminder-trigger \
+//     --schedule="*/5 * * * *" \
+//     --uri="https://europe-west1-<PROJECT>.cloudfunctions.net/sendVisioReminder" \
+//     --http-method=POST
+//
+// Ou via Pub/Sub :
+//   gcloud pubsub topics create visio-reminder-topic
+//   gcloud scheduler jobs create pubsub visio-reminder-trigger \
+//     --schedule="*/5 * * * *" \
+//     --topic=visio-reminder-topic \
+//     --message-body='{}'
+//
+// exports.sendVisioReminder = functions
+//   .region('europe-west1')
+//   .pubsub.onPublish(async (message, context) => {
+//     const db = admin.firestore();
+//     const now = Date.now();
+//     const in15Min = new Date(now + 15 * 60 * 1000);
+//     const in10Min = new Date(now + 10 * 60 * 1000);
+//
+//     const snap = await db.collection('calls')
+//       .where('status', 'in', ['pending', 'ringing'])
+//       .where('scheduledFor', '>=', admin.firestore.Timestamp.fromDate(in10Min))
+//       .where('scheduledFor', '<=', admin.firestore.Timestamp.fromDate(in15Min))
+//       .get();
+//
+//     for (const doc of snap.docs) {
+//       const call = doc.data();
+//       const tokens = [];
+//       for (const uid of [call.callerId, call.calleeId]) {
+//         const userSnap = await db.collection('users').doc(uid).get();
+//         const fcmToken = userSnap.data()?.fcmToken;
+//         if (fcmToken) tokens.push(fcmToken);
+//       }
+//       if (tokens.length === 0) continue;
+//
+//       await admin.messaging().sendEachForMulticast({
+//         tokens,
+//         notification: {
+//           title: 'Rappel visio',
+//           body: `Votre visio est prévue dans ~15 minutes.`,
+//         },
+//         data: { callId: doc.id, type: 'visio_reminder' },
+//       });
+//     }
+//   });

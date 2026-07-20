@@ -210,6 +210,8 @@ class MessagingDatasource {
         text = 'En réflexion par $actor';
       case VisioStatus.rejected:
         text = 'Match refusé par $actor';
+      case VisioStatus.expired:
+        text = 'Proposition de visio expirée';
       default:
         text = 'Visio : $status';
     }
