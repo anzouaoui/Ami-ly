@@ -13,6 +13,7 @@ class CallModel {
     required this.status,
     required this.createdAt,
     this.endedAt,
+    this.scheduledFor,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class CallModel {
   final CallStatus status;
   final DateTime createdAt;
   final DateTime? endedAt;
+  final DateTime? scheduledFor;
 
   factory CallModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
@@ -40,6 +42,7 @@ class CallModel {
       ),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       endedAt: (d['endedAt'] as Timestamp?)?.toDate(),
+      scheduledFor: (d['scheduledFor'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -52,6 +55,7 @@ class CallModel {
         'status': status.name,
         'createdAt': Timestamp.fromDate(createdAt),
         if (endedAt != null) 'endedAt': Timestamp.fromDate(endedAt!),
+        if (scheduledFor != null) 'scheduledFor': Timestamp.fromDate(scheduledFor!),
       };
 
   Call toEntity() => Call(
@@ -64,5 +68,6 @@ class CallModel {
         status: status,
         createdAt: createdAt,
         endedAt: endedAt,
+        scheduledFor: scheduledFor,
       );
 }

@@ -14,6 +14,7 @@ class StartCall {
     required String callerName,
     required String calleeName,
     CallStatus initialStatus = CallStatus.ringing,
+    DateTime? scheduledFor,
   }) {
     return _repository.startCall(
       callerId: callerId,
@@ -21,6 +22,7 @@ class StartCall {
       callerName: callerName,
       calleeName: calleeName,
       initialStatus: initialStatus,
+      scheduledFor: scheduledFor,
     );
   }
 }

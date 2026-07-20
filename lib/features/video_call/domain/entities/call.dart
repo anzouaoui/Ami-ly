@@ -13,6 +13,7 @@ class Call extends Equatable {
     required this.status,
     required this.createdAt,
     this.endedAt,
+    this.scheduledFor,
   });
 
   final String id;
@@ -24,10 +25,12 @@ class Call extends Equatable {
   final CallStatus status;
   final DateTime createdAt;
   final DateTime? endedAt;
+  final DateTime? scheduledFor;
 
   Call copyWith({
     CallStatus? status,
     DateTime? endedAt,
+    DateTime? scheduledFor,
   }) {
     return Call(
       id: id,
@@ -39,6 +42,7 @@ class Call extends Equatable {
       status: status ?? this.status,
       createdAt: createdAt,
       endedAt: endedAt ?? this.endedAt,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
     );
   }
 
@@ -53,5 +57,6 @@ class Call extends Equatable {
         status,
         createdAt,
         endedAt,
+        scheduledFor,
       ];
 }

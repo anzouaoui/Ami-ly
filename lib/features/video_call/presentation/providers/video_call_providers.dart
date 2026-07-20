@@ -107,6 +107,7 @@ class VideoCallController extends Notifier<VideoCallState> {
     required String callerName,
     required String calleeName,
     CallStatus initialStatus = CallStatus.ringing,
+    DateTime? scheduledFor,
   }) async {
     final result = await ref.read(startCallUseCaseProvider).call(
           callerId: callerId,
@@ -114,6 +115,7 @@ class VideoCallController extends Notifier<VideoCallState> {
           callerName: callerName,
           calleeName: calleeName,
           initialStatus: initialStatus,
+          scheduledFor: scheduledFor,
         );
 
     result.fold(

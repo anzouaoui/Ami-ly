@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
@@ -660,11 +661,12 @@ class _VisioCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final effectiveStatus = responseStatus ?? message.visioStatus;
+    final bool isExpired = message.isVisioExpired;
     final bool isAccepted = effectiveStatus == VisioStatus.accepted;
     final bool isCompleted = effectiveStatus == VisioStatus.completed;
 
     final (Color bgColor, Color borderColor, String statusText) =
-        switch (effectiveStatus) {
+        switch (isExpired ? VisioStatus.expired : effectiveStatus) {
       VisioStatus.accepted => (
           AppColors.secondary,
           AppColors.primary,
@@ -694,6 +696,11 @@ class _VisioCard extends ConsumerWidget {
           AppColors.error.withValues(alpha: 0.08),
           AppColors.error,
           'Refusé par l\'assistante maternelle',
+        ),
+      VisioStatus.expired => (
+          AppColors.error.withValues(alpha: 0.08),
+          AppColors.error,
+          'Proposition expirée',
         ),
       _ => (
           AppColors.secondary,
@@ -738,13 +745,24 @@ class _VisioCard extends ConsumerWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    message.text,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
+                   const SizedBox(height: AppSpacing.xs),
+                   if (message.visioDate != null)
+                     Padding(
+                       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                       child: Text(
+                         '${DateFormat.yMMMMd('fr_FR').format(message.visioDate!)} à ${DateFormat.Hm('fr_FR').format(message.visioDate!)}',
+                         style: AppTextStyles.bodySmall.copyWith(
+                           color: AppColors.primary,
+                           fontWeight: FontWeight.w600,
+                         ),
+                       ),
+                     ),
+                   Text(
+                     message.text,
+                     style: AppTextStyles.bodySmall.copyWith(
+                       color: AppColors.secondaryText,
+                     ),
+                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -764,45 +782,81 @@ class _VisioCard extends ConsumerWidget {
                   // ── Visio acceptée : rejoindre / terminer ──────────────
                   if (isAccepted) ...[
                     const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: convId != null
-                                ? () => _joinVisio(context, ref)
-                                : null,
-                            icon: const Icon(Icons.videocam_rounded, size: 16),
-                            label: const Text('Rejoindre la visio'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(color: AppColors.primary),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppRadii.sm),
+                    Builder(
+                      builder: (context) {
+                        final visioDate = message.visioDate;
+                        final bool canJoin;
+                        if (visioDate == null) {
+                          canJoin = convId != null;
+                        } else {
+                          final now = DateTime.now();
+                          final windowStart = visioDate.subtract(const Duration(minutes: 10));
+                          canJoin = convId != null && now.isAfter(windowStart);
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (!canJoin) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.sm, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                                ),
+                                child: Text(
+                                  message.visioDate != null
+                                      ? 'Disponible le ${DateFormat.yMMMMd('fr_FR').format(message.visioDate!)} à ${DateFormat.Hm('fr_FR').format(message.visioDate!)}'
+                                      : 'Rejoindre la visio disponible prochainement',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: convId != null
-                                ? () => _markCompleted(context, ref)
-                                : null,
-                            icon: const Icon(Icons.check_circle_outline, size: 16),
-                            label: const Text('Visio terminée'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.success,
-                              side: BorderSide.none,
-                              backgroundColor: AppColors.success.withValues(alpha: 0.08),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppRadii.sm),
+                            ] else ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _joinVisio(context, ref),
+                                      icon: const Icon(Icons.videocam_rounded, size: 16),
+                                      label: const Text('Rejoindre la visio'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.primary,
+                                        side: const BorderSide(color: AppColors.primary),
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _markCompleted(context, ref),
+                                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                                      label: const Text('Visio terminée'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.success,
+                                        side: BorderSide.none,
+                                        backgroundColor: AppColors.success.withValues(alpha: 0.08),
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ),
-                      ],
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ],
                   // ── Visio terminée : suivi décision ────────────────────

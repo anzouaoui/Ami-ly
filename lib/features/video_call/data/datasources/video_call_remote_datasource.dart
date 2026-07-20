@@ -28,6 +28,7 @@ class VideoCallRemoteDatasource {
     required String callerName,
     required String calleeName,
     CallStatus initialStatus = CallStatus.ringing,
+    DateTime? scheduledFor,
   }) async {
     try {
       final docRef = _calls.doc();
@@ -41,6 +42,7 @@ class VideoCallRemoteDatasource {
         calleeName: calleeName,
         status: initialStatus,
         createdAt: DateTime.now(),
+        scheduledFor: scheduledFor,
       );
       await docRef.set(call.toFirestore());
       return call;
