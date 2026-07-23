@@ -136,7 +136,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
       // Filtre texte sur prénom, ville.
       if (_searchQuery.isNotEmpty) {
         final firstName = a.firstName.toLowerCase();
-        final city = _extractCity(a.address).toLowerCase();
+        final city = a.city.toLowerCase();
         if (!firstName.contains(_searchQuery) &&
             !city.contains(_searchQuery)) {
           return false;
@@ -219,14 +219,6 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     }
   }
 
-  /// Extrait la ville depuis l'adresse complète (dernière partie après la
-  /// dernière virgule, ou l'adresse telle quelle si pas de virgule).
-  String _extractCity(String address) {
-    if (address.isEmpty) return '';
-    final parts = address.split(',');
-    return parts.last.trim();
-  }
-
   /// Convertit un [AssmatProfileModel] en [ChildminderSummary] pour la carte.
   ChildminderSummary _toSummary(
     AssmatProfileModel a,
@@ -238,7 +230,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
 
     final name = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
 
-    final city = _extractCity(a.address);
+    // Affiche uniquement la ville + pays, jamais l'adresse complète.
+    final city = a.city;
+    final location = city.isNotEmpty ? '$city, France' : 'Ville non renseignée';
 
     final experience = a.yearsExperience > 0
         ? '${a.yearsExperience} an${a.yearsExperience > 1 ? 's' : ''}'
@@ -267,7 +261,7 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
       uid: a.uid,
       initials: initials,
       name: name,
-      location: city.isNotEmpty ? city : 'Ville non renseignée',
+      location: location,
       distance: distance,
       experience: experience,
       places: places,

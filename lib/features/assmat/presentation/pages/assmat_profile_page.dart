@@ -35,6 +35,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  // Ville seule, extraite de l'adresse sélectionnée — c'est elle (et non
+  // l'adresse complète) qui est affichée aux parents dans la liste.
+  String _city = '';
   final _bioCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _maxChildrenCtrl = TextEditingController();
@@ -125,6 +128,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _firstNameCtrl.text = profile.firstName;
     _lastNameCtrl.text = profile.lastName;
     _addressCtrl.text = profile.address;
+    _city = profile.city;
     _bioCtrl.text = profile.bio;
     _emailCtrl.text = email;
     _maxChildrenCtrl.text = profile.maxChildren.toString();
@@ -200,6 +204,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             firstName: _firstNameCtrl.text.trim(),
             lastName: _lastNameCtrl.text.trim(),
             address: _addressCtrl.text.trim(),
+            city: _city.trim(),
             bio: _bioCtrl.text.trim(),
             isSearchable: _isSearchable,
             maxChildren: savedMaxChildren,
@@ -245,6 +250,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         firstName: _firstNameCtrl.text.trim(),
         lastName: _lastNameCtrl.text.trim(),
         address: _addressCtrl.text.trim(),
+        city: _city.trim(),
         bio: _bioCtrl.text.trim(),
         isSearchable: _isSearchable,
         maxChildren: savedMaxChildren,
@@ -656,10 +662,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
               onSelected: (AddressSuggestion s) => setState(() {
                 _location = GeoPoint(s.lat, s.lon);
                 _locationCleared = false;
+                _city = s.city ?? '';
               }),
               onClearLocation: () => setState(() {
                 _location = null;
                 _locationCleared = true;
+                _city = '';
               }),
             ),
           ),
