@@ -299,6 +299,12 @@ class _ProfileBody extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _ServicesCard(profile: profile),
             ],
+
+            // Photos du domicile
+            if (profile.homePhotos.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              _HomePhotosSection(photos: profile.homePhotos),
+            ],
           ],
         ),
       ),
@@ -832,6 +838,112 @@ class _UnlockBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Photos du domicile (read-only) ───────────────────────────────────────────
+
+class _HomePhotosSection extends StatelessWidget {
+  const _HomePhotosSection({required this.photos});
+  final List<String> photos;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.home_outlined,
+                  size: 18, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Photos du domicile',
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = AppSpacing.sm;
+              final tileWidth = (constraints.maxWidth - spacing) / 2;
+              final tileHeight = tileWidth * 0.82;
+              final rows = <Widget>[];
+              for (var i = 0; i < photos.length; i += 2) {
+                final left = _DomicilePhotoTile(
+                  url: photos[i],
+                  width: tileWidth,
+                  height: tileHeight,
+                );
+                final right = i + 1 < photos.length
+                    ? _DomicilePhotoTile(
+                        url: photos[i + 1],
+                        width: tileWidth,
+                        height: tileHeight,
+                      )
+                    : SizedBox(width: tileWidth, height: tileHeight);
+                rows.add(Row(
+                  children: [
+                    left,
+                    const SizedBox(width: spacing),
+                    right,
+                  ],
+                ));
+                if (i + 2 < photos.length) {
+                  rows.add(const SizedBox(height: spacing));
+                }
+              }
+              return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: rows);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DomicilePhotoTile extends StatelessWidget {
+  const _DomicilePhotoTile({
+    required this.url,
+    required this.width,
+    required this.height,
+  });
+  final String url;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(
+            color: AppColors.divider,
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: AppColors.divider,
+            alignment: Alignment.center,
+            child: const Icon(Icons.broken_image_rounded,
+                color: Colors.grey, size: 22),
+          ),
+        ),
       ),
     );
   }
