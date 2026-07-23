@@ -877,28 +877,27 @@ class _HomePhotosSection extends StatelessWidget {
               const spacing = AppSpacing.sm;
               final tileWidth = (constraints.maxWidth - spacing) / 2;
               final tileHeight = tileWidth * 0.82;
-              final rows = <Widget>[];
-              for (var i = 0; i < photos.length; i += 2) {
-                final left = _DomicilePhotoTile(
+              final tiles = <Widget>[];
+              for (var i = 0; i < photos.length; i++) {
+                tiles.add(_DomicilePhotoTile(
                   url: photos[i],
                   width: tileWidth,
                   height: tileHeight,
-                );
-                final right = i + 1 < photos.length
-                    ? _DomicilePhotoTile(
-                        url: photos[i + 1],
-                        width: tileWidth,
-                        height: tileHeight,
-                      )
-                    : SizedBox(width: tileWidth, height: tileHeight);
+                  allPhotos: photos,
+                  initialIndex: i,
+                ));
+              }
+              final rows = <Widget>[];
+              for (var i = 0; i < tiles.length; i += 2) {
+                final right = i + 1 < tiles.length ? tiles[i + 1] : null;
                 rows.add(Row(
                   children: [
-                    left,
+                    tiles[i],
                     const SizedBox(width: spacing),
-                    right,
+                    right ?? SizedBox(width: tileWidth, height: tileHeight),
                   ],
                 ));
-                if (i + 2 < photos.length) {
+                if (i + 2 < tiles.length) {
                   rows.add(const SizedBox(height: spacing));
                 }
               }
@@ -917,31 +916,116 @@ class _DomicilePhotoTile extends StatelessWidget {
     required this.url,
     required this.width,
     required this.height,
+    required this.allPhotos,
+    required this.initialIndex,
   });
   final String url;
   final double width;
   final double height;
+  final List<String> allPhotos;
+  final int initialIndex;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadii.sm),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => Container(
-            color: AppColors.divider,
-            alignment: Alignment.center,
-            child: const CircularProgressIndicator(strokeWidth: 2),
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => _FullScreenPhotos(
+            photos: allPhotos,
+            initialIndex: initialIndex,
           ),
-          errorWidget: (_, __, ___) => Container(
-            color: AppColors.divider,
-            alignment: Alignment.center,
-            child: const Icon(Icons.broken_image_rounded,
-                color: Colors.grey, size: 22),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => Container(
+              color: AppColors.divider,
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              color: AppColors.divider,
+              alignment: Alignment.center,
+              child: const Icon(Icons.broken_image_rounded,
+                  color: Colors.grey, size: 22),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FullScreenPhotos extends StatefulWidget {
+  const _FullScreenPhotos({
+    required this.photos,
+    required this.initialIndex,
+  });
+  final List<String> photos;
+  final int initialIndex;
+
+  @override
+  State<_FullScreenPhotos> createState() => _FullScreenPhotosState();
+}
+
+class _FullScreenPhotosState extends State<_FullScreenPhotos> {
+  late final PageController _controller;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          '${_currentIndex + 1} / ${widget.photos.length}',
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        itemCount: widget.photos.length,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        itemBuilder: (_, i) => InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Center(
+            child: CachedNetworkImage(
+              imageUrl: widget.photos[i],
+              fit: BoxFit.contain,
+              placeholder: (_, __) => const Center(
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              ),
+              errorWidget: (_, __, ___) => const Icon(
+                Icons.broken_image_rounded,
+                color: Colors.grey,
+                size: 48,
+              ),
+            ),
           ),
         ),
       ),
