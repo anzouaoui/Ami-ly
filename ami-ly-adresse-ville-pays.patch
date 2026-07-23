@@ -1,0 +1,173 @@
+diff --git a/lib/core/models/address_suggestion.dart b/lib/core/models/address_suggestion.dart
+index 6b01ffc..7cb413e 100644
+--- a/lib/core/models/address_suggestion.dart
++++ b/lib/core/models/address_suggestion.dart
+@@ -4,9 +4,14 @@ class AddressSuggestion {
+     required this.label,
+     required this.lat,
+     required this.lon,
++    this.city,
+   });
+ 
+   final String label;
+   final double lat;
+   final double lon;
++
++  /// Ville extraite de l'adresse (propriété `city` de l'API BAN).
++  /// Null si l'API ne l'a pas fournie.
++  final String? city;
+ }
+diff --git a/lib/core/services/address_autocomplete_service.dart b/lib/core/services/address_autocomplete_service.dart
+index 074b877..e346e96 100644
+--- a/lib/core/services/address_autocomplete_service.dart
++++ b/lib/core/services/address_autocomplete_service.dart
+@@ -38,6 +38,7 @@ class AddressAutocompleteService {
+           label: props['label'] as String? ?? '',
+           lon: (coords[0] as num).toDouble(),
+           lat: (coords[1] as num).toDouble(),
++          city: props['city'] as String?,
+         );
+       }).where((s) => s.label.isNotEmpty).toList();
+     } catch (_) {
+diff --git a/lib/features/assmat/presentation/pages/assmat_profile_page.dart b/lib/features/assmat/presentation/pages/assmat_profile_page.dart
+index 7b09d4a..cd89ab8 100644
+--- a/lib/features/assmat/presentation/pages/assmat_profile_page.dart
++++ b/lib/features/assmat/presentation/pages/assmat_profile_page.dart
+@@ -35,6 +35,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
+   final _firstNameCtrl = TextEditingController();
+   final _lastNameCtrl = TextEditingController();
+   final _addressCtrl = TextEditingController();
++  // Ville seule, extraite de l'adresse sélectionnée — c'est elle (et non
++  // l'adresse complète) qui est affichée aux parents dans la liste.
++  String _city = '';
+   final _bioCtrl = TextEditingController();
+   final _emailCtrl = TextEditingController();
+   final _maxChildrenCtrl = TextEditingController();
+@@ -125,6 +128,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
+     _firstNameCtrl.text = profile.firstName;
+     _lastNameCtrl.text = profile.lastName;
+     _addressCtrl.text = profile.address;
++    _city = profile.city;
+     _bioCtrl.text = profile.bio;
+     _emailCtrl.text = email;
+     _maxChildrenCtrl.text = profile.maxChildren.toString();
+@@ -200,6 +204,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
+             firstName: _firstNameCtrl.text.trim(),
+             lastName: _lastNameCtrl.text.trim(),
+             address: _addressCtrl.text.trim(),
++            city: _city.trim(),
+             bio: _bioCtrl.text.trim(),
+             isSearchable: _isSearchable,
+             maxChildren: savedMaxChildren,
+@@ -245,6 +250,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
+         firstName: _firstNameCtrl.text.trim(),
+         lastName: _lastNameCtrl.text.trim(),
+         address: _addressCtrl.text.trim(),
++        city: _city.trim(),
+         bio: _bioCtrl.text.trim(),
+         isSearchable: _isSearchable,
+         maxChildren: savedMaxChildren,
+@@ -656,10 +662,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
+               onSelected: (AddressSuggestion s) => setState(() {
+                 _location = GeoPoint(s.lat, s.lon);
+                 _locationCleared = false;
++                _city = s.city ?? '';
+               }),
+               onClearLocation: () => setState(() {
+                 _location = null;
+                 _locationCleared = true;
++                _city = '';
+               }),
+             ),
+           ),
+diff --git a/lib/features/auth/data/datasources/auth_remote_datasource.dart b/lib/features/auth/data/datasources/auth_remote_datasource.dart
+index 411fc9d..237285e 100644
+--- a/lib/features/auth/data/datasources/auth_remote_datasource.dart
++++ b/lib/features/auth/data/datasources/auth_remote_datasource.dart
+@@ -222,6 +222,7 @@ class AuthRemoteDataSource {
+     required String firstName,
+     required String lastName,
+     required String address,
++    required String city,
+     required String bio,
+     required bool isSearchable,
+     required int maxChildren,
+@@ -261,6 +262,7 @@ class AuthRemoteDataSource {
+         'firstName': firstName,
+         'lastName': lastName,
+         'address': address,
++        'city': city,
+         'bio': bio,
+         'isSearchable': isSearchable,
+         'maxChildren': maxChildren,
+diff --git a/lib/features/auth/data/models/assmat_profile_model.dart b/lib/features/auth/data/models/assmat_profile_model.dart
+index 22e99f7..755b7ad 100644
+--- a/lib/features/auth/data/models/assmat_profile_model.dart
++++ b/lib/features/auth/data/models/assmat_profile_model.dart
+@@ -11,6 +11,7 @@ class AssmatProfileModel {
+     this.firstName = '',
+     this.lastName = '',
+     this.address = '',
++    this.city = '',
+     this.bio = '',
+     this.yearsExperience = 0,
+     this.maxChildren = 1,
+@@ -56,6 +57,10 @@ class AssmatProfileModel {
+   final String lastName;
+   final String address;
+ 
++  /// Ville uniquement (sans numéro/rue) — c'est ce qui est affiché aux
++  /// parents dans la liste de résultats, jamais l'adresse complète.
++  final String city;
++
+   /// Présentation libre (biographie).
+   final String bio;
+ 
+@@ -132,6 +137,7 @@ class AssmatProfileModel {
+       firstName: data['firstName'] as String? ?? '',
+       lastName: data['lastName'] as String? ?? '',
+       address: data['address'] as String? ?? '',
++      city: data['city'] as String? ?? '',
+       bio: data['bio'] as String? ?? '',
+       yearsExperience: data['yearsExperience'] as int? ?? 0,
+       maxChildren: data['maxChildren'] as int? ?? 1,
+@@ -180,6 +186,7 @@ class AssmatProfileModel {
+         'firstName': firstName,
+         'lastName': lastName,
+         'address': address,
++        'city': city,
+         'bio': bio,
+         'yearsExperience': yearsExperience,
+         'maxChildren': maxChildren,
+@@ -245,6 +252,7 @@ class AssmatProfileModel {
+     String? firstName,
+     String? lastName,
+     String? address,
++    String? city,
+     String? bio,
+     int? yearsExperience,
+     int? maxChildren,
+@@ -297,6 +305,7 @@ class AssmatProfileModel {
+         firstName: firstName ?? this.firstName,
+         lastName: lastName ?? this.lastName,
+         address: address ?? this.address,
++        city: city ?? this.city,
+         bio: bio ?? this.bio,
+         yearsExperience: yearsExperience ?? this.yearsExperience,
+         maxChildren: maxChildren ?? this.maxChildren,
+diff --git a/lib/features/parent/presentation/pages/find_childminder_page.dart b/lib/features/parent/presentation/pages/find_childminder_page.dart
+index 2a8e490..e5d9519 100644
+--- a/lib/features/parent/presentation/pages/find_childminder_page.dart
++++ b/lib/features/parent/presentation/pages/find_childminder_page.dart
+@@ -263,7 +263,10 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
+       uid: a.uid,
+       initials: initials.isEmpty ? '?' : initials,
+       name: name.isEmpty ? 'Assistante maternelle' : name,
+-      location: a.address.isNotEmpty ? a.address : 'Adresse non renseignée',
++      // Confidentialité : on n'affiche jamais l'adresse complète dans la
++      // liste, seulement la ville et le pays (l'adresse précise n'est
++      // utilisée que pour le calcul de distance et le géocodage).
++      location: a.city.isNotEmpty ? '${a.city}, France' : 'Ville non renseignée',
+       distance: distance,
+       experience: experience,
+       places: places,

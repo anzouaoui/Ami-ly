@@ -4,10 +4,8 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      groups:
-        - agora_credentials   # groupe de variables créé dans Codemagic UI, contenant AGORA_APP_ID
       vars:
-        BUNDLE_ID: "com.app.amily"   # <-- à remplacer par ton vrai bundle ID
+        BUNDLE_ID: "com.app.amily"
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
       xcode: latest
@@ -22,8 +20,13 @@ workflows:
           xcode-project use-profiles
       - name: Flutter build ipa
         script: |
+          if [ -z "$AGORA_APP_ID" ]; then
+            echo "ERREUR: AGORA_APP_ID n'est pas défini dans les Environment variables de l'app sur Codemagic"
+            exit 1
+          fi
+          echo "AGORA_APP_ID détecté (longueur: ${#AGORA_APP_ID} caractères)"
           flutter build ipa --release \
-            --dart-define=AGORA_APP_ID=a0d27abc78f4dde91919c3ff3ad4c0d \
+            --dart-define=AGORA_APP_ID=$AGORA_APP_ID \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
@@ -33,7 +36,6 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # submit_to_app_store: true   # décommente si tu veux publier direct sur l'App Store
       email:
         recipients:
-          - anouk.zouaoui@anoukzouaoui.fr   # <-- à remplacer par ton email
+          - anouk.zouaoui@anoukzouaoui.fr
