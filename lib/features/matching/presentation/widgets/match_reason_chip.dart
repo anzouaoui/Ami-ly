@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -100,15 +102,20 @@ class MatchSuggestionCard extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback? onToggleFavorite;
 
+  /// Extrait la ville depuis l'adresse complète.
+  String _extractCity(String address) {
+    if (address.isEmpty) return '';
+    final parts = address.split(',');
+    return parts.last.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     final assmat = suggestion.assmatProfile;
-    final name = assmat != null
-        ? '${assmat.firstName} ${assmat.lastName}'.trim()
-        : 'Assistante maternelle';
-    final initials = assmat != null && assmat.firstName.isNotEmpty
-        ? assmat.firstName[0]
-        : '?';
+    final firstName = assmat != null ? assmat.firstName : '';
+    final name = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
+    final initials = firstName.isNotEmpty ? firstName[0].toUpperCase() : '?';
+    final city = assmat != null ? _extractCity(assmat.address) : '';
 
     return Material(
       color: Colors.transparent,
@@ -127,15 +134,54 @@ class MatchSuggestionCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.assmatIconBg,
-                    child: Text(
-                      initials.toUpperCase(),
-                      style: AppTextStyles.labelLarge.copyWith(
-                        color: AppColors.primaryText,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  // Avatar avec flou
+                  ClipOval(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppColors.assmatIconBg,
+                          child: Text(
+                            initials,
+                            style: AppTextStyles.labelLarge.copyWith(
+                              color: AppColors.primaryText,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (assmat?.photoUrl != null &&
+                            assmat!.photoUrl!.isNotEmpty)
+                          Positioned.fill(
+                            child: ClipOval(
+                              child: Stack(
+                                children: [
+                                  Image.network(
+                                    assmat.photoUrl!,
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  Positioned.fill(
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(
+                                          sigmaX: 6, sigmaY: 6),
+                                      child: Container(
+                                        color: Colors.black.withValues(alpha: 0.15),
+                                        alignment: Alignment.center,
+                                        child: Icon(
+                                          Icons.lock_outline_rounded,
+                                          color:
+                                              Colors.white.withValues(alpha: 0.9),
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -144,9 +190,9 @@ class MatchSuggestionCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(name, style: AppTextStyles.titleMedium),
-                        if (suggestion.distanceKm != null)
+                        if (city.isNotEmpty)
                           Text(
-                            '${suggestion.distanceKm!.toStringAsFixed(1)} km',
+                            city,
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.secondaryText,
                             ),

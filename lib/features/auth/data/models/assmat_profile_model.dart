@@ -11,6 +11,7 @@ class AssmatProfileModel {
     this.firstName = '',
     this.lastName = '',
     this.address = '',
+    this.city = '',
     this.bio = '',
     this.yearsExperience = 0,
     this.maxChildren = 1,
@@ -55,6 +56,10 @@ class AssmatProfileModel {
   final String firstName;
   final String lastName;
   final String address;
+
+  /// Ville uniquement (sans numéro/rue) — c'est ce qui est affiché aux
+  /// parents dans la liste de résultats, jamais l'adresse complète.
+  final String city;
 
   /// Présentation libre (biographie).
   final String bio;
@@ -132,6 +137,7 @@ class AssmatProfileModel {
       firstName: data['firstName'] as String? ?? '',
       lastName: data['lastName'] as String? ?? '',
       address: data['address'] as String? ?? '',
+      city: data['city'] as String? ?? '',
       bio: data['bio'] as String? ?? '',
       yearsExperience: data['yearsExperience'] as int? ?? 0,
       maxChildren: data['maxChildren'] as int? ?? 1,
@@ -180,6 +186,7 @@ class AssmatProfileModel {
         'firstName': firstName,
         'lastName': lastName,
         'address': address,
+        'city': city,
         'bio': bio,
         'yearsExperience': yearsExperience,
         'maxChildren': maxChildren,
@@ -245,6 +252,7 @@ class AssmatProfileModel {
     String? firstName,
     String? lastName,
     String? address,
+    String? city,
     String? bio,
     int? yearsExperience,
     int? maxChildren,
@@ -297,6 +305,7 @@ class AssmatProfileModel {
         firstName: firstName ?? this.firstName,
         lastName: lastName ?? this.lastName,
         address: address ?? this.address,
+        city: city ?? this.city,
         bio: bio ?? this.bio,
         yearsExperience: yearsExperience ?? this.yearsExperience,
         maxChildren: maxChildren ?? this.maxChildren,
