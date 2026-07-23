@@ -133,12 +133,12 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
       // Filtre favoris uniquement.
       if (_onlyFavorites && !favoriteIds.contains(a.uid)) return false;
 
-      // Filtre texte sur prénom, nom, adresse.
+      // Filtre texte sur prénom, ville.
       if (_searchQuery.isNotEmpty) {
-        final fullName = '${a.firstName} ${a.lastName}'.toLowerCase();
-        final address = a.address.toLowerCase();
-        if (!fullName.contains(_searchQuery) &&
-            !address.contains(_searchQuery)) {
+        final firstName = a.firstName.toLowerCase();
+        final city = _extractCity(a.address).toLowerCase();
+        if (!firstName.contains(_searchQuery) &&
+            !city.contains(_searchQuery)) {
           return false;
         }
       }
@@ -219,6 +219,14 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     }
   }
 
+  /// Extrait la ville depuis l'adresse complète (dernière partie après la
+  /// dernière virgule, ou l'adresse telle quelle si pas de virgule).
+  String _extractCity(String address) {
+    if (address.isEmpty) return '';
+    final parts = address.split(',');
+    return parts.last.trim();
+  }
+
   /// Convertit un [AssmatProfileModel] en [ChildminderSummary] pour la carte.
   ChildminderSummary _toSummary(
     AssmatProfileModel a,
@@ -226,15 +234,11 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     double? parentLon,
   ) {
     final firstName = a.firstName;
-    final lastName = a.lastName;
-    final initials = [
-      if (firstName.isNotEmpty) firstName[0],
-      if (lastName.isNotEmpty) lastName[0],
-    ].join().toUpperCase();
+    final initials = firstName.isNotEmpty ? firstName[0].toUpperCase() : '?';
 
-    final name =
-        '${firstName.isEmpty ? '' : firstName} ${lastName.isEmpty ? '' : lastName}'
-            .trim();
+    final name = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
+
+    final city = _extractCity(a.address);
 
     final experience = a.yearsExperience > 0
         ? '${a.yearsExperience} an${a.yearsExperience > 1 ? 's' : ''}'
@@ -261,9 +265,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
 
     return ChildminderSummary(
       uid: a.uid,
-      initials: initials.isEmpty ? '?' : initials,
-      name: name.isEmpty ? 'Assistante maternelle' : name,
-      location: a.address.isNotEmpty ? a.address : 'Adresse non renseignée',
+      initials: initials,
+      name: name,
+      location: city.isNotEmpty ? city : 'Ville non renseignée',
       distance: distance,
       experience: experience,
       places: places,
@@ -716,7 +720,7 @@ class _FilterCard extends StatelessWidget {
                 child: TextField(
                   controller: searchCtrl,
                   decoration: const InputDecoration(
-                    hintText: 'Prénom, nom ou ville…',
+                    hintText: 'Prénom ou ville…',
                     prefixIcon: Icon(Icons.search_rounded),
                   ),
                 ),
