@@ -31,13 +31,6 @@ String _monthsLabel(int months) {
   return '$years an${years > 1 ? 's' : ''}';
 }
 
-/// Extrait la ville depuis l'adresse complète.
-String _extractCity(String address) {
-  if (address.isEmpty) return '';
-  final parts = address.split(',');
-  return parts.last.trim();
-}
-
 /// Construit la liste des infos pratiques affichables depuis le modèle Firestore.
 List<_PracticalItem> _practicalItems(AssmatProfileModel m) => [
       if (m.availableSlots > 0)
@@ -325,7 +318,7 @@ class _IdentityCard extends StatelessWidget {
     final isPro = profile.subscriptionPlan == 'pro';
     final firstName = profile.firstName;
     final displayName = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
-    final city = _extractCity(profile.address);
+    final city = profile.city;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
