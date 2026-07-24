@@ -38,6 +38,7 @@ class AddressAutocompleteService {
           label: props['label'] as String? ?? '',
           lon: (coords[0] as num).toDouble(),
           lat: (coords[1] as num).toDouble(),
+          city: props['city'] as String?,
         );
       }).where((s) => s.label.isNotEmpty).toList();
     } catch (_) {

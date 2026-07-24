@@ -1,0 +1,41 @@
+workflows:
+  ios-workflow:
+    name: Ami-ly iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        BUNDLE_ID: "com.app.amily"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      xcode: latest
+      cocoapods: default
+      flutter: stable
+    scripts:
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Flutter build ipa
+        script: |
+          if [ -z "$AGORA_APP_ID" ]; then
+            echo "ERREUR: AGORA_APP_ID n'est pas défini dans les Environment variables de l'app sur Codemagic"
+            exit 1
+          fi
+          echo "AGORA_APP_ID détecté (longueur: ${#AGORA_APP_ID} caractères)"
+          flutter build ipa --release \
+            --dart-define=AGORA_APP_ID=$AGORA_APP_ID \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      email:
+        recipients:
+          - anouk.zouaoui@anoukzouaoui.fr

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -207,13 +209,32 @@ class _Avatar extends StatelessWidget {
 
     if (photoUrl != null && photoUrl!.isNotEmpty) {
       return ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: photoUrl!,
-          width: 48,
-          height: 48,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => _initials(bg, fg),
-          errorWidget: (_, __, ___) => _initials(bg, fg),
+        child: Stack(
+          children: [
+            CachedNetworkImage(
+              imageUrl: photoUrl!,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => _initials(bg, fg),
+              errorWidget: (_, __, ___) => _initials(bg, fg),
+            ),
+            // Flou sur la photo
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }

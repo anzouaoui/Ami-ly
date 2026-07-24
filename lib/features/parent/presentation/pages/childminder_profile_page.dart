@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -314,8 +316,9 @@ class _IdentityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPro = profile.subscriptionPlan == 'pro';
-    final fullName =
-        '${profile.firstName} ${profile.lastName}'.trim();
+    final firstName = profile.firstName;
+    final displayName = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
+    final city = profile.city;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -363,7 +366,7 @@ class _IdentityCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  fullName.isEmpty ? 'Assistante maternelle' : fullName,
+                  displayName,
                   style: AppTextStyles.titleMedium
                       .copyWith(fontWeight: FontWeight.w800),
                 ),
@@ -379,9 +382,7 @@ class _IdentityCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        profile.address.isNotEmpty
-                            ? profile.address
-                            : 'Adresse non renseignée',
+                        city.isNotEmpty ? city : 'Ville non renseignée',
                         style: AppTextStyles.bodySmall
                             .copyWith(color: AppColors.secondaryText),
                       ),
@@ -405,19 +406,38 @@ class _IdentityCard extends StatelessWidget {
     );
   }
 
-  /// Avatar 72x72 arrondi : photo si disponible, sinon initiales.
+  /// Avatar 72x72 arrondi : photo floue si disponible, sinon initiales.
   Widget _buildAvatar(AssmatProfileModel profile, ChildminderSummary summary) {
     final photoUrl = profile.photoUrl;
     if (photoUrl != null && photoUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.md),
-        child: CachedNetworkImage(
-          imageUrl: photoUrl,
-          width: 72,
-          height: 72,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => _initialsBox(summary.initials),
-          errorWidget: (_, __, ___) => _initialsBox(summary.initials),
+        child: Stack(
+          children: [
+            CachedNetworkImage(
+              imageUrl: photoUrl,
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => _initialsBox(summary.initials),
+              errorWidget: (_, __, ___) => _initialsBox(summary.initials),
+            ),
+            // Flou sur la photo
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }

@@ -11,6 +11,13 @@ import '../../../../features/parent/presentation/widgets/childminder_card.dart';
 import '../providers/matching_providers.dart';
 import 'match_reason_chip.dart';
 
+/// Extrait la ville depuis l'adresse complète.
+String _extractCity(String address) {
+  if (address.isEmpty) return '';
+  final parts = address.split(',');
+  return parts.last.trim();
+}
+
 /// Carte "Suggestions personnalisées" pour le dashboard parent.
 class ParentMatchSuggestionsCard extends ConsumerWidget {
   const ParentMatchSuggestionsCard({super.key});
@@ -51,13 +58,15 @@ class ParentMatchSuggestionsCard extends ConsumerWidget {
                           toggleFavoriteWithFeedback(ref, s.assmatUid, context),
                       onTap: () {
                         if (s.assmatProfile == null) return;
+                        final firstName = s.assmatProfile!.firstName;
+                        final city = _extractCity(s.assmatProfile!.address);
                         final summary = ChildminderSummary(
                           uid: s.assmatUid,
-                          initials: s.assmatProfile!.firstName.isNotEmpty
-                              ? s.assmatProfile!.firstName[0].toUpperCase()
+                          initials: firstName.isNotEmpty
+                              ? firstName[0].toUpperCase()
                               : '?',
-                          name: '${s.assmatProfile!.firstName} ${s.assmatProfile!.lastName}'.trim(),
-                          location: s.assmatProfile!.address,
+                          name: firstName.isNotEmpty ? firstName : 'Assistante maternelle',
+                          location: city.isNotEmpty ? city : 'Ville non renseignée',
                           distance: s.distanceKm != null
                               ? '${s.distanceKm!.toStringAsFixed(1)} km'
                               : '—',
