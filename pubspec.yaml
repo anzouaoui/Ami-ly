@@ -2,7 +2,7 @@ name: amily
 description: "Ami-ly : mise en relation Parents / Assistantes Maternelles."
 publish_to: 'none'
 
-version: 1.0.0+22
+version: 1.0.0+23
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
