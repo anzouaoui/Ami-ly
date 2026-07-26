@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:intl/intl.dart';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   RtcEngine? _engine;
   bool _isLoading = true;
   String? _error;
+  final List<String> _debugLogs = [];
 
   @override
   void initState() {
@@ -112,11 +114,17 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
       // Gestion des événements
       _engine!.registerEventHandler(RtcEngineEventHandler(
+        onConnectionStateChanged: (connection, state, reason) {
+          _addDebugLog('ConnectionState: $state (reason: $reason)');
+        },
         onJoinChannelSuccess: (connection, elapsed) {
           controller.markConnected();
+          _addDebugLog(
+              'JoinChannelSuccess: elapsed=${elapsed}ms, localUid=${connection.localUid}');
         },
         onUserJoined: (connection, remoteUid, elapsed) {
           controller.setRemoteUid(remoteUid);
+          _addDebugLog('UserJoined: remoteUid=$remoteUid');
         },
         onUserOffline: (connection, remoteUid, reason) {
           controller.setRemoteUid(null);
@@ -126,6 +134,13 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         },
         onError: (errorType, message) {
           setState(() => _error = 'Erreur Agora: $message');
+          _addDebugLog('ERROR: $errorType - $message');
+        },
+        onLeaveChannel: (connection, stats) {
+          _addDebugLog('LeaveChannel');
+        },
+        onTokenPrivilegeWillExpire: (connection, token) {
+          _addDebugLog('TokenWillExpire');
         },
       ));
 
@@ -135,6 +150,8 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       await _engine!.startPreview();
 
       // Rejoint le canal
+      _addDebugLog(
+          'Tentative join: channel=${call.channelName}, uid=$uid, appId=${appId.substring(0, 8)}...');
       await _engine!.joinChannel(
         token: token!,
         channelId: call.channelName,
@@ -214,6 +231,14 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             );
       } catch (_) {}
     } catch (_) {}
+  }
+
+  void _addDebugLog(String message) {
+    final time = DateFormat('HH:mm:ss').format(DateTime.now());
+    setState(() {
+      _debugLogs.add('$time - $message');
+      if (_debugLogs.length > 15) _debugLogs.removeAt(0);
+    });
   }
 
   @override
@@ -297,6 +322,37 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                         enabled: videoState.isVideoEnabled,
                       ),
                     ),
+
+                  // Panneau de diagnostic
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    width: 280,
+                    height: 120,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: ListView.builder(
+                        itemCount: _debugLogs.length,
+                        reverse: true,
+                        itemBuilder: (context, index) {
+                          final log = _debugLogs[
+                              _debugLogs.length - 1 - index];
+                          return Text(
+                            log,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
