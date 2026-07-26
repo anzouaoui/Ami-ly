@@ -102,6 +102,8 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         },
         (t) => token = t,
       );
+      _addDebugLog(
+          'Token recu: ${token != null ? "OK (${token!.length} caracteres)" : "NULL"}');
 
       if (token == null) return;
 
@@ -111,6 +113,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         appId: appId,
         channelProfile: ChannelProfileType.channelProfileCommunication,
       ));
+      _addDebugLog('Engine initialise');
 
       // Gestion des événements
       _engine!.registerEventHandler(RtcEngineEventHandler(
@@ -143,13 +146,18 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           _addDebugLog('TokenWillExpire');
         },
       ));
+      _addDebugLog('EventHandler enregistre');
 
       // Active la vidéo et l'audio
       await _engine!.enableVideo();
+      _addDebugLog('enableVideo OK');
       await _engine!.enableAudio();
+      _addDebugLog('enableAudio OK');
       await _engine!.startPreview();
+      _addDebugLog('startPreview OK');
 
       // Rejoint le canal
+      _addDebugLog('Appel joinChannel...');
       _addDebugLog(
           'Tentative join: channel=${call.channelName}, uid=$uid, appId=${appId.substring(0, 8)}...');
       await _engine!.joinChannel(
@@ -164,6 +172,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         ),
         uid: uid,
       );
+      _addDebugLog('joinChannel() resolu (Future terminee)');
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
