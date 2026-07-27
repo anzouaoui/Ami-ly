@@ -39,6 +39,7 @@ class VideoCallScreen extends ConsumerStatefulWidget {
 class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   RtcEngine? _engine;
   bool _isLoading = true;
+  bool _isDisposing = false;
   String? _error;
   final List<String> _debugLogs = [];
 
@@ -185,9 +186,19 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   @override
   void dispose() {
-    _engine?.leaveChannel();
-    _engine?.release();
+    _disposeAgoraEngine();
     super.dispose();
+  }
+
+  Future<void> _disposeAgoraEngine() async {
+    if (_isDisposing || _engine == null) return;
+    _isDisposing = true;
+    final engine = _engine;
+    _engine = null;
+    try {
+      await engine!.leaveChannel();
+      await engine.release();
+    } catch (_) {}
   }
 
   Future<void> _toggleMute() async {
@@ -207,6 +218,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   Future<void> _endCall() async {
     await ref.read(videoCallControllerProvider.notifier).endCurrentCall();
     await _markVisioCompleted();
+    await _disposeAgoraEngine();
     if (mounted) Navigator.of(context).pop();
   }
 
