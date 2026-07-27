@@ -14,12 +14,14 @@ workflows:
     scripts:
       - name: Install pods
         script: |
+          rm -rf ios/Pods ios/Podfile.lock
           find . -name "Podfile" -execdir pod install \;
       - name: Set up code signing
         script: |
           xcode-project use-profiles
       - name: Flutter build ipa
         script: |
+          flutter config --no-enable-swift-package-manager
           if [ -z "$AGORA_APP_ID" ]; then
             echo "ERREUR: AGORA_APP_ID n'est pas défini dans les Environment variables de l'app sur Codemagic"
             exit 1
