@@ -47,7 +47,7 @@ dependencies:
   permission_handler: ^11.3.1
   geolocator: ^13.0.1
   url_launcher: ^6.3.1
-  agora_rtc_engine: ^6.6.3
+  agora_rtc_engine: ^6.6.1
   google_fonts: ^6.2.1
 
   # --- UI helpers ---
