@@ -15,7 +15,7 @@ workflows:
       - name: Install pods
         script: |
           rm -rf ios/Pods ios/Podfile.lock
-          find . -name "Podfile" -execdir pod install \;
+          find . -name "Podfile" -execdir pod install --repo-update \;
       - name: Set up code signing
         script: |
           xcode-project use-profiles
