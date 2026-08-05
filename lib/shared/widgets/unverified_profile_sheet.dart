@@ -17,18 +17,23 @@ bool isAssmatFullyVerified(AssmatProfileModel? profile) =>
     profile?.isFullyVerified ?? false;
 
 /// Liste les éléments de vérification manquants du profil assmat.
+///
+/// Doit rester cohérent avec `AssmatProfileModel.isFullyVerified` :
+/// - identité vérifiée + document d'identité non expiré ;
+/// - agrément PMI valide (date d'expiration dans le futur) ;
+/// - casier judiciaire fourni.
 List<AssmatVerificationIssue> computeMissingAssmatVerification(
   AssmatProfileModel? profile,
 ) {
   if (profile == null) return AssmatVerificationIssue.values;
   final issues = <AssmatVerificationIssue>[];
-  if (!profile.isIdentityVerified) {
+  final identityDocValid = profile.identityDocumentExpiry != null &&
+      profile.identityDocumentExpiry!.isAfter(DateTime.now());
+  if (!profile.isIdentityVerified || !identityDocValid) {
     issues.add(AssmatVerificationIssue.identity);
   }
-  final accreditationValid =
-      profile.isAccreditationCertified &&
-      (profile.accreditationExpiry == null ||
-          profile.accreditationExpiry!.isAfter(DateTime.now()));
+  final accreditationValid = profile.accreditationExpiry != null &&
+      profile.accreditationExpiry!.isAfter(DateTime.now());
   if (!accreditationValid) {
     issues.add(AssmatVerificationIssue.accreditation);
   }

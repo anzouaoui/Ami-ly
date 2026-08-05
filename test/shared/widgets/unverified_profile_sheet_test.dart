@@ -7,6 +7,7 @@ void main() {
   AssmatProfileModel profile({
     bool identityVerified = true,
     bool accreditationCertified = true,
+    DateTime? identityDocumentExpiry,
     DateTime? accreditationExpiry,
     String? criminalRecordUrl,
   }) {
@@ -15,6 +16,7 @@ void main() {
       createdAt: DateTime(2026),
       isIdentityVerified: identityVerified,
       isAccreditationCertified: accreditationCertified,
+      identityDocumentExpiry: identityDocumentExpiry,
       accreditationExpiry: accreditationExpiry,
       criminalRecordUrl: criminalRecordUrl,
     );
@@ -27,6 +29,7 @@ void main() {
 
     test('retourne true quand tout est vérifié', () {
       final p = profile(
+        identityDocumentExpiry: DateTime.now().add(const Duration(days: 365)),
         accreditationExpiry: DateTime.now().add(const Duration(days: 365)),
         criminalRecordUrl: 'https://storage/casier.jpg',
       );
@@ -61,6 +64,7 @@ void main() {
 
     test('ne liste aucun élément quand tout est vérifié', () {
       final p = profile(
+        identityDocumentExpiry: DateTime.now().add(const Duration(days: 365)),
         accreditationExpiry: DateTime.now().add(const Duration(days: 365)),
         criminalRecordUrl: 'https://storage/casier.jpg',
       );
@@ -69,7 +73,10 @@ void main() {
 
     test('liste uniquement les éléments manquants', () {
       // Identité vérifiée, agrément valide, mais casier judiciaire absent.
-      final p = profile(identityVerified: true);
+      final p = profile(
+        identityDocumentExpiry: DateTime.now().add(const Duration(days: 365)),
+        accreditationExpiry: DateTime.now().add(const Duration(days: 365)),
+      );
       final issues = computeMissingAssmatVerification(p);
       expect(issues, isNot(contains(AssmatVerificationIssue.identity)));
       expect(issues, isNot(contains(AssmatVerificationIssue.accreditation)));
@@ -78,7 +85,11 @@ void main() {
     });
 
     test('liste l\'identité quand elle n\'est pas vérifiée', () {
-      final p = profile(identityVerified: false);
+      final p = profile(
+        identityVerified: false,
+        identityDocumentExpiry: DateTime.now().add(const Duration(days: 365)),
+        accreditationExpiry: DateTime.now().add(const Duration(days: 365)),
+      );
       final issues = computeMissingAssmatVerification(p);
       expect(issues, contains(AssmatVerificationIssue.identity));
       expect(issues, isNot(contains(AssmatVerificationIssue.accreditation)));
@@ -149,6 +160,8 @@ void main() {
       await tester.pumpWidget(
         harness(
           profile: profile(
+            identityDocumentExpiry:
+                DateTime.now().add(const Duration(days: 365)),
             accreditationExpiry: DateTime.now().add(const Duration(days: 365)),
             criminalRecordUrl: 'https://storage/casier.jpg',
           ),
