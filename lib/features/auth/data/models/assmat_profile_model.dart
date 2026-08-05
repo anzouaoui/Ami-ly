@@ -1,5 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Type de pièce d'identité fournie par l'assistante maternelle.
+enum IdentityDocumentType {
+  cni,
+  passeport;
+
+  String get label => switch (this) {
+        IdentityDocumentType.cni => 'Carte nationale d\'identité',
+        IdentityDocumentType.passeport => 'Passeport',
+      };
+
+  String get key => name;
+
+  static IdentityDocumentType? fromKey(String? key) {
+    if (key == null) return null;
+    for (final value in values) {
+      if (value.key == key) return value;
+    }
+    return null;
+  }
+}
+
 /// Modèle Firestore pour le document `assmats/{uid}`.
 ///
 /// Créé à l'inscription avec des valeurs vides, complété lors de l'onboarding.
@@ -50,6 +71,12 @@ class AssmatProfileModel {
     this.isIdentityVerified = false,
     this.identityVerifiedAt,
     this.homePhotos = const [],
+    // Vérification d'identité & conformité
+    this.identityDocumentType,
+    this.identityDocumentUrl,
+    this.identityDocumentExpiry,
+    this.criminalRecordUrl,
+    this.criminalRecordUploadedAt,
   });
 
   final String uid;
@@ -126,6 +153,42 @@ class AssmatProfileModel {
   final DateTime? identityVerifiedAt;
   final List<String> homePhotos;
 
+  // ── Vérification d'identité & conformité ────────────────────────────────────
+
+  /// Type de pièce d'identité (CNI ou Passeport).
+  final IdentityDocumentType? identityDocumentType;
+
+  /// URL de la photo/scan du document d'identité dans Firebase Storage.
+  final String? identityDocumentUrl;
+
+  /// Date d'expiration du document d'identité.
+  final DateTime? identityDocumentExpiry;
+
+  /// URL de la photo/scan du casier judiciaire (bulletin n°3) dans Firebase Storage.
+  // TODO(Seb): Confirmer si le casier judiciaire doit être conservé ou supprimé après vérification.
+  final String? criminalRecordUrl;
+
+  /// Date de téléversement du casier judiciaire.
+  final DateTime? criminalRecordUploadedAt;
+
+  /// Retourne `true` si le profil est entièrement vérifié :
+  /// - Identité vérifiée (`isIdentityVerified`)
+  /// - Document d'identité non expiré
+  /// - Agrément PMI valide (date d'expiration dans le futur)
+  /// - Casier judiciaire fourni
+  bool get isFullyVerified {
+    final identityDocValid = identityDocumentExpiry != null &&
+        identityDocumentExpiry!.isAfter(DateTime.now());
+    final accreditationValid = accreditationExpiry != null &&
+        accreditationExpiry!.isAfter(DateTime.now());
+    final criminalRecordProvided =
+        criminalRecordUrl != null && criminalRecordUrl!.isNotEmpty;
+    return isIdentityVerified &&
+        identityDocValid &&
+        accreditationValid &&
+        criminalRecordProvided;
+  }
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -179,6 +242,15 @@ class AssmatProfileModel {
       isIdentityVerified: data['isIdentityVerified'] as bool? ?? false,
       identityVerifiedAt: (data['identityVerifiedAt'] as Timestamp?)?.toDate(),
       homePhotos: List<String>.from(data['homePhotos'] as List? ?? []),
+      // Vérification d'identité & conformité
+      identityDocumentType:
+          IdentityDocumentType.fromKey(data['identityDocumentType'] as String?),
+      identityDocumentUrl: data['identityDocumentUrl'] as String?,
+      identityDocumentExpiry:
+          (data['identityDocumentExpiry'] as Timestamp?)?.toDate(),
+      criminalRecordUrl: data['criminalRecordUrl'] as String?,
+      criminalRecordUploadedAt:
+          (data['criminalRecordUploadedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -231,6 +303,19 @@ class AssmatProfileModel {
         if (identityVerifiedAt != null)
           'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt!),
         'homePhotos': homePhotos,
+        // Vérification d'identité & conformité
+        if (identityDocumentType != null)
+          'identityDocumentType': identityDocumentType!.key,
+        if (identityDocumentUrl != null)
+          'identityDocumentUrl': identityDocumentUrl,
+        if (identityDocumentExpiry != null)
+          'identityDocumentExpiry':
+              Timestamp.fromDate(identityDocumentExpiry!),
+        if (criminalRecordUrl != null)
+          'criminalRecordUrl': criminalRecordUrl,
+        if (criminalRecordUploadedAt != null)
+          'criminalRecordUploadedAt':
+              Timestamp.fromDate(criminalRecordUploadedAt!),
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -298,6 +383,17 @@ class AssmatProfileModel {
     DateTime? identityVerifiedAt,
     bool clearIdentityVerifiedAt = false,
     List<String>? homePhotos,
+    // Vérification d'identité & conformité
+    IdentityDocumentType? identityDocumentType,
+    bool clearIdentityDocumentType = false,
+    String? identityDocumentUrl,
+    bool clearIdentityDocumentUrl = false,
+    DateTime? identityDocumentExpiry,
+    bool clearIdentityDocumentExpiry = false,
+    String? criminalRecordUrl,
+    bool clearCriminalRecordUrl = false,
+    DateTime? criminalRecordUploadedAt,
+    bool clearCriminalRecordUploadedAt = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -353,5 +449,21 @@ class AssmatProfileModel {
             ? null
             : (identityVerifiedAt ?? this.identityVerifiedAt),
         homePhotos: homePhotos ?? this.homePhotos,
+        // Vérification d'identité & conformité
+        identityDocumentType: clearIdentityDocumentType
+            ? null
+            : (identityDocumentType ?? this.identityDocumentType),
+        identityDocumentUrl: clearIdentityDocumentUrl
+            ? null
+            : (identityDocumentUrl ?? this.identityDocumentUrl),
+        identityDocumentExpiry: clearIdentityDocumentExpiry
+            ? null
+            : (identityDocumentExpiry ?? this.identityDocumentExpiry),
+        criminalRecordUrl: clearCriminalRecordUrl
+            ? null
+            : (criminalRecordUrl ?? this.criminalRecordUrl),
+        criminalRecordUploadedAt: clearCriminalRecordUploadedAt
+            ? null
+            : (criminalRecordUploadedAt ?? this.criminalRecordUploadedAt),
       );
 }
