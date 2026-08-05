@@ -199,6 +199,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           int.tryParse(_availableSlotsCtrl.text.trim()) ??
               (_loadedProfile?.availableSlots ?? 0);
 
+      // Dès que le profil est entièrement vérifié (identité + agrément), on
+      // lève le délai de vérification de 30 jours.
+      final isFullyVerified =
+          _isIdentityVerified && _isAccreditationCertified;
+
       await ref.read(authRemoteDataSourceProvider).updateAssmatProfile(
             uid: user.uid,
             firstName: _firstNameCtrl.text.trim(),
@@ -244,6 +249,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             contactTiersPhone: _contactTiersPhoneCtrl.text.trim(),
             emergencyPhoneCustom: _emergencyPhoneCustomCtrl.text.trim(),
             homePhotos: _homePhotos,
+            verificationStatus: isFullyVerified
+                ? VerificationStatus.verified.name
+                : null,
           );
 
       _loadedProfile = _loadedProfile?.copyWith(
@@ -281,6 +289,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         contactTiersPhone: _contactTiersPhoneCtrl.text.trim(),
         emergencyPhoneCustom: _emergencyPhoneCustomCtrl.text.trim(),
         homePhotos: _homePhotos,
+        verificationStatus: isFullyVerified
+            ? VerificationStatus.verified
+            : _loadedProfile?.verificationStatus,
       );
       _locationCleared = false;
 

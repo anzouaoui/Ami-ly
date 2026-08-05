@@ -256,6 +256,7 @@ class AuthRemoteDataSource {
     required String contactTiersPhone,
     required String emergencyPhoneCustom,
     required List<String> homePhotos,
+    String? verificationStatus,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -305,6 +306,8 @@ class AuthRemoteDataSource {
         'contactTiersPhone': contactTiersPhone,
         'emergencyPhoneCustom': emergencyPhoneCustom,
         'homePhotos': homePhotos,
+        if (verificationStatus != null)
+          'verificationStatus': verificationStatus,
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(

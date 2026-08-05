@@ -8,6 +8,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../contract/data/models/contract_model.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -69,6 +70,7 @@ class AssMatHomePage extends ConsumerWidget {
                 ),
                 _WelcomeHeader(displayName: displayName),
                 _PendingSignatureBanner(assmatUid: user?.uid),
+                _VerificationDeadlineBanner(assmatUid: user?.uid),
                 const _StatsGrid(),
                 const SizedBox(height: AppSpacing.lg),
                 const Padding(
@@ -355,6 +357,116 @@ class _PendingSignatureBanner extends StatelessWidget {
       },
     );
   }
+}
+
+// ─── Verification deadline banner ──────────────────────────────────────────────
+
+/// Avertit l'assmat du délai de vérification de son profil (30 jours).
+/// Affiché quand le profil n'est pas encore vérifié : relances J-15 / J-2,
+/// puis état "désactivé" une fois le délai dépassé.
+class _VerificationDeadlineBanner extends ConsumerWidget {
+  const _VerificationDeadlineBanner({this.assmatUid});
+
+  final String? assmatUid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (assmatUid == null) return const SizedBox.shrink();
+
+    final profile = ref.watch(assmatProfileProvider).valueOrNull;
+    final status = profile?.verificationStatus;
+    final deadline = profile?.verificationDeadline;
+    if (status == null ||
+        status == VerificationStatus.verified ||
+        deadline == null) {
+      return const SizedBox.shrink();
+    }
+
+    final expired = status == VerificationStatus.expired;
+    final daysLeft = deadline.difference(DateTime.now()).inDays;
+    final daysLeftLabel = daysLeft <= 0 ? 1 : daysLeft;
+
+    final color = expired ? AppColors.error : AppColors.accent;
+    final title = expired
+        ? 'Profil désactivé'
+        : (daysLeftLabel <= 2
+            ? 'Dernier rappel : vérifiez votre profil'
+            : 'Votre profil doit être vérifié');
+    final subtitle = expired
+        ? 'Le délai de vérification a expiré. Complétez votre profil pour '
+            'réapparaître dans la recherche.'
+        : 'Il vous reste $daysLeftLabel jour${daysLeftLabel > 1 ? 's' : ''} '
+            '(délai : ${_formatDate(deadline)}).';
+    final icon =
+        expired ? Icons.gpp_bad_outlined : Icons.verified_user_outlined;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(AppRadii.sm),
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            SizedBox(
+              width: 100,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AssMatProfilePage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: const Text('Vérifier'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }
 
 /// "Bonjour, {name} 👋" + sous-titre d'accueil.

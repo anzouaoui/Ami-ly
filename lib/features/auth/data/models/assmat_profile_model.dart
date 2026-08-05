@@ -1,10 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Statut de vérification du profil assmat.
+///
+/// - [pending] : délai en cours, aucune relance envoyée.
+/// - [reminded15] : relance envoyée à J-15.
+/// - [reminded2] : relance envoyée à J-2.
+/// - [expired] : délai dépassé → profil retiré de la recherche.
+/// - [verified] : profil entièrement vérifié → délai levé.
+enum VerificationStatus {
+  pending,
+  reminded15,
+  reminded2,
+  expired,
+  verified,
+}
+
 /// Modèle Firestore pour le document `assmats/{uid}`.
 ///
 /// Créé à l'inscription avec des valeurs vides, complété lors de l'onboarding.
 /// Ne dépend d'aucune entité domaine — c'est la couche data pure.
 class AssmatProfileModel {
+  /// Délai laissé à l'assmat pour faire vérifier son profil à partir de
+  /// son inscription. Des relances sont envoyées à J-15 et J-2.
+  static const verificationDeadlineDuration = Duration(days: 30);
   const AssmatProfileModel({
     required this.uid,
     required this.createdAt,
@@ -50,6 +68,11 @@ class AssmatProfileModel {
     this.isIdentityVerified = false,
     this.identityVerifiedAt,
     this.homePhotos = const [],
+    this.verificationDeadline,
+    this.verificationStatus = VerificationStatus.pending,
+    this.reminded15At,
+    this.reminded2At,
+    this.expiredAt,
   });
 
   final String uid;
@@ -126,6 +149,17 @@ class AssmatProfileModel {
   final DateTime? identityVerifiedAt;
   final List<String> homePhotos;
 
+  /// Date limite de vérification du profil (inscription + 30 jours).
+  final DateTime? verificationDeadline;
+
+  /// Statut courant du délai de vérification.
+  final VerificationStatus verificationStatus;
+
+  /// Horodatages des relances (utilisés pour ne notifier qu'une seule fois).
+  final DateTime? reminded15At;
+  final DateTime? reminded2At;
+  final DateTime? expiredAt;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -179,6 +213,15 @@ class AssmatProfileModel {
       isIdentityVerified: data['isIdentityVerified'] as bool? ?? false,
       identityVerifiedAt: (data['identityVerifiedAt'] as Timestamp?)?.toDate(),
       homePhotos: List<String>.from(data['homePhotos'] as List? ?? []),
+      verificationDeadline:
+          (data['verificationDeadline'] as Timestamp?)?.toDate(),
+      verificationStatus: VerificationStatus.values.firstWhere(
+        (s) => s.name == data['verificationStatus'],
+        orElse: () => VerificationStatus.pending,
+      ),
+      reminded15At: (data['reminded15At'] as Timestamp?)?.toDate(),
+      reminded2At: (data['reminded2At'] as Timestamp?)?.toDate(),
+      expiredAt: (data['expiredAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -231,22 +274,37 @@ class AssmatProfileModel {
         if (identityVerifiedAt != null)
           'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt!),
         'homePhotos': homePhotos,
+        if (verificationDeadline != null)
+          'verificationDeadline':
+              Timestamp.fromDate(verificationDeadline!),
+        'verificationStatus': verificationStatus.name,
+        if (reminded15At != null)
+          'reminded15At': Timestamp.fromDate(reminded15At!),
+        if (reminded2At != null)
+          'reminded2At': Timestamp.fromDate(reminded2At!),
+        if (expiredAt != null) 'expiredAt': Timestamp.fromDate(expiredAt!),
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
 
   /// Document minimal créé automatiquement lors de l'inscription.
+  ///
+  /// Positionne aussi `verificationDeadline = createdAt + 30 jours` : c'est
+  /// le point de départ du délai de vérification du profil.
   factory AssmatProfileModel.initial({
     required String uid,
     String firstName = '',
     String lastName = '',
-  }) =>
-      AssmatProfileModel(
-        uid: uid,
-        firstName: firstName,
-        lastName: lastName,
-        createdAt: DateTime.now(),
-      );
+  }) {
+    final createdAt = DateTime.now();
+    return AssmatProfileModel(
+      uid: uid,
+      firstName: firstName,
+      lastName: lastName,
+      createdAt: createdAt,
+      verificationDeadline: createdAt.add(verificationDeadlineDuration),
+    );
+  }
 
   AssmatProfileModel copyWith({
     String? firstName,
@@ -298,6 +356,15 @@ class AssmatProfileModel {
     DateTime? identityVerifiedAt,
     bool clearIdentityVerifiedAt = false,
     List<String>? homePhotos,
+    DateTime? verificationDeadline,
+    bool clearVerificationDeadline = false,
+    VerificationStatus? verificationStatus,
+    DateTime? reminded15At,
+    bool clearReminded15At = false,
+    DateTime? reminded2At,
+    bool clearReminded2At = false,
+    DateTime? expiredAt,
+    bool clearExpiredAt = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -353,5 +420,66 @@ class AssmatProfileModel {
             ? null
             : (identityVerifiedAt ?? this.identityVerifiedAt),
         homePhotos: homePhotos ?? this.homePhotos,
+        verificationDeadline: clearVerificationDeadline
+            ? null
+            : (verificationDeadline ?? this.verificationDeadline),
+        verificationStatus: verificationStatus ?? this.verificationStatus,
+        reminded15At:
+            clearReminded15At ? null : (reminded15At ?? this.reminded15At),
+        reminded2At: clearReminded2At ? null : (reminded2At ?? this.reminded2At),
+        expiredAt: clearExpiredAt ? null : (expiredAt ?? this.expiredAt),
       );
+
+  // ── Vérification du profil ───────────────────────────────────────────────────
+
+  /// `true` si le profil est entièrement vérifié (identité + agrément).
+  ///
+  /// TODO(assmat-identity): intégrer le casier judiciaire
+  /// (`criminalRecordUrl`) quand la branche identité sera fusionnée sur main.
+  bool get isFullyVerified =>
+      isIdentityVerified && isAccreditationCertified;
+
+  /// Calcule le prochain [VerificationStatus] à partir de la date limite et
+  /// du statut courant.
+  ///
+  /// Règles (délai de 30 jours) :
+  /// - déjà `verified` ou `expired` → état terminal, inchangé ;
+  /// - deadline dépassée → `expired` ;
+  /// - J-2 (deadline − now ≤ 2 jours) → `reminded2`, uniquement depuis
+  ///   `pending` ou `reminded15` ;
+  /// - J-15 (deadline − now ≤ 15 jours) → `reminded15`, uniquement depuis
+  ///   `pending` ;
+  /// - sinon → statut inchangé.
+  ///
+  /// Fonction pure : testable unitairement sans Firestore.
+  static VerificationStatus computeVerificationStatus({
+    required DateTime deadline,
+    required DateTime now,
+    required VerificationStatus current,
+  }) {
+    if (current == VerificationStatus.verified ||
+        current == VerificationStatus.expired) {
+      return current;
+    }
+
+    if (!now.isBefore(deadline)) {
+      return VerificationStatus.expired;
+    }
+
+    final daysLeft = deadline.difference(now).inDays;
+
+    if (daysLeft <= 2) {
+      if (current == VerificationStatus.pending ||
+          current == VerificationStatus.reminded15) {
+        return VerificationStatus.reminded2;
+      }
+      return current;
+    }
+
+    if (daysLeft <= 15 && current == VerificationStatus.pending) {
+      return VerificationStatus.reminded15;
+    }
+
+    return current;
+  }
 }
