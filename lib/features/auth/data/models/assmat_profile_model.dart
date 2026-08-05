@@ -50,6 +50,7 @@ class AssmatProfileModel {
     this.isIdentityVerified = false,
     this.identityVerifiedAt,
     this.homePhotos = const [],
+    this.criminalRecordUrl,
   });
 
   final String uid;
@@ -126,6 +127,23 @@ class AssmatProfileModel {
   final DateTime? identityVerifiedAt;
   final List<String> homePhotos;
 
+  /// URL de la photo/scan du casier judiciaire (bulletin n°3) dans Firebase Storage.
+  final String? criminalRecordUrl;
+
+  /// Retourne `true` si le profil de l'assistante maternelle est entièrement
+  /// vérifié (identité + agrément valide + casier judiciaire fourni).
+  ///
+  /// TODO(assmat-identity): une fois la branche `feature/assmat-identity-verification`
+  /// mergée, cette version simplifiée sera remplacée par la logique complète
+  /// (document d'identité non expiré + casier judiciaire fourni).
+  bool get isFullyVerified =>
+      isIdentityVerified &&
+      isAccreditationCertified &&
+      (accreditationExpiry == null ||
+          accreditationExpiry!.isAfter(DateTime.now())) &&
+      criminalRecordUrl != null &&
+      criminalRecordUrl!.isNotEmpty;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -179,6 +197,7 @@ class AssmatProfileModel {
       isIdentityVerified: data['isIdentityVerified'] as bool? ?? false,
       identityVerifiedAt: (data['identityVerifiedAt'] as Timestamp?)?.toDate(),
       homePhotos: List<String>.from(data['homePhotos'] as List? ?? []),
+      criminalRecordUrl: data['criminalRecordUrl'] as String?,
     );
   }
 
@@ -231,6 +250,7 @@ class AssmatProfileModel {
         if (identityVerifiedAt != null)
           'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt!),
         'homePhotos': homePhotos,
+        if (criminalRecordUrl != null) 'criminalRecordUrl': criminalRecordUrl,
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -298,6 +318,8 @@ class AssmatProfileModel {
     DateTime? identityVerifiedAt,
     bool clearIdentityVerifiedAt = false,
     List<String>? homePhotos,
+    String? criminalRecordUrl,
+    bool clearCriminalRecordUrl = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -353,5 +375,8 @@ class AssmatProfileModel {
             ? null
             : (identityVerifiedAt ?? this.identityVerifiedAt),
         homePhotos: homePhotos ?? this.homePhotos,
+        criminalRecordUrl: clearCriminalRecordUrl
+            ? null
+            : (criminalRecordUrl ?? this.criminalRecordUrl),
       );
 }
