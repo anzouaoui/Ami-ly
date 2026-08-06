@@ -9,6 +9,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../shared/widgets/signed_contract_pdf_tile.dart';
 import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import 'assmat_new_contract_page.dart';
@@ -95,7 +96,7 @@ class _DocumentsListState extends State<_DocumentsList> {
     final contractsQuery = FirebaseFirestore.instance
         .collection('contracts')
         .where('assmatUid', isEqualTo: widget.assmatUid)
-        .where('status', isEqualTo: 'active')
+        .where('status', whereIn: ['active', 'signed'])
         .orderBy('updatedAt', descending: true);
 
     return StreamBuilder<QuerySnapshot>(
@@ -338,7 +339,7 @@ class _DocumentsListState extends State<_DocumentsList> {
                                       color: AppColors.secondaryText),
                                   const SizedBox(width: AppSpacing.xs),
                                   Text(
-                                    'Généré le ${_formatDate(generatedAt)}',
+                                    'Signé le ${_formatDate(generatedAt)}',
                                     style: AppTextStyles.bodySmall.copyWith(
                                       color: AppColors.secondaryText,
                                       fontSize: 12,
@@ -347,63 +348,39 @@ class _DocumentsListState extends State<_DocumentsList> {
                                 ],
                               ),
                             ),
-                          if (contractType == 'cdi' && finalPdfUrl != null)
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.tonalIcon(
-                                onPressed: () => launchUrl(
-                                  Uri.parse(finalPdfUrl),
-                                  mode: LaunchMode.externalApplication,
-                                ),
-                                icon: const Icon(Icons.download_rounded,
-                                    size: 18),
-                                label: const Text(
-                                  'Contrat de travail CDI',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
+                          if (finalPdfUrl != null)
+                            SignedContractPdfTile(
+                              title: contractType == 'cdi'
+                                  ? 'Contrat de travail CDI'
+                                  : "Contrat d'engagement réciproque",
+                              url: finalPdfUrl,
+                              subtitle: generatedAt != null
+                                  ? 'Signé le ${_formatDate(generatedAt)}'
+                                  : null,
                             )
-                          else ...[
-                            if (pdfUrl != null)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.only(bottom: AppSpacing.sm),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => launchUrl(
-                                      Uri.parse(pdfUrl),
-                                      mode: LaunchMode.externalApplication,
-                                    ),
-                                    icon: const Icon(
-                                        Icons.description_outlined,
-                                        size: 18),
-                                    label: Text(
-                                      contractType == 'cdi'
-                                          ? 'Contrat de travail CDI'
-                                          : 'Contrat d\'engagement réciproque',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (finalPdfUrl != null)
-                              SizedBox(
+                          else if (pdfUrl != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppSpacing.sm),
+                              child: SizedBox(
                                 width: double.infinity,
-                                child: FilledButton.tonalIcon(
+                                child: OutlinedButton.icon(
                                   onPressed: () => launchUrl(
-                                    Uri.parse(finalPdfUrl),
+                                    Uri.parse(pdfUrl),
                                     mode: LaunchMode.externalApplication,
                                   ),
-                                  icon: const Icon(Icons.download_rounded,
+                                  icon: const Icon(
+                                      Icons.description_outlined,
                                       size: 18),
-                                  label: const Text(
-                                    'Contrat de travail CDI',
-                                    style: TextStyle(fontSize: 13),
+                                  label: Text(
+                                    contractType == 'cdi'
+                                        ? 'Contrat de travail CDI'
+                                        : "Contrat d'engagement réciproque",
+                                    style: const TextStyle(fontSize: 13),
                                   ),
                                 ),
                               ),
-                          ],
+                            ),
                         ],
                       ),
                     ),

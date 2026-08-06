@@ -9,6 +9,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../contract/data/models/contract_model.dart';
+import '../../../../shared/widgets/signed_contract_pdf_tile.dart';
 import 'engagement_contract_page.dart';
 
 class DocumentsPage extends ConsumerWidget {
@@ -216,6 +217,17 @@ Map<String, String> _extractNames(Map<String, dynamic> data) {
     'assmatName': assmatName.isNotEmpty ? assmatName : 'Assistante maternelle',
     'childName': childName,
   };
+}
+
+String _formatShortDate(String iso) {
+  try {
+    final dt = DateTime.parse(iso);
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    return '$d/$m/${dt.year}';
+  } catch (_) {
+    return iso;
+  }
 }
 
 class _DraftCard extends StatelessWidget {
@@ -438,6 +450,8 @@ class _SignedCard extends StatelessWidget {
     final names = _extractNames(data);
     final pdfUrl = data['pdfUrl'] as String?;
     final finalPdfUrl = data['finalPdfUrl'] as String?;
+    final signedAt = (data['finalizedAt'] as String?) ??
+        (data['updatedAt'] as String?);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg)
@@ -522,16 +536,12 @@ class _SignedCard extends StatelessWidget {
                     ),
                   ),
                 if (finalPdfUrl != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => launchUrl(
-                        Uri.parse(finalPdfUrl),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                      icon: const Icon(Icons.download_rounded, size: 16),
-                      label: const Text('Contrat CDI (signé)'),
-                    ),
+                  SignedContractPdfTile(
+                    title: '$typeLabel (signé)',
+                    url: finalPdfUrl,
+                    subtitle: signedAt != null
+                        ? 'Signé le ${_formatShortDate(signedAt)}'
+                        : null,
                   ),
               ],
             ],

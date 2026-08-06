@@ -17,6 +17,11 @@ class ContractModel {
     this.assmatSignatureIp,
     this.parentSignedName,
     this.assmatSignedName,
+    this.docusignEnvelopeId,
+    this.docusignStatus,
+    this.finalPdfUrl,
+    this.finalPdfPath,
+    this.finalizedAt,
     this.contractData,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -35,6 +40,11 @@ class ContractModel {
   final String? assmatSignatureIp;
   final String? parentSignedName;
   final String? assmatSignedName;
+  final String? docusignEnvelopeId;
+  final String? docusignStatus;
+  final String? finalPdfUrl;
+  final String? finalPdfPath;
+  final DateTime? finalizedAt;
   final ContractFormData? contractData;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -52,6 +62,11 @@ class ContractModel {
     String? assmatSignatureIp,
     String? parentSignedName,
     String? assmatSignedName,
+    String? docusignEnvelopeId,
+    String? docusignStatus,
+    String? finalPdfUrl,
+    String? finalPdfPath,
+    DateTime? finalizedAt,
     ContractFormData? contractData,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -63,6 +78,11 @@ class ContractModel {
     bool clearAssmatSignatureIp = false,
     bool clearParentSignedName = false,
     bool clearAssmatSignedName = false,
+    bool clearDocusignEnvelopeId = false,
+    bool clearDocusignStatus = false,
+    bool clearFinalPdfUrl = false,
+    bool clearFinalPdfPath = false,
+    bool clearFinalizedAt = false,
   }) {
     return ContractModel(
       id: id ?? this.id,
@@ -77,6 +97,11 @@ class ContractModel {
       assmatSignatureIp: clearAssmatSignatureIp ? null : (assmatSignatureIp ?? this.assmatSignatureIp),
       parentSignedName: clearParentSignedName ? null : (parentSignedName ?? this.parentSignedName),
       assmatSignedName: clearAssmatSignedName ? null : (assmatSignedName ?? this.assmatSignedName),
+      docusignEnvelopeId: clearDocusignEnvelopeId ? null : (docusignEnvelopeId ?? this.docusignEnvelopeId),
+      docusignStatus: clearDocusignStatus ? null : (docusignStatus ?? this.docusignStatus),
+      finalPdfUrl: clearFinalPdfUrl ? null : (finalPdfUrl ?? this.finalPdfUrl),
+      finalPdfPath: clearFinalPdfPath ? null : (finalPdfPath ?? this.finalPdfPath),
+      finalizedAt: clearFinalizedAt ? null : (finalizedAt ?? this.finalizedAt),
       contractData: contractData ?? this.contractData,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -95,6 +120,11 @@ class ContractModel {
         'assmatSignatureIp': assmatSignatureIp,
         'parentSignedName': parentSignedName,
         'assmatSignedName': assmatSignedName,
+        'docusignEnvelopeId': docusignEnvelopeId,
+        'docusignStatus': docusignStatus,
+        'finalPdfUrl': finalPdfUrl,
+        'finalPdfPath': finalPdfPath,
+        'finalizedAt': finalizedAt?.toIso8601String(),
         'contractData': contractData?.toJson(),
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
@@ -112,22 +142,33 @@ class ContractModel {
       ),
       pdfUrl: data['pdfUrl'] as String?,
       pdfHash: data['pdfHash'] as String?,
-      parentSignedAt: data['parentSignedAt'] != null
-          ? DateTime.parse(data['parentSignedAt'] as String)
-          : null,
-      assmatSignedAt: data['assmatSignedAt'] != null
-          ? DateTime.parse(data['assmatSignedAt'] as String)
-          : null,
+      parentSignedAt: parseContractDate(data['parentSignedAt']),
+      assmatSignedAt: parseContractDate(data['assmatSignedAt']),
       parentSignatureIp: data['parentSignatureIp'] as String?,
       assmatSignatureIp: data['assmatSignatureIp'] as String?,
       parentSignedName: data['parentSignedName'] as String?,
       assmatSignedName: data['assmatSignedName'] as String?,
+      docusignEnvelopeId: data['docusignEnvelopeId'] as String?,
+      docusignStatus: data['docusignStatus'] as String?,
+      finalPdfUrl: data['finalPdfUrl'] as String?,
+      finalPdfPath: data['finalPdfPath'] as String?,
+      finalizedAt: parseContractDate(data['finalizedAt']),
       contractData: data['contractData'] != null
           ? _contractFormDataFromJson(data['contractData'] as Map<String, dynamic>)
           : null,
       createdAt: DateTime.parse(data['createdAt'] as String),
       updatedAt: DateTime.parse(data['updatedAt'] as String),
     );
+  }
+
+  /// Parse une date Firestore qui peut être un Timestamp, une String ISO ou
+  /// un DateTime.
+  static DateTime? parseContractDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   static ContractFormData _contractFormDataFromJson(Map<String, dynamic> json) {

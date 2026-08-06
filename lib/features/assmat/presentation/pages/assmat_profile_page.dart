@@ -2916,7 +2916,7 @@ class _SignedContractsVault extends StatelessWidget {
     final contractsQuery = FirebaseFirestore.instance
         .collection('contracts')
         .where('assmatUid', isEqualTo: userUid)
-        .where('status', isEqualTo: 'active');
+        .where('status', whereIn: ['active', 'signed']);
 
     return StreamBuilder<QuerySnapshot>(
       stream: contractsQuery.snapshots(),

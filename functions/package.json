@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions"
+    "deploy": "firebase deploy --only functions",
+    "test": "node --test"
   },
   "dependencies": {
     "agora-token": "^2.0.5",
