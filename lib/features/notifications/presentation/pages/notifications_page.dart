@@ -187,6 +187,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
       case NotificationType.childAdded:
       case NotificationType.availabilityUpdated:
+      case NotificationType.verificationReminder:
+      case NotificationType.verificationExpired:
         break;
     }
   }

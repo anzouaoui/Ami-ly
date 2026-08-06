@@ -256,6 +256,7 @@ class AuthRemoteDataSource {
     required String contactTiersPhone,
     required String emergencyPhoneCustom,
     required List<String> homePhotos,
+    String? verificationStatus,
     // Vérification d'identité & conformité
     String? identityDocumentType,
     String? identityDocumentUrl,
@@ -315,6 +316,8 @@ class AuthRemoteDataSource {
         'contactTiersPhone': contactTiersPhone,
         'emergencyPhoneCustom': emergencyPhoneCustom,
         'homePhotos': homePhotos,
+        if (verificationStatus != null)
+          'verificationStatus': verificationStatus,
         // Vérification d'identité & conformité
         if (identityDocumentType != null)
           'identityDocumentType': identityDocumentType,

@@ -146,6 +146,36 @@ class NotificationTriggers {
     );
   }
 
+  /// Appelé quand une relance de vérification de profil est envoyée à une
+  /// assmat (J-15 / J-2 avant la date limite).
+  Future<void> onVerificationReminder({
+    required String recipientUid,
+    required int daysLeft,
+  }) async {
+    await _notificationService.createNotification(
+      recipientUid: recipientUid,
+      type: NotificationType.verificationReminder,
+      title: 'Votre profil doit être vérifié',
+      body: 'Il vous reste $daysLeft jour${daysLeft > 1 ? 's' : ''} '
+          'pour vérifier votre profil avant sa désactivation.',
+      metadata: {'daysLeft': daysLeft},
+    );
+  }
+
+  /// Appelé quand le délai de vérification d'une assmat a expiré et que son
+  /// profil est retiré de la recherche.
+  Future<void> onVerificationExpired({
+    required String recipientUid,
+  }) async {
+    await _notificationService.createNotification(
+      recipientUid: recipientUid,
+      type: NotificationType.verificationExpired,
+      title: 'Profil désactivé',
+      body: 'Le délai de vérification de votre profil (30 jours) a expiré. '
+          'Votre profil a été retiré de la recherche.',
+    );
+  }
+
   String _monthName(int m) {
     const months = [
       'janvier',

@@ -9,6 +9,8 @@ enum NotificationType {
   visioProposalResponse,
   childAdded,
   availabilityUpdated,
+  verificationReminder,
+  verificationExpired,
 }
 
 enum NotificationPriority { low, medium, high }
@@ -52,6 +54,8 @@ class NotificationModel {
       case NotificationType.visioProposalResponse:
         return NotificationPriority.high;
       case NotificationType.contractStatusChanged:
+      case NotificationType.verificationReminder:
+      case NotificationType.verificationExpired:
         return NotificationPriority.medium;
       case NotificationType.childAdded:
       case NotificationType.availabilityUpdated:
@@ -78,6 +82,9 @@ class NotificationModel {
         return 'Enfant';
       case NotificationType.availabilityUpdated:
         return 'Disponibilité';
+      case NotificationType.verificationReminder:
+      case NotificationType.verificationExpired:
+        return 'Vérification';
     }
   }
 
@@ -97,6 +104,10 @@ class NotificationModel {
         return 'child_care_outlined';
       case NotificationType.availabilityUpdated:
         return 'schedule_outlined';
+      case NotificationType.verificationReminder:
+        return 'verified_user_outlined';
+      case NotificationType.verificationExpired:
+        return 'gpp_bad_outlined';
     }
   }
 

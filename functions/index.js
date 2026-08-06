@@ -1,5 +1,6 @@
 const functions = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 const docusign = require('docusign-esign');
 
@@ -422,6 +423,108 @@ exports.onNotificationCreated = onDocumentCreated('notifications/{notificationId
     console.error('Error sending push notification:', error);
   }
 });
+
+// ──────────────────────────────────────────────
+// Délai de vérification du profil assmat (30 jours)
+// ──────────────────────────────────────────────
+
+const VERIFICATION_DEADLINE_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours
+
+/**
+ * Relances de vérification du profil assmat.
+ *
+ * Déclenchée par Cloud Scheduler toutes les 24h (via le v2 scheduler).
+ * Pour chaque assmat dont `verificationStatus` est `pending`, `reminded15`
+ * ou `reminded2`, applique la machine à états du délai de 30 jours :
+ *
+ *   - deadline dépassée (et profil non vérifié) → `expired`,
+ *     `isSearchable = false`, notification `verificationExpired` ;
+ *   - J-2 (deadline − now ≤ 2 jours), depuis `pending` ou `reminded15`
+ *     → `reminded2`, notification `verificationReminder` (2 jours) ;
+ *   - J-15 (deadline − now ≤ 15 jours), depuis `pending` → `reminded15`,
+ *     notification `verificationReminder` (15 jours).
+ *
+ * La notification est créée dans Firestore : la fonction
+ * `onNotificationCreated` se charge du push FCM.
+ *
+ * Déploiement : firebase deploy --only functions:sendVerificationReminders
+ */
+exports.sendVerificationReminders = onSchedule(
+  { schedule: 'every 24 hours', region: 'europe-west1', timeZone: 'Europe/Paris' },
+  async (event) => {
+    const db = admin.firestore();
+    const now = new Date();
+
+    const snapshot = await db
+      .collection('assmats')
+      .where('verificationStatus', 'in', ['pending', 'reminded15', 'reminded2'])
+      .get();
+
+    console.log(
+      `[sendVerificationReminders] ${snapshot.size} profil(s) dans le délai`
+    );
+
+    for (const doc of snapshot.docs) {
+      const profile = doc.data();
+      const deadline = profile.verificationDeadline?.toDate
+        ? profile.verificationDeadline.toDate()
+        : null;
+      if (!deadline) continue;
+
+      const status = profile.verificationStatus;
+      const daysLeft = Math.floor((deadline - now) / (24 * 60 * 60 * 1000));
+      const updates = {};
+      let type = null;
+      let title = null;
+      let body = null;
+
+      if (now >= deadline) {
+        updates.verificationStatus = 'expired';
+        updates.isSearchable = false;
+        updates.expiredAt = admin.firestore.FieldValue.serverTimestamp();
+        type = 'verificationExpired';
+        title = 'Profil désactivé';
+        body =
+          'Le délai de vérification de votre profil (30 jours) a expiré. ' +
+          'Votre profil a été retiré de la recherche.';
+      } else if (
+        daysLeft <= 2 &&
+        (status === 'pending' || status === 'reminded15')
+      ) {
+        updates.verificationStatus = 'reminded2';
+        updates.reminded2At = admin.firestore.FieldValue.serverTimestamp();
+        type = 'verificationReminder';
+        title = 'Dernier rappel : vérifiez votre profil';
+        body =
+          `Il vous reste ${Math.max(daysLeft, 1)} jour` +
+          `${daysLeft > 1 ? 's' : ''} pour vérifier votre profil ` +
+          'avant sa désactivation.';
+      } else if (daysLeft <= 15 && status === 'pending') {
+        updates.verificationStatus = 'reminded15';
+        updates.reminded15At = admin.firestore.FieldValue.serverTimestamp();
+        type = 'verificationReminder';
+        title = 'Votre profil doit être vérifié';
+        body =
+          'Il vous reste environ 15 jours pour vérifier votre profil ' +
+          'avant sa désactivation.';
+      }
+
+      if (type) {
+        await db.collection('assmats').doc(doc.id).update(updates);
+        await db.collection('notifications').add({
+          recipientUid: doc.id,
+          type,
+          title,
+          body,
+          read: false,
+          metadata: { verificationStatus: updates.verificationStatus },
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`[sendVerificationReminders] ${doc.id} → ${updates.verificationStatus}`);
+      }
+    }
+  }
+);
 
 // ──────────────────────────────────────────────
 // Stripe Connect
