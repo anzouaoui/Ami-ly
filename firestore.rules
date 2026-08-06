@@ -13,6 +13,25 @@ service cloud.firestore {
       return request.auth.uid == uid;
     }
 
+    // Vérifie que l'assistante maternelle identifiée par `assmatUid` a un
+    // profil entièrement vérifié (identité + agrément certifié à jour +
+    // casier judiciaire fourni). Utilisée pour bloquer la création de
+    // contrat tant que le profil n'est pas vérifié.
+    //
+    // TODO(assmat-identity): remplacée par la logique complète une fois la
+    // branche `feature/assmat-identity-verification` mergée.
+    function isAssmatVerified(assmatUid) {
+      let assmatDoc = get(/databases/$(database)/documents/assmats/$(assmatUid));
+      return isAuth()
+          && assmatDoc.exists
+          && assmatDoc.data.isIdentityVerified == true
+          && assmatDoc.data.isAccreditationCertified == true
+          && (assmatDoc.data.accreditationExpiry == null
+              || assmatDoc.data.accreditationExpiry > request.time)
+          && assmatDoc.data.criminalRecordUrl is string
+          && assmatDoc.data.criminalRecordUrl.size() > 0;
+    }
+
     // ── users/{uid} ──────────────────────────────────────────────────────────
     // Source de vérité : email, rôle, isPro, isProfileComplete.
     // Accessible uniquement par son propriétaire.
@@ -112,7 +131,8 @@ service cloud.firestore {
     // ── contracts/{contractId} ────────────────────────────────────────────────
     // Contrat d'engagement réciproque entre un parent et une assmat.
     //   Lecture : le parent ou l'assmat concerné.
-    //   Création : tout utilisateur authentifié.
+    //   Création : tout utilisateur authentifié, si le profil de l'assmat
+    //              concernée est entièrement vérifié (isAssmatVerified).
     //   Mise à jour : le parent ou l'assmat concerné.
     match /contracts/{contractId} {
       function isParticipantOnCreate() {
@@ -131,7 +151,8 @@ service cloud.firestore {
       }
 
       allow read:   if isParticipant();
-      allow create: if isParticipantOnCreate();
+      allow create: if isParticipantOnCreate() &&
+        isAssmatVerified(request.resource.data.assmatUid);
       allow update: if isParticipant();
       allow delete: if false;
 

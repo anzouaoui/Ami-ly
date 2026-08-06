@@ -10,6 +10,7 @@ import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
@@ -195,13 +196,38 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
 
   bool get _canGoBack => _step > 1 && !_isSigning && !_waitingForAssmat;
 
-  void _onStep2Preview(ContractFormData data) {
+  Future<void> _onStep2Preview(ContractFormData data) async {
     _contractFormData = data;
+    if (!await _ensureAssmatVerified()) return;
     _next();
+  }
+
+  /// Vérifie que le profil de l'assistante maternelle est entièrement vérifié
+  /// avant de créer ou signer un contrat. Affiche la modale explicative sinon.
+  Future<bool> _ensureAssmatVerified() async {
+    final profile = await resolveAssmatProfile(ref, widget.assmatUid);
+    if (!mounted) return false;
+    return ensureAssmatVerifiedForContract(
+      context: context,
+      isAssmatSide: false,
+      profile: profile,
+    );
   }
 
   Future<void> _saveDraft({bool silent = false}) async {
     if (_contractFormData == null) return;
+    final profile = await resolveAssmatProfile(ref, widget.assmatUid);
+    if (!isAssmatFullyVerified(profile)) {
+      if (!silent) {
+        if (!mounted) return;
+        await showUnverifiedProfileSheet(
+          context: context,
+          isAssmatSide: false,
+          issues: computeMissingAssmatVerification(profile),
+        );
+      }
+      return;
+    }
     try {
       final firebaseService = ref.read(firebaseServiceProvider);
       final service = ContractService(firebaseService: firebaseService);
@@ -239,6 +265,7 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
 
   Future<void> _onDocusignSign() async {
     if (_contractFormData == null) return;
+    if (!await _ensureAssmatVerified()) return;
     setState(() => _isSigning = true);
 
     try {
@@ -431,7 +458,9 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         return _Step1(
           assmatName: widget.assmatName ?? 'l\'assistante maternelle',
           assmatPhotoUrl: widget.assmatPhotoUrl,
-          onCreateEngagement: _next,
+          onCreateEngagement: () async {
+            if (await _ensureAssmatVerified()) _next();
+          },
         );
       case 2:
         final parentAsync = ref.watch(parentProfileProvider);

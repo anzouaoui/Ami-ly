@@ -15,6 +15,7 @@ import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
 import '../../../../shared/models/message_model.dart';
+import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import 'engagement_contract_page.dart';
 
 /// Page de chat côté parent — fil de messages avec une assmat donnée.
@@ -1014,13 +1015,27 @@ class _VisioCard extends ConsumerWidget {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: () {
+                                onPressed: () async {
+                                  final profile = await resolveAssmatProfile(
+                                    ref,
+                                    assmatUid ?? '',
+                                  );
+                                  if (!context.mounted) return;
+                                  final allowed =
+                                      await ensureAssmatVerifiedForContract(
+                                    context: context,
+                                    isAssmatSide: false,
+                                    profile: profile,
+                                  );
+                                  if (!allowed || !context.mounted) return;
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => EngagementContractPage(
                                         assmatUid: assmatUid ?? '',
-                                        assmatName: assmatName ?? 'l\'assistante maternelle',
+                                        assmatName:
+                                            assmatName ??
+                                                'l\'assistante maternelle',
                                       ),
                                     ),
                                   );

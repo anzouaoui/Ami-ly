@@ -9,8 +9,10 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import 'assmat_new_contract_page.dart';
+import 'assmat_profile_page.dart';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -38,15 +40,41 @@ class AssMatDocumentsPage extends ConsumerWidget {
       ),
       body: user == null
           ? const Center(child: CircularProgressIndicator())
-          : _DocumentsList(assmatUid: user.uid),
+          : _DocumentsList(
+              assmatUid: user.uid,
+              onCreateContract: () async {
+                final profile = await resolveOwnAssmatProfile(ref);
+                if (!context.mounted) return;
+                final allowed = await ensureAssmatVerifiedForContract(
+                  context: context,
+                  isAssmatSide: true,
+                  profile: profile,
+                  onCompleteProfile: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AssMatProfilePage(),
+                    ),
+                  ),
+                );
+                if (!allowed || !context.mounted) return;
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AssMatNewContractPage(),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
 
 class _DocumentsList extends StatefulWidget {
-  const _DocumentsList({required this.assmatUid});
+  const _DocumentsList({
+    required this.assmatUid,
+    required this.onCreateContract,
+  });
 
   final String assmatUid;
+  final Future<void> Function() onCreateContract;
 
   @override
   State<_DocumentsList> createState() => _DocumentsListState();
@@ -148,11 +176,7 @@ class _DocumentsListState extends State<_DocumentsList> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const AssMatNewContractPage(),
-                  ),
-                ),
+                onPressed: widget.onCreateContract,
                 icon: const Icon(Icons.add_rounded, size: 20),
                 label: const Text('Nouveau contrat CDI'),
                 style: FilledButton.styleFrom(
