@@ -15,6 +15,27 @@ enum VerificationStatus {
   verified,
 }
 
+/// Type de pièce d'identité fournie par l'assistante maternelle.
+enum IdentityDocumentType {
+  cni,
+  passeport;
+
+  String get label => switch (this) {
+        IdentityDocumentType.cni => 'Carte nationale d\'identité',
+        IdentityDocumentType.passeport => 'Passeport',
+      };
+
+  String get key => name;
+
+  static IdentityDocumentType? fromKey(String? key) {
+    if (key == null) return null;
+    for (final value in values) {
+      if (value.key == key) return value;
+    }
+    return null;
+  }
+}
+
 /// Modèle Firestore pour le document `assmats/{uid}`.
 ///
 /// Créé à l'inscription avec des valeurs vides, complété lors de l'onboarding.
@@ -73,6 +94,12 @@ class AssmatProfileModel {
     this.reminded15At,
     this.reminded2At,
     this.expiredAt,
+    // Vérification d'identité & conformité
+    this.identityDocumentType,
+    this.identityDocumentUrl,
+    this.identityDocumentExpiry,
+    this.criminalRecordUrl,
+    this.criminalRecordUploadedAt,
   });
 
   final String uid;
@@ -160,6 +187,42 @@ class AssmatProfileModel {
   final DateTime? reminded2At;
   final DateTime? expiredAt;
 
+  // ── Vérification d'identité & conformité ────────────────────────────────────
+
+  /// Type de pièce d'identité (CNI ou Passeport).
+  final IdentityDocumentType? identityDocumentType;
+
+  /// URL de la photo/scan du document d'identité dans Firebase Storage.
+  final String? identityDocumentUrl;
+
+  /// Date d'expiration du document d'identité.
+  final DateTime? identityDocumentExpiry;
+
+  /// URL de la photo/scan du casier judiciaire (bulletin n°3) dans Firebase Storage.
+  // TODO(Seb): Confirmer si le casier judiciaire doit être conservé ou supprimé après vérification.
+  final String? criminalRecordUrl;
+
+  /// Date de téléversement du casier judiciaire.
+  final DateTime? criminalRecordUploadedAt;
+
+  /// Retourne `true` si le profil est entièrement vérifié :
+  /// - Identité vérifiée (`isIdentityVerified`)
+  /// - Document d'identité non expiré
+  /// - Agrément PMI valide (date d'expiration dans le futur)
+  /// - Casier judiciaire fourni
+  bool get isFullyVerified {
+    final identityDocValid = identityDocumentExpiry != null &&
+        identityDocumentExpiry!.isAfter(DateTime.now());
+    final accreditationValid = accreditationExpiry != null &&
+        accreditationExpiry!.isAfter(DateTime.now());
+    final criminalRecordProvided =
+        criminalRecordUrl != null && criminalRecordUrl!.isNotEmpty;
+    return isIdentityVerified &&
+        identityDocValid &&
+        accreditationValid &&
+        criminalRecordProvided;
+  }
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
@@ -222,6 +285,15 @@ class AssmatProfileModel {
       reminded15At: (data['reminded15At'] as Timestamp?)?.toDate(),
       reminded2At: (data['reminded2At'] as Timestamp?)?.toDate(),
       expiredAt: (data['expiredAt'] as Timestamp?)?.toDate(),
+      // Vérification d'identité & conformité
+      identityDocumentType:
+          IdentityDocumentType.fromKey(data['identityDocumentType'] as String?),
+      identityDocumentUrl: data['identityDocumentUrl'] as String?,
+      identityDocumentExpiry:
+          (data['identityDocumentExpiry'] as Timestamp?)?.toDate(),
+      criminalRecordUrl: data['criminalRecordUrl'] as String?,
+      criminalRecordUploadedAt:
+          (data['criminalRecordUploadedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -283,6 +355,19 @@ class AssmatProfileModel {
         if (reminded2At != null)
           'reminded2At': Timestamp.fromDate(reminded2At!),
         if (expiredAt != null) 'expiredAt': Timestamp.fromDate(expiredAt!),
+        // Vérification d'identité & conformité
+        if (identityDocumentType != null)
+          'identityDocumentType': identityDocumentType!.key,
+        if (identityDocumentUrl != null)
+          'identityDocumentUrl': identityDocumentUrl,
+        if (identityDocumentExpiry != null)
+          'identityDocumentExpiry':
+              Timestamp.fromDate(identityDocumentExpiry!),
+        if (criminalRecordUrl != null)
+          'criminalRecordUrl': criminalRecordUrl,
+        if (criminalRecordUploadedAt != null)
+          'criminalRecordUploadedAt':
+              Timestamp.fromDate(criminalRecordUploadedAt!),
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -365,6 +450,17 @@ class AssmatProfileModel {
     bool clearReminded2At = false,
     DateTime? expiredAt,
     bool clearExpiredAt = false,
+    // Vérification d'identité & conformité
+    IdentityDocumentType? identityDocumentType,
+    bool clearIdentityDocumentType = false,
+    String? identityDocumentUrl,
+    bool clearIdentityDocumentUrl = false,
+    DateTime? identityDocumentExpiry,
+    bool clearIdentityDocumentExpiry = false,
+    String? criminalRecordUrl,
+    bool clearCriminalRecordUrl = false,
+    DateTime? criminalRecordUploadedAt,
+    bool clearCriminalRecordUploadedAt = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -428,16 +524,25 @@ class AssmatProfileModel {
             clearReminded15At ? null : (reminded15At ?? this.reminded15At),
         reminded2At: clearReminded2At ? null : (reminded2At ?? this.reminded2At),
         expiredAt: clearExpiredAt ? null : (expiredAt ?? this.expiredAt),
+        // Vérification d'identité & conformité
+        identityDocumentType: clearIdentityDocumentType
+            ? null
+            : (identityDocumentType ?? this.identityDocumentType),
+        identityDocumentUrl: clearIdentityDocumentUrl
+            ? null
+            : (identityDocumentUrl ?? this.identityDocumentUrl),
+        identityDocumentExpiry: clearIdentityDocumentExpiry
+            ? null
+            : (identityDocumentExpiry ?? this.identityDocumentExpiry),
+        criminalRecordUrl: clearCriminalRecordUrl
+            ? null
+            : (criminalRecordUrl ?? this.criminalRecordUrl),
+        criminalRecordUploadedAt: clearCriminalRecordUploadedAt
+            ? null
+            : (criminalRecordUploadedAt ?? this.criminalRecordUploadedAt),
       );
 
   // ── Vérification du profil ───────────────────────────────────────────────────
-
-  /// `true` si le profil est entièrement vérifié (identité + agrément).
-  ///
-  /// TODO(assmat-identity): intégrer le casier judiciaire
-  /// (`criminalRecordUrl`) quand la branche identité sera fusionnée sur main.
-  bool get isFullyVerified =>
-      isIdentityVerified && isAccreditationCertified;
 
   /// Calcule le prochain [VerificationStatus] à partir de la date limite et
   /// du statut courant.

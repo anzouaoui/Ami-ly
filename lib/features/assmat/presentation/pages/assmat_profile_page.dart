@@ -90,6 +90,12 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   bool _isAccreditationCertified = true;
   bool _isIdentityVerified = false;
   DateTime? _identityVerifiedAt;
+  // Vérification d'identité & conformité
+  IdentityDocumentType? _identityDocumentType;
+  String? _identityDocumentUrl;
+  DateTime? _identityDocumentExpiry;
+  String? _criminalRecordUrl;
+  DateTime? _criminalRecordUploadedAt;
 
   // ── Cycle de vie ──────────────────────────────────────────────────────────
   bool _initialized = false;
@@ -170,6 +176,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _isIdentityVerified = profile.isIdentityVerified;
     _identityVerifiedAt = profile.identityVerifiedAt;
     _homePhotos = List<String>.from(profile.homePhotos);
+    _identityDocumentType = profile.identityDocumentType;
+    _identityDocumentUrl = profile.identityDocumentUrl;
+    _identityDocumentExpiry = profile.identityDocumentExpiry;
+    _criminalRecordUrl = profile.criminalRecordUrl;
+    _criminalRecordUploadedAt = profile.criminalRecordUploadedAt;
 
     _initialized = true;
   }
@@ -201,8 +212,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
 
       // Dès que le profil est entièrement vérifié (identité + agrément), on
       // lève le délai de vérification de 30 jours.
-      final isFullyVerified =
-          _isIdentityVerified && _isAccreditationCertified;
+      final isFullyVerified = _isIdentityVerified &&
+          (_identityDocumentExpiry?.isAfter(DateTime.now()) ?? false) &&
+          _isAccreditationCertified &&
+          (_accreditationExpiry?.isAfter(DateTime.now()) ?? false) &&
+          (_criminalRecordUrl?.isNotEmpty ?? false);
 
       await ref.read(authRemoteDataSourceProvider).updateAssmatProfile(
             uid: user.uid,
@@ -252,6 +266,16 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             verificationStatus: isFullyVerified
                 ? VerificationStatus.verified.name
                 : null,
+            // Vérification d'identité & conformité
+            identityDocumentType: _identityDocumentType?.key,
+            identityDocumentUrl: _identityDocumentUrl,
+            clearIdentityDocumentUrl: _identityDocumentUrl == null,
+            identityDocumentExpiry: _identityDocumentExpiry,
+            clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
+            criminalRecordUrl: _criminalRecordUrl,
+            clearCriminalRecordUrl: _criminalRecordUrl == null,
+            criminalRecordUploadedAt: _criminalRecordUploadedAt,
+            clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
           );
 
       _loadedProfile = _loadedProfile?.copyWith(
@@ -292,6 +316,16 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         verificationStatus: isFullyVerified
             ? VerificationStatus.verified
             : _loadedProfile?.verificationStatus,
+        // Vérification d'identité & conformité
+        identityDocumentType: _identityDocumentType,
+        identityDocumentUrl: _identityDocumentUrl,
+        clearIdentityDocumentUrl: _identityDocumentUrl == null,
+        identityDocumentExpiry: _identityDocumentExpiry,
+        clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
+        criminalRecordUrl: _criminalRecordUrl,
+        clearCriminalRecordUrl: _criminalRecordUrl == null,
+        criminalRecordUploadedAt: _criminalRecordUploadedAt,
+        clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
       );
       _locationCleared = false;
 
@@ -565,6 +599,163 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     });
   }
 
+  Future<void> _uploadIdentityDocument() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadIdentityDocument(user.uid, File(picked.path));
+      if (mounted) {
+        setState(() => _identityDocumentUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document d\'identité mis à jour'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _uploadCriminalRecord() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadCriminalRecord(user.uid, File(picked.path));
+      if (mounted) {
+        setState(() {
+          _criminalRecordUrl = url;
+          _criminalRecordUploadedAt = DateTime.now();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Casier judiciaire mis à jour'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -646,6 +837,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           _StatusChips(
             availableSlots: availableSlots,
             isSearchable: _isSearchable,
+            accreditationExpiry: _accreditationExpiry,
+            isIdentityVerified: _isIdentityVerified,
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -761,9 +954,21 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          _IdentityVerificationCard(
-            isVerified: _isIdentityVerified,
-            verifiedAt: _identityVerifiedAt,
+          _IdentityAndComplianceCard(
+            isIdentityVerified: _isIdentityVerified,
+            identityVerifiedAt: _identityVerifiedAt,
+            identityDocumentType: _identityDocumentType,
+            identityDocumentUrl: _identityDocumentUrl,
+            identityDocumentExpiry: _identityDocumentExpiry,
+            accreditationExpiry: _accreditationExpiry,
+            criminalRecordUrl: _criminalRecordUrl,
+            criminalRecordUploadedAt: _criminalRecordUploadedAt,
+            onIdentityDocumentTypeChanged: (type) =>
+                setState(() => _identityDocumentType = type),
+            onUploadIdentityDocument: _uploadIdentityDocument,
+            onIdentityDocumentExpiryChanged: (date) =>
+                setState(() => _identityDocumentExpiry = date),
+            onUploadCriminalRecord: _uploadCriminalRecord,
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -887,10 +1092,17 @@ class _StatusChips extends StatelessWidget {
   const _StatusChips({
     required this.availableSlots,
     required this.isSearchable,
+    this.accreditationExpiry,
+    this.isIdentityVerified = false,
   });
 
   final int availableSlots;
   final bool isSearchable;
+  final DateTime? accreditationExpiry;
+  final bool isIdentityVerified;
+
+  bool get _isAccreditationValid =>
+      accreditationExpiry != null && accreditationExpiry!.isAfter(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
@@ -907,15 +1119,17 @@ class _StatusChips extends StatelessWidget {
               : 'Indisponible',
           filled: isSearchable,
         ),
-        const _StatusChip(
-          icon: Icons.shield_outlined,
-          label: 'Agrément valide',
-          filled: false,
+        _StatusChip(
+          icon: _isAccreditationValid
+              ? Icons.shield_outlined
+              : Icons.shield_outlined,
+          label: 'Agrément ${_isAccreditationValid ? 'valide' : 'non renseigné'}',
+          filled: _isAccreditationValid,
         ),
-        const _StatusChip(
+        _StatusChip(
           icon: Icons.verified_user_outlined,
-          label: 'Identité vérifiée',
-          filled: false,
+          label: isIdentityVerified ? 'Identité vérifiée' : 'Identité non vérifiée',
+          filled: isIdentityVerified,
         ),
       ],
     );
@@ -2161,21 +2375,71 @@ class _ContactSection extends StatelessWidget {
   }
 }
 
-// ─── Vérification d'identité ──────────────────────────────────────────────────
+// ─── Vérification d'identité & conformité ──────────────────────────────────────
 
-class _IdentityVerificationCard extends StatelessWidget {
-  const _IdentityVerificationCard({
-    required this.isVerified,
-    required this.verifiedAt,
+class _IdentityAndComplianceCard extends StatelessWidget {
+  const _IdentityAndComplianceCard({
+    required this.isIdentityVerified,
+    required this.identityVerifiedAt,
+    required this.identityDocumentType,
+    required this.identityDocumentUrl,
+    required this.identityDocumentExpiry,
+    required this.accreditationExpiry,
+    required this.criminalRecordUrl,
+    required this.criminalRecordUploadedAt,
+    required this.onIdentityDocumentTypeChanged,
+    required this.onUploadIdentityDocument,
+    required this.onIdentityDocumentExpiryChanged,
+    required this.onUploadCriminalRecord,
   });
 
-  final bool isVerified;
-  final DateTime? verifiedAt;
+  final bool isIdentityVerified;
+  final DateTime? identityVerifiedAt;
+  final IdentityDocumentType? identityDocumentType;
+  final String? identityDocumentUrl;
+  final DateTime? identityDocumentExpiry;
+  final DateTime? accreditationExpiry;
+  final String? criminalRecordUrl;
+  final DateTime? criminalRecordUploadedAt;
+  final ValueChanged<IdentityDocumentType?> onIdentityDocumentTypeChanged;
+  final VoidCallback onUploadIdentityDocument;
+  final ValueChanged<DateTime> onIdentityDocumentExpiryChanged;
+  final VoidCallback onUploadCriminalRecord;
 
   static const _rgpdBg = Color(0xFFFFF8E1);
 
   String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Future<void> _pickIdentityExpiry(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: identityDocumentExpiry ?? DateTime.now().add(const Duration(days: 365 * 5)),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2040, 12, 31),
+      locale: const Locale('fr', 'FR'),
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
+    );
+    if (picked != null) onIdentityDocumentExpiryChanged(picked);
+  }
+
+  bool get _isIdentityDocExpired =>
+      identityDocumentExpiry != null &&
+      identityDocumentExpiry!.isBefore(DateTime.now());
+
+  bool get _isAccreditationExpired =>
+      accreditationExpiry != null &&
+      accreditationExpiry!.isBefore(DateTime.now());
+
+  bool get _isCriminalRecordProvided =>
+      criminalRecordUrl != null && criminalRecordUrl!.isNotEmpty;
+
+  bool get _isFullyVerified =>
+      isIdentityVerified &&
+      !_isIdentityDocExpired &&
+      !_isAccreditationExpired &&
+      _isCriminalRecordProvided;
 
   @override
   Widget build(BuildContext context) {
@@ -2184,63 +2448,204 @@ class _IdentityVerificationCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.divider),
+        border: Border.all(
+          color: _isFullyVerified ? AppColors.primary : AppColors.divider,
+          width: _isFullyVerified ? 1.5 : 1,
+        ),
         boxShadow: AppShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ── En-tête avec badge ──
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.credit_card_outlined,
+              const Icon(Icons.verified_user_outlined,
                   color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text('Vérification d\'identité',
-                  style: AppTextStyles.titleMedium),
+              Expanded(
+                child: Text('Vérification & Conformité',
+                    style: AppTextStyles.titleMedium),
+              ),
+              _ComplianceBadge(isFullyVerified: _isFullyVerified),
             ],
           ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Complétez les éléments ci-dessous pour obtenir le badge "Profil vérifié"',
+            style: AppTextStyles.bodySmall
+                .copyWith(color: AppColors.secondaryText),
+          ),
           const SizedBox(height: AppSpacing.lg),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppRadii.md),
-              border: Border.all(color: AppColors.divider),
+
+          // ── 1. Pièce d'identité ──
+          _ComplianceItem(
+            icon: Icons.credit_card_outlined,
+            title: 'Pièce d\'identité',
+            isCompleted: identityDocumentUrl != null &&
+                !_isIdentityDocExpired &&
+                identityDocumentType != null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Sélection du type
+                Text('Type de document', style: AppTextStyles.labelMedium),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DocumentTypeChip(
+                        label: 'CNI',
+                        isSelected: identityDocumentType == IdentityDocumentType.cni,
+                        onTap: () => onIdentityDocumentTypeChanged(
+                            IdentityDocumentType.cni),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: _DocumentTypeChip(
+                        label: 'Passeport',
+                        isSelected:
+                            identityDocumentType == IdentityDocumentType.passeport,
+                        onTap: () => onIdentityDocumentTypeChanged(
+                            IdentityDocumentType.passeport),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // Bouton upload
+                OutlinedButton.icon(
+                  onPressed: onUploadIdentityDocument,
+                  icon: Icon(
+                    identityDocumentUrl != null
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.upload_file_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    identityDocumentUrl != null
+                        ? 'Document mis à jour'
+                        : 'Ajouter une photo/scan du document',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                ),
+                if (_isIdentityDocExpired) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          color: AppColors.error, size: 16),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        'Document expiré — veuillez le renouveler',
+                        style: AppTextStyles.bodySmall
+                            .copyWith(color: AppColors.error),
+                      ),
+                    ],
+                  ),
+                ],
+                // Date d'expiration
+                const SizedBox(height: AppSpacing.md),
+                _DatePickerField(
+                  label: 'Date d\'expiration',
+                  value: identityDocumentExpiry != null
+                      ? _fmt(identityDocumentExpiry!)
+                      : 'Sélectionner une date',
+                  onTap: () => _pickIdentityExpiry(context),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: AppSpacing.md),
+
+          // ── 2. Agrément PMI ──
+          _ComplianceItem(
+            icon: Icons.shield_outlined,
+            title: 'Agrément PMI',
+            isCompleted: accreditationExpiry != null && !_isAccreditationExpired,
             child: Row(
               children: [
                 Icon(
-                  isVerified ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded,
-                  color: isVerified ? AppColors.primary : AppColors.secondaryText,
-                  size: 28,
+                  _isAccreditationExpired
+                      ? Icons.warning_amber_rounded
+                      : (accreditationExpiry != null
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.info_outline_rounded),
+                  color: _isAccreditationExpired
+                      ? AppColors.error
+                      : (accreditationExpiry != null
+                          ? AppColors.primary
+                          : AppColors.secondaryText),
+                  size: 18,
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isVerified ? 'Identité vérifiée' : 'Identité non vérifiée',
-                        style: AppTextStyles.bodyLarge.copyWith(
-                            color: isVerified ? AppColors.primary : AppColors.secondaryText,
-                            fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        isVerified && verifiedAt != null
-                            ? 'Vérification effectuée le ${_fmt(verifiedAt!)}'
-                            : 'Veuillez contacter le support pour valider votre pièce d\'identité.',
-                        style: AppTextStyles.bodySmall
-                            .copyWith(color: AppColors.secondaryText),
-                      ),
-                    ],
+                  child: Text(
+                    _isAccreditationExpired
+                        ? 'Agrément expiré — renouvellez-le dans la section Agrément'
+                        : (accreditationExpiry != null
+                            ? 'Agrément valide jusqu\'au ${_fmt(accreditationExpiry!)}'
+                            : 'Renseignez votre numéro et date d\'expiration dans la section Agrément'),
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: _isAccreditationExpired
+                          ? AppColors.error
+                          : AppColors.primaryText,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
+          const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: AppSpacing.md),
+
+          // ── 3. Casier judiciaire (bulletin n°3) ──
+          // TODO(Seb): Confirmer la durée de validité du casier judiciaire (3 mois ? 6 mois ? permanent ?)
+          _ComplianceItem(
+            icon: Icons.gavel_rounded,
+            title: 'Casier judiciaire (bulletin n°3)',
+            isCompleted: _isCriminalRecordProvided,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onUploadCriminalRecord,
+                  icon: Icon(
+                    _isCriminalRecordProvided
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.upload_file_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _isCriminalRecordProvided
+                        ? 'Casier judiciaire mis à jour'
+                        : 'Ajouter une photo/scan du casier judiciaire',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                ),
+                if (_isCriminalRecordProvided &&
+                    criminalRecordUploadedAt != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Téléversé le ${_fmt(criminalRecordUploadedAt!)}',
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.secondaryText),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── RGPD ──
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -2255,7 +2660,7 @@ class _IdentityVerificationCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Vos données sont traitées conformément au RGPD. '
-                    'La photo n\'est pas conservée après vérification.',
+                    'Les documents d\'identité ne sont pas conservés après vérification.',
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.primaryText),
                   ),
@@ -2264,6 +2669,128 @@ class _IdentityVerificationCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Badge de statut "Profil vérifié" / "Vérification incomplète".
+class _ComplianceBadge extends StatelessWidget {
+  const _ComplianceBadge({required this.isFullyVerified});
+  final bool isFullyVerified;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: isFullyVerified
+            ? AppColors.primary.withValues(alpha: 0.1)
+            : AppColors.accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadii.full),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isFullyVerified ? Icons.verified_rounded : Icons.info_outline_rounded,
+            size: 16,
+            color: isFullyVerified ? AppColors.primary : AppColors.accent,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            isFullyVerified ? 'Profil vérifié' : 'Vérification incomplète',
+            style: AppTextStyles.labelMedium.copyWith(
+              color: isFullyVerified ? AppColors.primary : AppColors.accent,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ligne de conformité avec icône de statut.
+class _ComplianceItem extends StatelessWidget {
+  const _ComplianceItem({
+    required this.icon,
+    required this.title,
+    required this.isCompleted,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final bool isCompleted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: AppColors.primaryText, size: 18),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(title,
+                  style: AppTextStyles.titleMedium
+                      .copyWith(fontWeight: FontWeight.w700)),
+            ),
+            Icon(
+              isCompleted
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              size: 20,
+              color: isCompleted ? AppColors.primary : AppColors.secondaryText,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        child,
+      ],
+    );
+  }
+}
+
+/// Chip de sélection du type de document (CNI / Passeport).
+class _DocumentTypeChip extends StatelessWidget {
+  const _DocumentTypeChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.divider,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: isSelected ? AppColors.onPrimary : AppColors.primaryText,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

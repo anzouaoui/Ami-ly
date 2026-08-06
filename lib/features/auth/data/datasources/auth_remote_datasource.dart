@@ -257,6 +257,16 @@ class AuthRemoteDataSource {
     required String emergencyPhoneCustom,
     required List<String> homePhotos,
     String? verificationStatus,
+    // Vérification d'identité & conformité
+    String? identityDocumentType,
+    String? identityDocumentUrl,
+    bool clearIdentityDocumentUrl = false,
+    DateTime? identityDocumentExpiry,
+    bool clearIdentityDocumentExpiry = false,
+    String? criminalRecordUrl,
+    bool clearCriminalRecordUrl = false,
+    DateTime? criminalRecordUploadedAt,
+    bool clearCriminalRecordUploadedAt = false,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -308,6 +318,25 @@ class AuthRemoteDataSource {
         'homePhotos': homePhotos,
         if (verificationStatus != null)
           'verificationStatus': verificationStatus,
+        // Vérification d'identité & conformité
+        if (identityDocumentType != null)
+          'identityDocumentType': identityDocumentType,
+        if (clearIdentityDocumentUrl)
+          'identityDocumentUrl': FieldValue.delete()
+        else if (identityDocumentUrl != null)
+          'identityDocumentUrl': identityDocumentUrl,
+        if (clearIdentityDocumentExpiry)
+          'identityDocumentExpiry': FieldValue.delete()
+        else if (identityDocumentExpiry != null)
+          'identityDocumentExpiry': Timestamp.fromDate(identityDocumentExpiry),
+        if (clearCriminalRecordUrl)
+          'criminalRecordUrl': FieldValue.delete()
+        else if (criminalRecordUrl != null)
+          'criminalRecordUrl': criminalRecordUrl,
+        if (clearCriminalRecordUploadedAt)
+          'criminalRecordUploadedAt': FieldValue.delete()
+        else if (criminalRecordUploadedAt != null)
+          'criminalRecordUploadedAt': Timestamp.fromDate(criminalRecordUploadedAt),
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(
@@ -375,6 +404,43 @@ class AuthRemoteDataSource {
     } on FirebaseException catch (e) {
       throw FirestoreException(
           e.message ?? 'Erreur lors de l\'upload de la photo de domicile.');
+    }
+  }
+
+  /// Upload un document d'identité (CNI ou Passeport) dans Firebase Storage
+  /// et retourne l'URL publique.
+  Future<String> uploadIdentityDocument(String uid, File imageFile) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('assmats/$uid/identity_document.jpg');
+      final task = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return await task.ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de l\'upload du document d\'identité.');
+    }
+  }
+
+  /// Upload un casier judiciaire (bulletin n°3) dans Firebase Storage
+  /// et retourne l'URL publique.
+  // TODO(Seb): Confirmer le format accepté (PDF, image, les deux ?) et la durée de validité du casier.
+  Future<String> uploadCriminalRecord(String uid, File imageFile) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('assmats/$uid/criminal_record.jpg');
+      final task = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return await task.ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de l\'upload du casier judiciaire.');
     }
   }
 

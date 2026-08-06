@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import 'assmat_contract_detail_page.dart';
 import 'assmat_home_page.dart';
 import 'assmat_contract_models.dart';
 import 'assmat_new_contract_page.dart';
+import 'assmat_profile_page.dart';
 
 const _fullWeek = [
   ('Lundi', '08:00 – 18:00'),
@@ -30,16 +33,33 @@ const _contracts = <ContractData>[];
 // Page
 // ---------------------------------------------------------------------------
 
-class AssMatContractPage extends StatefulWidget {
+class AssMatContractPage extends ConsumerStatefulWidget {
   const AssMatContractPage({super.key});
 
   @override
-  State<AssMatContractPage> createState() => _AssMatContractPageState();
+  ConsumerState<AssMatContractPage> createState() => _AssMatContractPageState();
 }
 
-class _AssMatContractPageState extends State<AssMatContractPage> {
+class _AssMatContractPageState extends ConsumerState<AssMatContractPage> {
   final _searchController = TextEditingController();
   String _query = '';
+
+  Future<void> _createNewContract(BuildContext context) async {
+    final profile = await resolveOwnAssmatProfile(ref);
+    if (!context.mounted) return;
+    final allowed = await ensureAssmatVerifiedForContract(
+      context: context,
+      isAssmatSide: true,
+      profile: profile,
+      onCompleteProfile: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const AssMatProfilePage()),
+      ),
+    );
+    if (!allowed || !context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AssMatNewContractPage()),
+    );
+  }
 
   @override
   void dispose() {
@@ -133,11 +153,7 @@ class _AssMatContractPageState extends State<AssMatContractPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AssMatNewContractPage(),
-                      ),
-                    ),
+                    onPressed: () => _createNewContract(context),
                     icon: const Icon(Icons.add_rounded, size: 20),
                     label: const Text('Nouveau contrat CDI'),
                     style: FilledButton.styleFrom(
