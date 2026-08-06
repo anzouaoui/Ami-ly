@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -191,7 +189,7 @@ class _ChildminderProfilePageState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!_hasContacted && !_checkingContact) ...[
-                    _UnlockBanner(),
+                    const _UnlockBanner(),
                     const SizedBox(height: AppSpacing.sm),
                   ],
                   SizedBox(
@@ -414,38 +412,19 @@ class _IdentityCard extends StatelessWidget {
     );
   }
 
-  /// Avatar 72x72 arrondi : photo floue si disponible, sinon initiales.
+  /// Avatar 72x72 arrondi : photo si disponible, sinon initiales.
   Widget _buildAvatar(AssmatProfileModel profile, ChildminderSummary summary) {
     final photoUrl = profile.photoUrl;
     if (photoUrl != null && photoUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.md),
-        child: Stack(
-          children: [
-            CachedNetworkImage(
-              imageUrl: photoUrl,
-              width: 72,
-              height: 72,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => _initialsBox(summary.initials),
-              errorWidget: (_, __, ___) => _initialsBox(summary.initials),
-            ),
-            // Flou sur la photo
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.lock_outline_rounded,
-                    color: Colors.white.withValues(alpha: 0.9),
-                    size: 24,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        child: CachedNetworkImage(
+          imageUrl: photoUrl,
+          width: 72,
+          height: 72,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _initialsBox(summary.initials),
+          errorWidget: (_, __, ___) => _initialsBox(summary.initials),
         ),
       );
     }
