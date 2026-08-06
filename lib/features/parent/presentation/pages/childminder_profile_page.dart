@@ -13,6 +13,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../providers/favorites_provider.dart';
 import '../widgets/childminder_card.dart';
+import '../widgets/verification_banner_card.dart';
 import 'parent_chat_page.dart';
 
 // ─── Internal view-model ──────────────────────────────────────────────────────
@@ -263,6 +264,13 @@ class _ProfileBody extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Statut de vérification
+            VerificationBannerCard(
+              isVerified: profile.isFullyVerified,
+              verifiedAt: profile.identityVerifiedAt,
+            ),
+            const SizedBox(height: AppSpacing.md),
+
             // Identité
             _IdentityCard(summary: summary, profile: profile),
             const SizedBox(height: AppSpacing.md),

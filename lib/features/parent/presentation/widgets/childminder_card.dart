@@ -22,6 +22,7 @@ class ChildminderSummary {
     required this.date,
     required this.cert,
     this.photoUrl,
+    this.isVerified = false,
   });
 
   /// UID Firestore — utilisé pour naviguer vers le profil complet.
@@ -37,6 +38,10 @@ class ChildminderSummary {
 
   /// URL de la photo de profil (Firebase Storage). Null si non définie.
   final String? photoUrl;
+
+  /// `true` si le profil de l'assmat est entièrement vérifié (identité,
+  /// agrément, casier judiciaire) — affiche une coche à côté du nom.
+  final bool isVerified;
 }
 
 /// Carte compacte listée dans la page "Trouver une assistante maternelle".
@@ -88,7 +93,25 @@ class ChildminderCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(data.name, style: AppTextStyles.titleMedium),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                data.name,
+                                style: AppTextStyles.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (data.isVerified) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.verified_rounded,
+                                size: 16,
+                                color: AppColors.success,
+                              ),
+                            ],
+                          ],
+                        ),
                         const SizedBox(height: AppSpacing.xs),
                         Row(
                           children: [

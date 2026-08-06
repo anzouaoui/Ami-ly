@@ -189,7 +189,25 @@ class MatchSuggestionCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name, style: AppTextStyles.titleMedium),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: AppTextStyles.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (assmat?.isFullyVerified ?? false) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.verified_rounded,
+                                size: 16,
+                                color: AppColors.success,
+                              ),
+                            ],
+                          ],
+                        ),
                         if (city.isNotEmpty)
                           Text(
                             city,
