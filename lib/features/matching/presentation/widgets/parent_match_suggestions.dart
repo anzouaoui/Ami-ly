@@ -81,6 +81,7 @@ class ParentMatchSuggestionsCard extends ConsumerWidget {
                               : 'Complet',
                           cert: '—',
                           photoUrl: s.assmatProfile!.photoUrl,
+                          isVerified: s.assmatProfile!.isFullyVerified,
                         );
                         Navigator.of(context).push(
                           MaterialPageRoute(
