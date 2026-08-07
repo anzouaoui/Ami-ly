@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -41,7 +42,12 @@ class ExpiryDateExtractor {
     final recognizer = TextRecognizer();
     try {
       final recognizedText = await recognizer.processImage(inputImage);
-      return parseExpiryFromText(recognizedText.text, now: now);
+      final detected = parseExpiryFromText(recognizedText.text, now: now);
+      debugPrint('[ExpiryDateExtractor] Texte reconnu par l\'OCR :\n'
+          '${recognizedText.text}');
+      debugPrint(
+          '[ExpiryDateExtractor] Date d\'expiration détectée : $detected');
+      return detected;
     } finally {
       recognizer.close();
     }
