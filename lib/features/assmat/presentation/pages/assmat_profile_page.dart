@@ -13,6 +13,7 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/address_suggestion.dart';
+import '../../../../core/services/expiry_date_extractor.dart';
 import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -653,11 +654,36 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         File(picked.path),
         side: side,
       );
+
+      // OCR on-device : le verso d'une CNI et le passeport portent la
+      // date d'expiration (zone MRZ). On la renseigne automatiquement.
+      final shouldExtractExpiry = side == 'back' ||
+          _identityDocumentType == IdentityDocumentType.passeport;
+      DateTime? detectedExpiry;
+      if (shouldExtractExpiry) {
+        try {
+          detectedExpiry = await ref
+              .read(expiryDateExtractorProvider)
+              .extractExpiryDate(picked.path);
+        } catch (e) {
+          debugPrint('[OCR] Échec de l\'analyse du document : $e');
+        }
+      }
+
       if (mounted) {
-        setState(() => onUploaded(url));
+        setState(() {
+          onUploaded(url);
+          if (detectedExpiry != null &&
+              detectedExpiry.isAfter(DateTime.now())) {
+            _identityDocumentExpiry = detectedExpiry;
+          }
+        });
+        final message = detectedExpiry != null
+            ? 'Date d\'expiration détectée : ${_formatDate(detectedExpiry)}'
+            : '$successMessage — renseignez la date d\'expiration si besoin';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(successMessage),
+            content: Text(message),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -691,6 +717,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       onUploaded: (url) => _identityDocumentUrlBack = url,
     );
   }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   Future<void> _uploadCriminalRecord() async {
     final source = await showModalBottomSheet<ImageSource>(
