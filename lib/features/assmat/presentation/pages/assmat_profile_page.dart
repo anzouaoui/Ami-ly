@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,6 +23,9 @@ import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
 import '../../../parent/presentation/widgets/profile_form_field.dart';
 import '../../../parent/presentation/widgets/personal_info_card.dart';
 import 'assmat_home_page.dart';
+
+/// Source du fichier à uploader pour le casier judiciaire.
+enum _CriminalRecordSource { gallery, camera, document }
 
 /// Page "Mon profil" de l'Assistante Maternelle.
 class AssMatProfilePage extends ConsumerStatefulWidget {
@@ -722,7 +726,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   Future<void> _uploadCriminalRecord() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final source = await showModalBottomSheet<_CriminalRecordSource>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -744,12 +748,19 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             ListTile(
               leading: const Icon(Icons.photo_library_rounded),
               title: const Text('Choisir depuis la galerie'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+              onTap: () =>
+                  Navigator.of(ctx).pop(_CriminalRecordSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt_rounded),
               title: const Text('Prendre une photo'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+              onTap: () => Navigator.of(ctx).pop(_CriminalRecordSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_rounded),
+              title: const Text('Choisir un document (PDF / Word)'),
+              onTap: () =>
+                  Navigator.of(ctx).pop(_CriminalRecordSource.document),
             ),
             const SizedBox(height: 8),
           ],
@@ -759,14 +770,34 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
 
     if (source == null || !mounted) return;
 
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
+    File file;
+    String contentType;
+    switch (source) {
+      case _CriminalRecordSource.gallery:
+      case _CriminalRecordSource.camera:
+        final picked = await ImagePicker().pickImage(
+          source: source == _CriminalRecordSource.camera
+              ? ImageSource.camera
+              : ImageSource.gallery,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 85,
+        );
+        if (picked == null || !mounted) return;
+        file = File(picked.path);
+        contentType = 'image/jpeg';
+      case _CriminalRecordSource.document:
+        final result = await FilePicker.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'doc', 'docx'],
+        );
+        final picked = (result != null && result.files.isNotEmpty)
+            ? result.files.first
+            : null;
+        if (picked == null || picked.path == null || !mounted) return;
+        file = File(picked.path!);
+        contentType = _contentTypeFor(picked.path!);
+    }
 
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
@@ -774,7 +805,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     setState(() => _saving = true);
     try {
       final ds = ref.read(authRemoteDataSourceProvider);
-      final url = await ds.uploadCriminalRecord(user.uid, File(picked.path));
+      final url = await ds.uploadCriminalRecord(
+        user.uid,
+        file,
+        contentType: contentType,
+      );
       if (mounted) {
         setState(() {
           _criminalRecordUrl = url;
@@ -799,6 +834,16 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _contentTypeFor(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.doc')) return 'application/msword';
+    if (lower.endsWith('.docx')) {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+    return 'application/octet-stream';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -2732,7 +2777,7 @@ class _IdentityAndComplianceCard extends StatelessWidget {
                   label: Text(
                     _isCriminalRecordProvided
                         ? 'Casier judiciaire mis à jour'
-                        : 'Ajouter une photo/scan du casier judiciaire',
+                        : 'Ajouter une photo, un scan ou un document (PDF / Word)',
                   ),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 44),
