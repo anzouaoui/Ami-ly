@@ -59,6 +59,7 @@ dependencies:
   cloud_functions: ^5.6.2
   flutter_local_notifications: ^22.0.1
   google_mlkit_text_recognition: ^0.16.0
+  file_picker: ^11.0.3
 
 dev_dependencies:
   flutter_test:
