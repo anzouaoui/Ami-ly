@@ -63,6 +63,20 @@ void main() {
           DateTime(2031, 8, 31));
     });
 
+    test('privilégie le champ « Carte valable jusqu\'au » (JJ/MM/AAAA)', () {
+      const text = 'CARTE NATIONALE D\'IDENTITE\n'
+          'CARTE VALABLE JUSQU\'AU 12/08/2031\n'
+          'ADRESSE';
+      expect(extractor.parseExpiryFromText(text, now: now),
+          DateTime(2031, 8, 12));
+    });
+
+    test('privilégie le champ « valable jusqu\'au » (mois/année)', () {
+      const text = 'CARTE VALABLE JUSQU\'AU 08/2031';
+      expect(extractor.parseExpiryFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
     test('retourne null quand seule une date passée est présente', () {
       const text = 'Date de naissance : 09/01/1990';
       expect(extractor.parseExpiryFromText(text, now: now), isNull);

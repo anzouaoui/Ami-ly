@@ -60,10 +60,43 @@ class ExpiryDateExtractor {
     final reference = now ?? DateTime.now();
     final normalized = text.toUpperCase();
 
+    // Le champ « Carte valable jusqu'au <date> » désigne explicitement la
+    // date d'expiration : on la privilégie.
+    final untilDate = _parseValableJusquau(normalized, reference);
+    if (untilDate != null) return untilDate;
+
     final mrzDate = _parseMrz(normalized, reference);
     if (mrzDate != null) return mrzDate;
 
     return _parseReadableDate(normalized, reference);
+  }
+
+  /// Retourne la date qui suit directement « valable jusqu'au » / « jusqu'à »,
+  /// au format `JJ/MM/AAAA` (ou `AA`) ou `MM/AAAA`, si elle est dans le futur.
+  DateTime? _parseValableJusquau(String text, DateTime reference) {
+    final prefix = r"JUSQU'A?U?\s*(?:LE\s*)?[:\-]?\s*";
+
+    final dmy = RegExp(prefix + r'(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})');
+    for (final m in dmy.allMatches(text)) {
+      final day = int.parse(m.group(1)!);
+      final month = int.parse(m.group(2)!);
+      final yearText = m.group(3)!;
+      final year = yearText.length == 2
+          ? 2000 + int.parse(yearText)
+          : int.parse(yearText);
+      final date = _buildDate(year: year, month: month, day: day);
+      if (date != null && date.isAfter(reference)) return date;
+    }
+
+    final my = RegExp(prefix + r'(0[1-9]|1[0-2])[/.\-](\d{4})');
+    for (final m in my.allMatches(text)) {
+      final month = int.parse(m.group(1)!);
+      final year = int.parse(m.group(2)!);
+      final date = DateTime(year, month + 1, 0);
+      if (date.isAfter(reference)) return date;
+    }
+
+    return null;
   }
 
   // ─── Zone MRZ ──────────────────────────────────────────────────────────
