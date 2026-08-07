@@ -260,6 +260,8 @@ class AuthRemoteDataSource {
     String? identityDocumentType,
     String? identityDocumentUrl,
     bool clearIdentityDocumentUrl = false,
+    String? identityDocumentUrlBack,
+    bool clearIdentityDocumentUrlBack = false,
     DateTime? identityDocumentExpiry,
     bool clearIdentityDocumentExpiry = false,
     String? criminalRecordUrl,
@@ -322,6 +324,10 @@ class AuthRemoteDataSource {
           'identityDocumentUrl': FieldValue.delete()
         else if (identityDocumentUrl != null)
           'identityDocumentUrl': identityDocumentUrl,
+        if (clearIdentityDocumentUrlBack)
+          'identityDocumentUrlBack': FieldValue.delete()
+        else if (identityDocumentUrlBack != null)
+          'identityDocumentUrlBack': identityDocumentUrlBack,
         if (clearIdentityDocumentExpiry)
           'identityDocumentExpiry': FieldValue.delete()
         else if (identityDocumentExpiry != null)
@@ -406,11 +412,22 @@ class AuthRemoteDataSource {
 
   /// Upload un document d'identité (CNI ou Passeport) dans Firebase Storage
   /// et retourne l'URL publique.
-  Future<String> uploadIdentityDocument(String uid, File imageFile) async {
+  ///
+  /// Pour une CNI, le recto (`side: 'front'`) et le verso
+  /// (`side: 'back'`) doivent être fournis. Le passeport n'a qu'un seul
+  /// côté (`side: 'front'`).
+  Future<String> uploadIdentityDocument(
+    String uid,
+    File imageFile, {
+    String side = 'front',
+  }) async {
     try {
+      final filename = side == 'back'
+          ? 'identity_document_back.jpg'
+          : 'identity_document.jpg';
       final ref = FirebaseStorage.instance
           .ref()
-          .child('assmats/$uid/identity_document.jpg');
+          .child('assmats/$uid/$filename');
       final task = await ref.putFile(
         imageFile,
         SettableMetadata(contentType: 'image/jpeg'),

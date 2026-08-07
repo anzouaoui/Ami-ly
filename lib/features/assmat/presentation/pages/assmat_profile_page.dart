@@ -93,6 +93,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   // Vérification d'identité & conformité
   IdentityDocumentType? _identityDocumentType;
   String? _identityDocumentUrl;
+  String? _identityDocumentUrlBack;
   DateTime? _identityDocumentExpiry;
   String? _criminalRecordUrl;
   DateTime? _criminalRecordUploadedAt;
@@ -178,6 +179,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _homePhotos = List<String>.from(profile.homePhotos);
     _identityDocumentType = profile.identityDocumentType;
     _identityDocumentUrl = profile.identityDocumentUrl;
+    _identityDocumentUrlBack = profile.identityDocumentUrlBack;
     _identityDocumentExpiry = profile.identityDocumentExpiry;
     _criminalRecordUrl = profile.criminalRecordUrl;
     _criminalRecordUploadedAt = profile.criminalRecordUploadedAt;
@@ -259,6 +261,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             identityDocumentType: _identityDocumentType?.key,
             identityDocumentUrl: _identityDocumentUrl,
             clearIdentityDocumentUrl: _identityDocumentUrl == null,
+            identityDocumentUrlBack: _identityDocumentUrlBack,
+            clearIdentityDocumentUrlBack: _identityDocumentUrlBack == null,
             identityDocumentExpiry: _identityDocumentExpiry,
             clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
             criminalRecordUrl: _criminalRecordUrl,
@@ -306,6 +310,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         identityDocumentType: _identityDocumentType,
         identityDocumentUrl: _identityDocumentUrl,
         clearIdentityDocumentUrl: _identityDocumentUrl == null,
+        identityDocumentUrlBack: _identityDocumentUrlBack,
+        clearIdentityDocumentUrlBack: _identityDocumentUrlBack == null,
         identityDocumentExpiry: _identityDocumentExpiry,
         clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
         criminalRecordUrl: _criminalRecordUrl,
@@ -585,7 +591,11 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     });
   }
 
-  Future<void> _uploadIdentityDocument() async {
+  Future<void> _uploadIdentityDocumentSide({
+    required String side,
+    required String successMessage,
+    required ValueChanged<String> onUploaded,
+  }) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -638,12 +648,16 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     setState(() => _saving = true);
     try {
       final ds = ref.read(authRemoteDataSourceProvider);
-      final url = await ds.uploadIdentityDocument(user.uid, File(picked.path));
+      final url = await ds.uploadIdentityDocument(
+        user.uid,
+        File(picked.path),
+        side: side,
+      );
       if (mounted) {
-        setState(() => _identityDocumentUrl = url);
+        setState(() => onUploaded(url));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Document d\'identité mis à jour'),
+          SnackBar(
+            content: Text(successMessage),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -660,6 +674,22 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _uploadIdentityDocumentFront() {
+    _uploadIdentityDocumentSide(
+      side: 'front',
+      successMessage: 'Recto de la pièce d\'identité mis à jour',
+      onUploaded: (url) => _identityDocumentUrl = url,
+    );
+  }
+
+  void _uploadIdentityDocumentBack() {
+    _uploadIdentityDocumentSide(
+      side: 'back',
+      successMessage: 'Verso de la pièce d\'identité mis à jour',
+      onUploaded: (url) => _identityDocumentUrlBack = url,
+    );
   }
 
   Future<void> _uploadCriminalRecord() async {
@@ -945,13 +975,15 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             identityVerifiedAt: _identityVerifiedAt,
             identityDocumentType: _identityDocumentType,
             identityDocumentUrl: _identityDocumentUrl,
+            identityDocumentUrlBack: _identityDocumentUrlBack,
             identityDocumentExpiry: _identityDocumentExpiry,
             accreditationExpiry: _accreditationExpiry,
             criminalRecordUrl: _criminalRecordUrl,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
             onIdentityDocumentTypeChanged: (type) =>
                 setState(() => _identityDocumentType = type),
-            onUploadIdentityDocument: _uploadIdentityDocument,
+            onUploadIdentityDocumentFront: _uploadIdentityDocumentFront,
+            onUploadIdentityDocumentBack: _uploadIdentityDocumentBack,
             onIdentityDocumentExpiryChanged: (date) =>
                 setState(() => _identityDocumentExpiry = date),
             onUploadCriminalRecord: _uploadCriminalRecord,
@@ -2369,12 +2401,14 @@ class _IdentityAndComplianceCard extends StatelessWidget {
     required this.identityVerifiedAt,
     required this.identityDocumentType,
     required this.identityDocumentUrl,
+    required this.identityDocumentUrlBack,
     required this.identityDocumentExpiry,
     required this.accreditationExpiry,
     required this.criminalRecordUrl,
     required this.criminalRecordUploadedAt,
     required this.onIdentityDocumentTypeChanged,
-    required this.onUploadIdentityDocument,
+    required this.onUploadIdentityDocumentFront,
+    required this.onUploadIdentityDocumentBack,
     required this.onIdentityDocumentExpiryChanged,
     required this.onUploadCriminalRecord,
   });
@@ -2383,12 +2417,14 @@ class _IdentityAndComplianceCard extends StatelessWidget {
   final DateTime? identityVerifiedAt;
   final IdentityDocumentType? identityDocumentType;
   final String? identityDocumentUrl;
+  final String? identityDocumentUrlBack;
   final DateTime? identityDocumentExpiry;
   final DateTime? accreditationExpiry;
   final String? criminalRecordUrl;
   final DateTime? criminalRecordUploadedAt;
   final ValueChanged<IdentityDocumentType?> onIdentityDocumentTypeChanged;
-  final VoidCallback onUploadIdentityDocument;
+  final VoidCallback onUploadIdentityDocumentFront;
+  final VoidCallback onUploadIdentityDocumentBack;
   final ValueChanged<DateTime> onIdentityDocumentExpiryChanged;
   final VoidCallback onUploadCriminalRecord;
 
@@ -2421,8 +2457,22 @@ class _IdentityAndComplianceCard extends StatelessWidget {
   bool get _isCriminalRecordProvided =>
       criminalRecordUrl != null && criminalRecordUrl!.isNotEmpty;
 
+  /// `true` si la ou les photo(s)/scan(s) de la pièce d'identité sont
+  /// fournis : recto obligatoire ; verso requis en plus pour une CNI.
+  bool get _isIdentityDocProvided {
+    if (identityDocumentUrl == null || identityDocumentUrl!.isEmpty) {
+      return false;
+    }
+    if (identityDocumentType == IdentityDocumentType.cni) {
+      return identityDocumentUrlBack != null &&
+          identityDocumentUrlBack!.isNotEmpty;
+    }
+    return true;
+  }
+
   bool get _isFullyVerified =>
       isIdentityVerified &&
+      _isIdentityDocProvided &&
       !_isIdentityDocExpired &&
       !_isAccreditationExpired &&
       _isCriminalRecordProvided;
@@ -2468,9 +2518,9 @@ class _IdentityAndComplianceCard extends StatelessWidget {
           _ComplianceItem(
             icon: Icons.credit_card_outlined,
             title: 'Pièce d\'identité',
-            isCompleted: identityDocumentUrl != null &&
+            isCompleted: identityDocumentType != null &&
                 !_isIdentityDocExpired &&
-                identityDocumentType != null,
+                _isIdentityDocProvided,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -2500,24 +2550,66 @@ class _IdentityAndComplianceCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // Bouton upload
-                OutlinedButton.icon(
-                  onPressed: onUploadIdentityDocument,
-                  icon: Icon(
-                    identityDocumentUrl != null
-                        ? Icons.check_circle_outline_rounded
-                        : Icons.upload_file_rounded,
-                    size: 18,
+                // Upload — recto + verso pour la CNI, un seul document sinon
+                if (identityDocumentType == IdentityDocumentType.cni) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _IdentitySideUploadButton(
+                          label: 'Recto',
+                          hasDocument: identityDocumentUrl != null &&
+                              identityDocumentUrl!.isNotEmpty,
+                          onPressed: onUploadIdentityDocumentFront,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _IdentitySideUploadButton(
+                          label: 'Verso',
+                          hasDocument: identityDocumentUrlBack != null &&
+                              identityDocumentUrlBack!.isNotEmpty,
+                          onPressed: onUploadIdentityDocumentBack,
+                        ),
+                      ),
+                    ],
                   ),
-                  label: Text(
-                    identityDocumentUrl != null
-                        ? 'Document mis à jour'
-                        : 'Ajouter une photo/scan du document',
+                  if (identityDocumentUrlBack == null ||
+                      identityDocumentUrlBack!.isEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                            color: AppColors.secondaryText, size: 16),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            'Pour une CNI, ajoutez le recto et le verso de la carte',
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.secondaryText),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ] else ...[
+                  OutlinedButton.icon(
+                    onPressed: onUploadIdentityDocumentFront,
+                    icon: Icon(
+                      identityDocumentUrl != null
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.upload_file_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      identityDocumentUrl != null
+                          ? 'Document mis à jour'
+                          : 'Ajouter une photo/scan du document',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                    ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 44),
-                  ),
-                ),
+                ],
                 if (_isIdentityDocExpired) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Row(
@@ -2777,6 +2869,39 @@ class _DocumentTypeChip extends StatelessWidget {
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bouton d'upload d'un côté (recto / verso) d'une pièce d'identité.
+class _IdentitySideUploadButton extends StatelessWidget {
+  const _IdentitySideUploadButton({
+    required this.label,
+    required this.hasDocument,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool hasDocument;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(
+        hasDocument
+            ? Icons.check_circle_outline_rounded
+            : Icons.upload_file_rounded,
+        size: 18,
+      ),
+      label: Text(
+        hasDocument ? '$label mis à jour' : 'Ajouter le $label',
+      ),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 44),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       ),
     );
   }

@@ -74,6 +74,7 @@ class AssmatProfileModel {
     // Vérification d'identité & conformité
     this.identityDocumentType,
     this.identityDocumentUrl,
+    this.identityDocumentUrlBack,
     this.identityDocumentExpiry,
     this.criminalRecordUrl,
     this.criminalRecordUploadedAt,
@@ -161,6 +162,10 @@ class AssmatProfileModel {
   /// URL de la photo/scan du document d'identité dans Firebase Storage.
   final String? identityDocumentUrl;
 
+  /// URL de la photo/scan du verso de la pièce d'identité dans Firebase
+  /// Storage. Requis uniquement pour la CNI (recto + verso).
+  final String? identityDocumentUrlBack;
+
   /// Date d'expiration du document d'identité.
   final DateTime? identityDocumentExpiry;
 
@@ -173,20 +178,27 @@ class AssmatProfileModel {
 
   /// Retourne `true` si le profil est entièrement vérifié :
   /// - Identité vérifiée (`isIdentityVerified`)
-  /// - Document d'identité non expiré
+  /// - Document d'identité non expiré (recto + verso pour une CNI)
   /// - Agrément PMI valide (date d'expiration dans le futur)
   /// - Casier judiciaire fourni
   bool get isFullyVerified {
+    final identityDocumentProvided = identityDocumentUrl != null &&
+        identityDocumentUrl!.isNotEmpty;
     final identityDocValid = identityDocumentExpiry != null &&
         identityDocumentExpiry!.isAfter(DateTime.now());
     final accreditationValid = accreditationExpiry != null &&
         accreditationExpiry!.isAfter(DateTime.now());
     final criminalRecordProvided =
         criminalRecordUrl != null && criminalRecordUrl!.isNotEmpty;
+    final cniBackProvided = identityDocumentType != IdentityDocumentType.cni ||
+        (identityDocumentUrlBack != null &&
+            identityDocumentUrlBack!.isNotEmpty);
     return isIdentityVerified &&
+        identityDocumentProvided &&
         identityDocValid &&
         accreditationValid &&
-        criminalRecordProvided;
+        criminalRecordProvided &&
+        cniBackProvided;
   }
 
   // ── Firestore ──────────────────────────────────────────────────────────────
@@ -246,6 +258,7 @@ class AssmatProfileModel {
       identityDocumentType:
           IdentityDocumentType.fromKey(data['identityDocumentType'] as String?),
       identityDocumentUrl: data['identityDocumentUrl'] as String?,
+      identityDocumentUrlBack: data['identityDocumentUrlBack'] as String?,
       identityDocumentExpiry:
           (data['identityDocumentExpiry'] as Timestamp?)?.toDate(),
       criminalRecordUrl: data['criminalRecordUrl'] as String?,
@@ -308,6 +321,8 @@ class AssmatProfileModel {
           'identityDocumentType': identityDocumentType!.key,
         if (identityDocumentUrl != null)
           'identityDocumentUrl': identityDocumentUrl,
+        if (identityDocumentUrlBack != null)
+          'identityDocumentUrlBack': identityDocumentUrlBack,
         if (identityDocumentExpiry != null)
           'identityDocumentExpiry':
               Timestamp.fromDate(identityDocumentExpiry!),
@@ -388,6 +403,8 @@ class AssmatProfileModel {
     bool clearIdentityDocumentType = false,
     String? identityDocumentUrl,
     bool clearIdentityDocumentUrl = false,
+    String? identityDocumentUrlBack,
+    bool clearIdentityDocumentUrlBack = false,
     DateTime? identityDocumentExpiry,
     bool clearIdentityDocumentExpiry = false,
     String? criminalRecordUrl,
@@ -456,6 +473,9 @@ class AssmatProfileModel {
         identityDocumentUrl: clearIdentityDocumentUrl
             ? null
             : (identityDocumentUrl ?? this.identityDocumentUrl),
+        identityDocumentUrlBack: clearIdentityDocumentUrlBack
+            ? null
+            : (identityDocumentUrlBack ?? this.identityDocumentUrlBack),
         identityDocumentExpiry: clearIdentityDocumentExpiry
             ? null
             : (identityDocumentExpiry ?? this.identityDocumentExpiry),
