@@ -347,6 +347,73 @@ class AuthRemoteDataSource {
     }
   }
 
+  /// Persiste uniquement la section « Vérification & Conformité » :
+  /// pièce d'identité (type, recto/verso, expiration), agrément PMI
+  /// (numéro, expiration, document, certification) et casier judiciaire.
+  Future<void> updateAssmatCompliance({
+    required String uid,
+    String? identityDocumentType,
+    String? identityDocumentUrl,
+    bool clearIdentityDocumentUrl = false,
+    String? identityDocumentUrlBack,
+    bool clearIdentityDocumentUrlBack = false,
+    DateTime? identityDocumentExpiry,
+    bool clearIdentityDocumentExpiry = false,
+    String? accreditationNumber,
+    DateTime? accreditationExpiry,
+    bool clearAccreditationExpiry = false,
+    String? accreditationPhotoUrl,
+    bool clearAccreditationPhotoUrl = false,
+    bool? isAccreditationCertified,
+    String? criminalRecordUrl,
+    bool clearCriminalRecordUrl = false,
+    DateTime? criminalRecordUploadedAt,
+    bool clearCriminalRecordUploadedAt = false,
+  }) async {
+    try {
+      await _firebase.assmatDoc(uid).update({
+        if (identityDocumentType != null)
+          'identityDocumentType': identityDocumentType,
+        if (clearIdentityDocumentUrl)
+          'identityDocumentUrl': FieldValue.delete()
+        else if (identityDocumentUrl != null)
+          'identityDocumentUrl': identityDocumentUrl,
+        if (clearIdentityDocumentUrlBack)
+          'identityDocumentUrlBack': FieldValue.delete()
+        else if (identityDocumentUrlBack != null)
+          'identityDocumentUrlBack': identityDocumentUrlBack,
+        if (clearIdentityDocumentExpiry)
+          'identityDocumentExpiry': FieldValue.delete()
+        else if (identityDocumentExpiry != null)
+          'identityDocumentExpiry': Timestamp.fromDate(identityDocumentExpiry),
+        if (accreditationNumber != null)
+          'accreditationNumber': accreditationNumber,
+        if (clearAccreditationExpiry)
+          'accreditationExpiry': FieldValue.delete()
+        else if (accreditationExpiry != null)
+          'accreditationExpiry': Timestamp.fromDate(accreditationExpiry),
+        if (clearAccreditationPhotoUrl)
+          'accreditationPhotoUrl': FieldValue.delete()
+        else if (accreditationPhotoUrl != null)
+          'accreditationPhotoUrl': accreditationPhotoUrl,
+        if (isAccreditationCertified != null)
+          'isAccreditationCertified': isAccreditationCertified,
+        if (clearCriminalRecordUrl)
+          'criminalRecordUrl': FieldValue.delete()
+        else if (criminalRecordUrl != null)
+          'criminalRecordUrl': criminalRecordUrl,
+        if (clearCriminalRecordUploadedAt)
+          'criminalRecordUploadedAt': FieldValue.delete()
+        else if (criminalRecordUploadedAt != null)
+          'criminalRecordUploadedAt':
+              Timestamp.fromDate(criminalRecordUploadedAt),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de la mise à jour de la conformité.');
+    }
+  }
+
   /// Upload une image de profil assmat dans Firebase Storage et retourne l'URL
   /// de téléchargement publique.
   Future<String> uploadAssmatPhoto(String uid, File imageFile) async {

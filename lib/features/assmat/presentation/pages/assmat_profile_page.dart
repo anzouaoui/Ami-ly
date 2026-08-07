@@ -459,6 +459,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       );
       if (mounted) {
         setState(() => _accreditationPhotoUrl = url);
+        _persistCompliance();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Document d'agrément mis à jour"),
@@ -562,6 +563,40 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
     return 'application/octet-stream';
+  }
+
+  /// Sauvegarde immédiatement la section « Vérification & Conformité »
+  /// (pièce d'identité, agrément, casier judiciaire) afin que l'ajout soit
+  /// conservé et reste coché même après rechargement de la page.
+  Future<void> _persistCompliance() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+    try {
+      await ref
+          .read(authRemoteDataSourceProvider)
+          .updateAssmatCompliance(
+            uid: user.uid,
+            identityDocumentType: _identityDocumentType?.key,
+            identityDocumentUrl: _identityDocumentUrl,
+            clearIdentityDocumentUrl: _identityDocumentUrl == null,
+            identityDocumentUrlBack: _identityDocumentUrlBack,
+            clearIdentityDocumentUrlBack: _identityDocumentUrlBack == null,
+            identityDocumentExpiry: _identityDocumentExpiry,
+            clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
+            accreditationNumber: _accreditationNumberCtrl.text.trim(),
+            accreditationExpiry: _accreditationExpiry,
+            clearAccreditationExpiry: _accreditationExpiry == null,
+            accreditationPhotoUrl: _accreditationPhotoUrl,
+            clearAccreditationPhotoUrl: _accreditationPhotoUrl == null,
+            isAccreditationCertified: _isAccreditationCertified,
+            criminalRecordUrl: _criminalRecordUrl,
+            clearCriminalRecordUrl: _criminalRecordUrl == null,
+            criminalRecordUploadedAt: _criminalRecordUploadedAt,
+            clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+          );
+    } catch (e) {
+      debugPrint('[Conformité] Échec de la sauvegarde : $e');
+    }
   }
 
   Future<void> _addHomePhoto() async {
@@ -735,6 +770,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             _identityDocumentExpiry = detectedExpiry;
           }
         });
+        _persistCompliance();
         final message = detectedExpiry != null
             ? 'Date d\'expiration détectée : ${_formatDate(detectedExpiry)}'
             : '$successMessage — renseignez la date d\'expiration si besoin';
@@ -798,6 +834,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           _criminalRecordUrl = url;
           _criminalRecordUploadedAt = DateTime.now();
         });
+        _persistCompliance();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Casier judiciaire mis à jour'),
@@ -996,12 +1033,18 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           _AccreditationCard(
             accreditationNumberController: _accreditationNumberCtrl,
             accreditationExpiry: _accreditationExpiry,
-            onAccreditationExpiryChanged: (d) => setState(() => _accreditationExpiry = d),
+            onAccreditationExpiryChanged: (d) {
+              setState(() => _accreditationExpiry = d);
+              _persistCompliance();
+            },
             accreditationPhotoUrl: _accreditationPhotoUrl,
             onChangePhoto: _changeAccreditationPhoto,
             pmiCodeController: _pmiCodeCtrl,
             isCertified: _isAccreditationCertified,
-            onCertifiedChanged: (v) => setState(() => _isAccreditationCertified = v),
+            onCertifiedChanged: (v) {
+              setState(() => _isAccreditationCertified = v);
+              _persistCompliance();
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -1027,12 +1070,16 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             accreditationExpiry: _accreditationExpiry,
             criminalRecordUrl: _criminalRecordUrl,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
-            onIdentityDocumentTypeChanged: (type) =>
-                setState(() => _identityDocumentType = type),
+            onIdentityDocumentTypeChanged: (type) {
+              setState(() => _identityDocumentType = type);
+              _persistCompliance();
+            },
             onUploadIdentityDocumentFront: _uploadIdentityDocumentFront,
             onUploadIdentityDocumentBack: _uploadIdentityDocumentBack,
-            onIdentityDocumentExpiryChanged: (date) =>
-                setState(() => _identityDocumentExpiry = date),
+            onIdentityDocumentExpiryChanged: (date) {
+              setState(() => _identityDocumentExpiry = date);
+              _persistCompliance();
+            },
             onUploadCriminalRecord: _uploadCriminalRecord,
           ),
           const SizedBox(height: AppSpacing.lg),
