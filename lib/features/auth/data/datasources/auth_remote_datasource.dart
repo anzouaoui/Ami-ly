@@ -377,14 +377,21 @@ class AuthRemoteDataSource {
   }
 
   /// Upload une photo d'agrément assmat dans Firebase Storage et retourne l'URL publique.
-  Future<String> uploadAccreditationPhoto(String uid, File imageFile) async {
+  /// Upload la photo/le document d'agrément PMI dans Firebase Storage et
+  /// retourne l'URL publique. Le fichier peut être une image (JPEG/PNG),
+  /// un PDF ou un Word (doc/docx).
+  Future<String> uploadAccreditationPhoto(
+    String uid,
+    File file, {
+    required String contentType,
+  }) async {
     try {
       final ref = FirebaseStorage.instance
           .ref()
-          .child('assmats/$uid/accreditation.jpg');
+          .child('assmats/$uid/accreditation${_fileExtensionFor(contentType)}');
       final task = await ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
+        file,
+        SettableMetadata(contentType: contentType),
       );
       return await task.ref.getDownloadURL();
     } on FirebaseException catch (e) {

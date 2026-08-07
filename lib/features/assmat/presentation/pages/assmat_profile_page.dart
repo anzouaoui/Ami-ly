@@ -24,8 +24,16 @@ import '../../../parent/presentation/widgets/profile_form_field.dart';
 import '../../../parent/presentation/widgets/personal_info_card.dart';
 import 'assmat_home_page.dart';
 
-/// Source du fichier à uploader pour le casier judiciaire.
-enum _CriminalRecordSource { gallery, camera, document }
+/// Source du fichier à uploader (photo ou document PDF/Word).
+enum _DocumentPickSource { gallery, camera, document }
+
+/// Vrai si l'URL pointe vers un document (PDF/Word) et non une image.
+bool _isDocumentUrl(String url) {
+  final lower = url.toLowerCase();
+  return lower.endsWith('.pdf') ||
+      lower.endsWith('.doc') ||
+      lower.endsWith('.docx');
+}
 
 /// Page "Mon profil" de l'Assistante Maternelle.
 class AssMatProfilePage extends ConsumerStatefulWidget {
@@ -435,7 +443,47 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   }
 
   Future<void> _changeAccreditationPhoto() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final picked = await _pickDocumentOrImage();
+    if (picked == null || !mounted) return;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final url = await ds.uploadAccreditationPhoto(
+        user.uid,
+        picked.file,
+        contentType: picked.contentType,
+      );
+      if (mounted) {
+        setState(() => _accreditationPhotoUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Document d'agrément mis à jour"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Ouvre la feuille de sélection et retourne le fichier choisi avec son
+  /// type MIME (photo, ou document PDF/Word), ou `null` si annulé.
+  Future<({File file, String contentType})?> _pickDocumentOrImage() async {
+    final source = await showModalBottomSheet<_DocumentPickSource>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -457,12 +505,17 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             ListTile(
               leading: const Icon(Icons.photo_library_rounded),
               title: const Text('Choisir depuis la galerie'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+              onTap: () => Navigator.of(ctx).pop(_DocumentPickSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt_rounded),
               title: const Text('Prendre une photo'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+              onTap: () => Navigator.of(ctx).pop(_DocumentPickSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_rounded),
+              title: const Text('Choisir un document (PDF / Word)'),
+              onTap: () => Navigator.of(ctx).pop(_DocumentPickSource.document),
             ),
             const SizedBox(height: 8),
           ],
@@ -470,45 +523,45 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       ),
     );
 
-    if (source == null || !mounted) return;
+    if (source == null || !mounted) return null;
 
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
-
-    final user = ref.read(currentUserProvider).valueOrNull;
-    if (user == null) return;
-
-    setState(() => _saving = true);
-    try {
-      final ds = ref.read(authRemoteDataSourceProvider);
-      final url = await ds.uploadAccreditationPhoto(user.uid, File(picked.path));
-      if (mounted) {
-        setState(() => _accreditationPhotoUrl = url);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Photo de l'agrément mise à jour"),
-            behavior: SnackBarBehavior.floating,
-          ),
+    switch (source) {
+      case _DocumentPickSource.gallery:
+      case _DocumentPickSource.camera:
+        final picked = await ImagePicker().pickImage(
+          source: source == _DocumentPickSource.camera
+              ? ImageSource.camera
+              : ImageSource.gallery,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 85,
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur : $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
+        if (picked == null) return null;
+        return (file: File(picked.path), contentType: 'image/jpeg');
+      case _DocumentPickSource.document:
+        final result = await FilePicker.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'doc', 'docx'],
         );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
+        final picked = (result != null && result.files.isNotEmpty)
+            ? result.files.first
+            : null;
+        if (picked == null || picked.path == null) return null;
+        return (
+          file: File(picked.path!),
+          contentType: _contentTypeFor(picked.path!),
+        );
     }
+  }
+
+  String _contentTypeFor(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.doc')) return 'application/msword';
+    if (lower.endsWith('.docx')) {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+    return 'application/octet-stream';
   }
 
   Future<void> _addHomePhoto() async {
@@ -726,78 +779,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   Future<void> _uploadCriminalRecord() async {
-    final source = await showModalBottomSheet<_CriminalRecordSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Choisir depuis la galerie'),
-              onTap: () =>
-                  Navigator.of(ctx).pop(_CriminalRecordSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_rounded),
-              title: const Text('Prendre une photo'),
-              onTap: () => Navigator.of(ctx).pop(_CriminalRecordSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf_rounded),
-              title: const Text('Choisir un document (PDF / Word)'),
-              onTap: () =>
-                  Navigator.of(ctx).pop(_CriminalRecordSource.document),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
-    if (source == null || !mounted) return;
-
-    File file;
-    String contentType;
-    switch (source) {
-      case _CriminalRecordSource.gallery:
-      case _CriminalRecordSource.camera:
-        final picked = await ImagePicker().pickImage(
-          source: source == _CriminalRecordSource.camera
-              ? ImageSource.camera
-              : ImageSource.gallery,
-          maxWidth: 1024,
-          maxHeight: 1024,
-          imageQuality: 85,
-        );
-        if (picked == null || !mounted) return;
-        file = File(picked.path);
-        contentType = 'image/jpeg';
-      case _CriminalRecordSource.document:
-        final result = await FilePicker.pickFiles(
-          type: FileType.custom,
-          allowedExtensions: ['pdf', 'doc', 'docx'],
-        );
-        final picked = (result != null && result.files.isNotEmpty)
-            ? result.files.first
-            : null;
-        if (picked == null || picked.path == null || !mounted) return;
-        file = File(picked.path!);
-        contentType = _contentTypeFor(picked.path!);
-    }
+    final picked = await _pickDocumentOrImage();
+    if (picked == null || !mounted) return;
 
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
@@ -807,8 +790,8 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       final ds = ref.read(authRemoteDataSourceProvider);
       final url = await ds.uploadCriminalRecord(
         user.uid,
-        file,
-        contentType: contentType,
+        picked.file,
+        contentType: picked.contentType,
       );
       if (mounted) {
         setState(() {
@@ -834,16 +817,6 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  String _contentTypeFor(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.pdf')) return 'application/pdf';
-    if (lower.endsWith('.doc')) return 'application/msword';
-    if (lower.endsWith('.docx')) {
-      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    }
-    return 'application/octet-stream';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -2002,14 +1975,15 @@ class _AccreditationCard extends StatelessWidget {
               const Icon(Icons.camera_alt_outlined,
                   color: AppColors.primaryText, size: 18),
               const SizedBox(width: AppSpacing.sm),
-              Text('Photo de l\'agrément',
+              Text('Document d\'agrément',
                   style: AppTextStyles.titleMedium
                       .copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Cette photo sera visible par les parents et la PMI pour vérification.',
+            'Photo, scan ou document (PDF / Word) visible par les parents '
+            'et la PMI pour vérification.',
             style: AppTextStyles.bodySmall
                 .copyWith(color: AppColors.secondaryText),
           ),
@@ -2024,15 +1998,35 @@ class _AccreditationCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     if (accreditationPhotoUrl != null && accreditationPhotoUrl!.isNotEmpty)
-                      Image.network(
-                        accreditationPhotoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFD0CCCA),
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.broken_image_rounded, size: 48, color: Color(0xFFAAAAAA)),
-                        ),
-                      )
+                      _isDocumentUrl(accreditationPhotoUrl!)
+                          ? Container(
+                              color: const Color(0xFFD0CCCA),
+                              alignment: Alignment.center,
+                              child: const Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.picture_as_pdf_rounded,
+                                      size: 48, color: Color(0xFFAAAAAA)),
+                                  SizedBox(height: AppSpacing.sm),
+                                  Text(
+                                    'Document PDF / Word',
+                                    style: TextStyle(
+                                      color: Color(0xFF888888),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Image.network(
+                              accreditationPhotoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: const Color(0xFFD0CCCA),
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.broken_image_rounded, size: 48, color: Color(0xFFAAAAAA)),
+                              ),
+                            )
                     else
                       Container(
                         color: const Color(0xFFD0CCCA),
