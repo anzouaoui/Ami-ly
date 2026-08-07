@@ -20,10 +20,21 @@ service firebase.storage {
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Contrats d'engagement réciproque
+    // Contrats d'engagement réciproque et documents signés (PDF final).
+    // Accès réservé aux deux parties au contrat (parent / assistante
+    // maternelle) — le PDF signé par DocuSign est stocké sous
+    // `contracts/{contractId}/`.
+    function isContractParty(contractId, uid) {
+      let contract = firestore
+        .get(/databases/(default)/documents/contracts/$(contractId))
+        .data;
+      return contract != null &&
+        (contract.parentUid == uid || contract.assmatUid == uid);
+    }
+
     match /contracts/{contractId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if isContractParty(contractId, request.auth.uid);
+      allow write: if isContractParty(contractId, request.auth.uid);
     }
 
   }

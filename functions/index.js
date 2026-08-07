@@ -3,6 +3,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 const docusign = require('docusign-esign');
+const signedDocuments = require('./signed-documents');
 
 admin.initializeApp();
 
@@ -216,84 +217,23 @@ exports.getRecipientViewUrl = functions.onCall(async (request) => {
 });
 
 exports.docusignWebhook = functions.onRequest(async (req, res) => {
-  try {
-    const body = req.body;
-
-    let envelopeId, status;
-    if (body.envelopeSummary) {
-      envelopeId = body.envelopeSummary.envelopeId;
-      status = body.envelopeSummary.status;
-    } else if (body.fields) {
-      envelopeId = body.envelopeId;
-      status = body.status;
-    }
-
-    if (!envelopeId || !status) {
-      res.status(400).send('Données incomplètes');
-      return;
-    }
-
-    const db = admin.firestore();
-    const snapshot = await db
-      .collection('contracts')
-      .where('docusignEnvelopeId', '==', envelopeId)
-      .get();
-
-    if (snapshot.empty) {
-      res.status(404).send('Contrat non trouvé');
-      return;
-    }
-
-    const contractDoc = snapshot.docs[0];
-    const contractId = contractDoc.id;
-
-    await db.collection('contracts').doc(contractId).update({
-      docusignStatus: status,
-      docusignUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    if (status === 'completed') {
-      const now = new Date().toISOString();
-      await db.collection('contracts').doc(contractId).update({
-        status: 'active',
-        parentSignedAt: admin.firestore.FieldValue.serverTimestamp(),
-        assmatSignedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: now,
-      });
-
-      try {
+  const result = await signedDocuments.handleDocusignWebhook({
+    rawBody: req.rawBody,
+    body: req.body,
+    signatureHeader: req.headers['x-docusign-signature-1'],
+    deps: {
+      hmacKey: process.env.DOCUSIGN_CONNECT_HMAC_KEY,
+      db: admin.firestore(),
+      bucket: admin.storage().bucket(),
+      getEnvelopesApi: async () => {
         const apiClient = await getApiClientWithToken();
-        const envelopesApi = new docusign.EnvelopesApi(apiClient);
-        const signedDoc = await envelopesApi.getDocument(
-          CFG.account_id,
-          envelopeId,
-          'combined',
-        );
-        const bucket = admin.storage().bucket();
-        const destPath = `contracts/${contractId}/contrat_finalise.pdf`;
-        const file = bucket.file(destPath);
-        await file.save(signedDoc, {
-          metadata: { contentType: 'application/pdf' },
-        });
-        const [pdfUrl] = await file.getSignedUrl({
-          action: 'read',
-          expires: '01-01-2999',
-        });
-
-        await db.collection('contracts').doc(contractId).update({
-          finalPdfUrl: pdfUrl,
-          finalizedAt: now,
-        });
-      } catch (err) {
-        console.error('Erreur téléchargement PDF signé:', err);
-      }
-    }
-
-    res.status(200).send('OK');
-  } catch (err) {
-    console.error('Erreur webhook:', err);
-    res.status(500).send('Erreur interne');
-  }
+        return new docusign.EnvelopesApi(apiClient);
+      },
+      accountId: CFG.account_id,
+      fieldValue: admin.firestore.FieldValue,
+    },
+  });
+  res.status(result.status).send(result.body);
 });
 
 exports.docusignCallback = functions.onRequest(async (req, res) => {
