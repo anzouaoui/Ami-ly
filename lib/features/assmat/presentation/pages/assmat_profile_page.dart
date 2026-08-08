@@ -24,6 +24,7 @@ import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
 import '../../../parent/presentation/widgets/profile_form_field.dart';
 import '../../../parent/presentation/widgets/personal_info_card.dart';
 import 'assmat_home_page.dart';
+import 'identity_document_scanner_page.dart';
 
 /// Source du fichier à uploader (photo ou document PDF/Word).
 enum _DocumentPickSource { gallery, camera, document }
@@ -109,6 +110,10 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   String? _identityDocumentUrl;
   String? _identityDocumentUrlBack;
   DateTime? _identityDocumentExpiry;
+  String? _identityDocumentNumber;
+  String? _identityDocumentFirstName;
+  String? _identityDocumentLastName;
+  DateTime? _identityDocumentBirthDate;
   String? _criminalRecordUrl;
   DateTime? _criminalRecordUploadedAt;
   // Contrôle de conformité de l'agrément
@@ -200,6 +205,10 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _identityDocumentUrl = profile.identityDocumentUrl;
     _identityDocumentUrlBack = profile.identityDocumentUrlBack;
     _identityDocumentExpiry = profile.identityDocumentExpiry;
+    _identityDocumentNumber = profile.identityDocumentNumber;
+    _identityDocumentFirstName = profile.identityDocumentFirstName;
+    _identityDocumentLastName = profile.identityDocumentLastName;
+    _identityDocumentBirthDate = profile.identityDocumentBirthDate;
     _criminalRecordUrl = profile.criminalRecordUrl;
     _criminalRecordUploadedAt = profile.criminalRecordUploadedAt;
     _accreditationDocExtractedNumber = profile.accreditationDocExtractedNumber;
@@ -654,6 +663,14 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             clearIdentityDocumentUrlBack: _identityDocumentUrlBack == null,
             identityDocumentExpiry: _identityDocumentExpiry,
             clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
+            identityDocumentNumber: _identityDocumentNumber,
+            clearIdentityDocumentNumber: _identityDocumentNumber == null,
+            identityDocumentFirstName: _identityDocumentFirstName,
+            clearIdentityDocumentFirstName: _identityDocumentFirstName == null,
+            identityDocumentLastName: _identityDocumentLastName,
+            clearIdentityDocumentLastName: _identityDocumentLastName == null,
+            identityDocumentBirthDate: _identityDocumentBirthDate,
+            clearIdentityDocumentBirthDate: _identityDocumentBirthDate == null,
             accreditationNumber: _accreditationNumberCtrl.text.trim(),
             accreditationExpiry: _accreditationExpiry,
             clearAccreditationExpiry: _accreditationExpiry == null,
@@ -760,51 +777,17 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     required String successMessage,
     required ValueChanged<String> onUploaded,
   }) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Choisir depuis la galerie'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_rounded),
-              title: const Text('Prendre une photo'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+    // Étape 1 — capture avec cadrage + OCR on-device : le scanner affiche le
+    // cadre de guidage, recadre le document puis pré-remplit les champs
+    // (nom, prénom, numéro, naissance, expiration). L'utilisateur corrige
+    // avant de valider.
+    final result = await Navigator.of(context).push<IdentityDocumentScanResult?>(
+      IdentityDocumentScannerPage.route(
+        side: side,
+        documentType: _identityDocumentType ?? IdentityDocumentType.cni,
       ),
     );
-
-    if (source == null || !mounted) return;
-
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
+    if (result == null || !mounted) return;
 
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
@@ -814,20 +797,25 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       final ds = ref.read(authRemoteDataSourceProvider);
       final url = await ds.uploadIdentityDocument(
         user.uid,
-        File(picked.path),
+        File(result.imagePath),
         side: side,
       );
 
-      // OCR on-device : le verso d'une CNI et le passeport portent la
-      // date d'expiration (zone MRZ). On la renseigne automatiquement.
-      final shouldExtractExpiry = side == 'back' ||
+      // L'OCR a déjà tourné sur l'appareil dans le scanner : on réutilise ses
+      // résultats (numéro, nom, prénom, naissance, expiration).
+      final extracted = result.extracted;
+      DateTime? detectedExpiry = extracted.expiryDate;
+
+      // Secours : si le scanner n'a rien détecté pour l'expiration (verso CNI
+      // ou passeport), on relance l'extraction ciblée de la date.
+      final shouldExtractExpiry =
+          side == 'back' ||
           _identityDocumentType == IdentityDocumentType.passeport;
-      DateTime? detectedExpiry;
-      if (shouldExtractExpiry) {
+      if (detectedExpiry == null && shouldExtractExpiry) {
         try {
           detectedExpiry = await ref
               .read(expiryDateExtractorProvider)
-              .extractExpiryDate(picked.path);
+              .extractExpiryDate(result.imagePath);
         } catch (e) {
           debugPrint('[OCR] Échec de l\'analyse du document : $e');
         }
@@ -836,6 +824,10 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       if (mounted) {
         setState(() {
           onUploaded(url);
+          _identityDocumentNumber = extracted.documentNumber;
+          _identityDocumentFirstName = extracted.firstName;
+          _identityDocumentLastName = extracted.lastName;
+          _identityDocumentBirthDate = extracted.birthDate;
           if (detectedExpiry != null &&
               detectedExpiry.isAfter(DateTime.now())) {
             _identityDocumentExpiry = detectedExpiry;

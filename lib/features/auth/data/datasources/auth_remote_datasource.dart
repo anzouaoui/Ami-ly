@@ -359,6 +359,14 @@ class AuthRemoteDataSource {
     bool clearIdentityDocumentUrlBack = false,
     DateTime? identityDocumentExpiry,
     bool clearIdentityDocumentExpiry = false,
+    String? identityDocumentNumber,
+    bool clearIdentityDocumentNumber = false,
+    String? identityDocumentFirstName,
+    bool clearIdentityDocumentFirstName = false,
+    String? identityDocumentLastName,
+    bool clearIdentityDocumentLastName = false,
+    DateTime? identityDocumentBirthDate,
+    bool clearIdentityDocumentBirthDate = false,
     String? accreditationNumber,
     DateTime? accreditationExpiry,
     bool clearAccreditationExpiry = false,
@@ -390,6 +398,23 @@ class AuthRemoteDataSource {
           'identityDocumentExpiry': FieldValue.delete()
         else if (identityDocumentExpiry != null)
           'identityDocumentExpiry': Timestamp.fromDate(identityDocumentExpiry),
+        if (clearIdentityDocumentNumber)
+          'identityDocumentNumber': FieldValue.delete()
+        else if (identityDocumentNumber != null)
+          'identityDocumentNumber': identityDocumentNumber,
+        if (clearIdentityDocumentFirstName)
+          'identityDocumentFirstName': FieldValue.delete()
+        else if (identityDocumentFirstName != null)
+          'identityDocumentFirstName': identityDocumentFirstName,
+        if (clearIdentityDocumentLastName)
+          'identityDocumentLastName': FieldValue.delete()
+        else if (identityDocumentLastName != null)
+          'identityDocumentLastName': identityDocumentLastName,
+        if (clearIdentityDocumentBirthDate)
+          'identityDocumentBirthDate': FieldValue.delete()
+        else if (identityDocumentBirthDate != null)
+          'identityDocumentBirthDate':
+              Timestamp.fromDate(identityDocumentBirthDate),
         if (accreditationNumber != null)
           'accreditationNumber': accreditationNumber,
         if (clearAccreditationExpiry)

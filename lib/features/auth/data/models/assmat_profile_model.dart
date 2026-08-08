@@ -76,6 +76,10 @@ class AssmatProfileModel {
     this.identityDocumentUrl,
     this.identityDocumentUrlBack,
     this.identityDocumentExpiry,
+    this.identityDocumentNumber,
+    this.identityDocumentFirstName,
+    this.identityDocumentLastName,
+    this.identityDocumentBirthDate,
     this.criminalRecordUrl,
     this.criminalRecordUploadedAt,
     // Contrôle de conformité de l'agrément
@@ -171,6 +175,20 @@ class AssmatProfileModel {
 
   /// Date d'expiration du document d'identité.
   final DateTime? identityDocumentExpiry;
+
+  // ── Métadonnées extraites par le scan OCR de la pièce d'identité ───────────
+
+  /// Numéro de document lu par l'OCR (zone MRZ ou libellé « N° : … »).
+  final String? identityDocumentNumber;
+
+  /// Prénom(s) lu(s) par l'OCR (pré-remplis, corrigibles à la main).
+  final String? identityDocumentFirstName;
+
+  /// Nom de famille lu par l'OCR.
+  final String? identityDocumentLastName;
+
+  /// Date de naissance lue par l'OCR.
+  final DateTime? identityDocumentBirthDate;
 
   /// URL de la photo/scan du casier judiciaire (bulletin n°3) dans Firebase Storage.
   // TODO(Seb): Confirmer si le casier judiciaire doit être conservé ou supprimé après vérification.
@@ -293,6 +311,12 @@ class AssmatProfileModel {
       identityDocumentUrlBack: data['identityDocumentUrlBack'] as String?,
       identityDocumentExpiry:
           (data['identityDocumentExpiry'] as Timestamp?)?.toDate(),
+      // Métadonnées extraites par l'OCR
+      identityDocumentNumber: data['identityDocumentNumber'] as String?,
+      identityDocumentFirstName: data['identityDocumentFirstName'] as String?,
+      identityDocumentLastName: data['identityDocumentLastName'] as String?,
+      identityDocumentBirthDate:
+          (data['identityDocumentBirthDate'] as Timestamp?)?.toDate(),
       criminalRecordUrl: data['criminalRecordUrl'] as String?,
       criminalRecordUploadedAt:
           (data['criminalRecordUploadedAt'] as Timestamp?)?.toDate(),
@@ -363,6 +387,16 @@ class AssmatProfileModel {
         if (identityDocumentExpiry != null)
           'identityDocumentExpiry':
               Timestamp.fromDate(identityDocumentExpiry!),
+        // Métadonnées extraites par l'OCR
+        if (identityDocumentNumber != null)
+          'identityDocumentNumber': identityDocumentNumber,
+        if (identityDocumentFirstName != null)
+          'identityDocumentFirstName': identityDocumentFirstName,
+        if (identityDocumentLastName != null)
+          'identityDocumentLastName': identityDocumentLastName,
+        if (identityDocumentBirthDate != null)
+          'identityDocumentBirthDate':
+              Timestamp.fromDate(identityDocumentBirthDate!),
         if (criminalRecordUrl != null)
           'criminalRecordUrl': criminalRecordUrl,
         if (criminalRecordUploadedAt != null)
@@ -450,6 +484,14 @@ class AssmatProfileModel {
     bool clearIdentityDocumentUrlBack = false,
     DateTime? identityDocumentExpiry,
     bool clearIdentityDocumentExpiry = false,
+    String? identityDocumentNumber,
+    bool clearIdentityDocumentNumber = false,
+    String? identityDocumentFirstName,
+    bool clearIdentityDocumentFirstName = false,
+    String? identityDocumentLastName,
+    bool clearIdentityDocumentLastName = false,
+    DateTime? identityDocumentBirthDate,
+    bool clearIdentityDocumentBirthDate = false,
     String? criminalRecordUrl,
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
@@ -527,6 +569,18 @@ class AssmatProfileModel {
         identityDocumentExpiry: clearIdentityDocumentExpiry
             ? null
             : (identityDocumentExpiry ?? this.identityDocumentExpiry),
+        identityDocumentNumber: clearIdentityDocumentNumber
+            ? null
+            : (identityDocumentNumber ?? this.identityDocumentNumber),
+        identityDocumentFirstName: clearIdentityDocumentFirstName
+            ? null
+            : (identityDocumentFirstName ?? this.identityDocumentFirstName),
+        identityDocumentLastName: clearIdentityDocumentLastName
+            ? null
+            : (identityDocumentLastName ?? this.identityDocumentLastName),
+        identityDocumentBirthDate: clearIdentityDocumentBirthDate
+            ? null
+            : (identityDocumentBirthDate ?? this.identityDocumentBirthDate),
         criminalRecordUrl: clearCriminalRecordUrl
             ? null
             : (criminalRecordUrl ?? this.criminalRecordUrl),
