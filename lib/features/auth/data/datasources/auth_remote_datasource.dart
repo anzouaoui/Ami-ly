@@ -369,6 +369,10 @@ class AuthRemoteDataSource {
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
     bool clearCriminalRecordUploadedAt = false,
+    String? accreditationDocExtractedNumber,
+    bool clearAccreditationDocExtractedNumber = false,
+    DateTime? accreditationDocExtractedExpiry,
+    bool clearAccreditationDocExtractedExpiry = false,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -407,6 +411,15 @@ class AuthRemoteDataSource {
         else if (criminalRecordUploadedAt != null)
           'criminalRecordUploadedAt':
               Timestamp.fromDate(criminalRecordUploadedAt),
+        if (clearAccreditationDocExtractedNumber)
+          'accreditationDocExtractedNumber': FieldValue.delete()
+        else if (accreditationDocExtractedNumber != null)
+          'accreditationDocExtractedNumber': accreditationDocExtractedNumber,
+        if (clearAccreditationDocExtractedExpiry)
+          'accreditationDocExtractedExpiry': FieldValue.delete()
+        else if (accreditationDocExtractedExpiry != null)
+          'accreditationDocExtractedExpiry':
+              Timestamp.fromDate(accreditationDocExtractedExpiry),
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(

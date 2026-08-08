@@ -87,4 +87,42 @@ void main() {
       expect(extractor.parseExpiryFromText(text, now: now), isNull);
     });
   });
+
+  group('parseValidityEndFromText - fin de période de validité', () {
+    test('extrait la date qui suit « au » (fin de période)', () {
+      const text = 'Période de validité : du 01/09/2026 au 31/08/2031';
+      expect(extractor.parseValidityEndFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
+    test('gère les accents (« PÉRIODE DE VALIDITÉ »)', () {
+      const text = 'PÉRIODE DE VALIDITÉ DU 01/09/2026 AU 31/08/2031';
+      expect(extractor.parseValidityEndFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
+    test('privilégie « valable jusqu\'au »', () {
+      const text = 'Agrément valable jusqu\'au 12/06/2029 '
+          '(période du 01/06/2026 au 12/06/2029)';
+      expect(extractor.parseValidityEndFromText(text, now: now),
+          DateTime(2029, 6, 12));
+    });
+
+    test('extrait un mois/année de fin (« au 08/2031 »)', () {
+      const text = 'Période de validité du 01/08/2026 au 08/2031';
+      expect(extractor.parseValidityEndFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
+    test('ignore une période déjà expirée', () {
+      const text = 'Période de validité : du 01/01/2020 au 31/12/2023';
+      expect(extractor.parseValidityEndFromText(text, now: now), isNull);
+    });
+
+    test('retombe sur la date d\'expiration lisible', () {
+      const text = 'RÉPUBLIQUE FRANÇAISE\nDate d\'expiration : 27/08/2031';
+      expect(extractor.parseValidityEndFromText(text, now: now),
+          DateTime(2031, 8, 27));
+    });
+  });
 }

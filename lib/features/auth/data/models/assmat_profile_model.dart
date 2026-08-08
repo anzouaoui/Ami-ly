@@ -78,6 +78,9 @@ class AssmatProfileModel {
     this.identityDocumentExpiry,
     this.criminalRecordUrl,
     this.criminalRecordUploadedAt,
+    // Contrôle de conformité de l'agrément
+    this.accreditationDocExtractedNumber,
+    this.accreditationDocExtractedExpiry,
   });
 
   final String uid;
@@ -176,6 +179,35 @@ class AssmatProfileModel {
   /// Date de téléversement du casier judiciaire.
   final DateTime? criminalRecordUploadedAt;
 
+  // ── Contrôle de conformité de l'agrément ────────────────────────────────────
+
+  /// Numéro d'agrément lu sur le document/photo (OCR). Utilisé pour vérifier
+  /// qu'il correspond au numéro saisi.
+  final String? accreditationDocExtractedNumber;
+
+  /// Fin de période de validité lue sur le document/photo (OCR). Utilisée
+  /// pour vérifier qu'elle correspond à la date d'expiration saisie.
+  final DateTime? accreditationDocExtractedExpiry;
+
+  /// `true` si le numéro d'agrément saisi correspond au numéro lu sur le
+  /// document d'agrément (mêmes chiffres, indépendamment de la mise en forme).
+  bool get isAccreditationNumberMatching {
+    final extracted = accreditationDocExtractedNumber;
+    if (extracted == null || extracted.isEmpty) return false;
+    final entered = accreditationNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final read = extracted.replaceAll(RegExp(r'[^0-9]'), '');
+    return entered.isNotEmpty && entered == read;
+  }
+
+  /// `true` si la date d'expiration saisie correspond à la fin de période de
+  /// validité lue sur le document (même mois / même année).
+  bool get isAccreditationExpiryMatching {
+    final extracted = accreditationDocExtractedExpiry;
+    if (accreditationExpiry == null || extracted == null) return false;
+    return accreditationExpiry!.year == extracted.year &&
+        accreditationExpiry!.month == extracted.month;
+  }
+
   /// Retourne `true` si le profil est entièrement vérifié :
   /// - Identité vérifiée (`isIdentityVerified`)
   /// - Document d'identité non expiré (recto + verso pour une CNI)
@@ -264,6 +296,11 @@ class AssmatProfileModel {
       criminalRecordUrl: data['criminalRecordUrl'] as String?,
       criminalRecordUploadedAt:
           (data['criminalRecordUploadedAt'] as Timestamp?)?.toDate(),
+      // Contrôle de conformité de l'agrément
+      accreditationDocExtractedNumber:
+          data['accreditationDocExtractedNumber'] as String?,
+      accreditationDocExtractedExpiry:
+          (data['accreditationDocExtractedExpiry'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -331,6 +368,12 @@ class AssmatProfileModel {
         if (criminalRecordUploadedAt != null)
           'criminalRecordUploadedAt':
               Timestamp.fromDate(criminalRecordUploadedAt!),
+        // Contrôle de conformité de l'agrément
+        if (accreditationDocExtractedNumber != null)
+          'accreditationDocExtractedNumber': accreditationDocExtractedNumber,
+        if (accreditationDocExtractedExpiry != null)
+          'accreditationDocExtractedExpiry':
+              Timestamp.fromDate(accreditationDocExtractedExpiry!),
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -411,6 +454,11 @@ class AssmatProfileModel {
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
     bool clearCriminalRecordUploadedAt = false,
+    // Contrôle de conformité de l'agrément
+    String? accreditationDocExtractedNumber,
+    bool clearAccreditationDocExtractedNumber = false,
+    DateTime? accreditationDocExtractedExpiry,
+    bool clearAccreditationDocExtractedExpiry = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -485,5 +533,14 @@ class AssmatProfileModel {
         criminalRecordUploadedAt: clearCriminalRecordUploadedAt
             ? null
             : (criminalRecordUploadedAt ?? this.criminalRecordUploadedAt),
+        // Contrôle de conformité de l'agrément
+        accreditationDocExtractedNumber: clearAccreditationDocExtractedNumber
+            ? null
+            : (accreditationDocExtractedNumber ??
+                this.accreditationDocExtractedNumber),
+        accreditationDocExtractedExpiry: clearAccreditationDocExtractedExpiry
+            ? null
+            : (accreditationDocExtractedExpiry ??
+                this.accreditationDocExtractedExpiry),
       );
 }

@@ -30,7 +30,8 @@ class ExpiryDateExtractor {
   };
 
   /// Mot-clés qui signalent qu'une date lisible est une date d'expiration.
-  static final RegExp _expiryKeywords = RegExp(r'expir|validit|valable|fin de');
+  static final RegExp _expiryKeywords =
+      RegExp(r'expir|validit|valable|fin de', caseSensitive: false);
 
   /// Analyse l'image localisée à [imagePath] et retourne la date
   /// d'expiration détectée (dans le futur), ou `null` si aucune n'est fiable.
@@ -71,10 +72,55 @@ class ExpiryDateExtractor {
     return _parseReadableDate(normalized, reference);
   }
 
+  /// Extrait la date de fin de période de validité d'un agrément PMI :
+  /// « Période de validité : du JJ/MM/AAAA au JJ/MM/AAAA », « valable
+  /// jusqu'au … », « fin de validité le … ». Retourne `null` si aucune n'est
+  /// fiable.
+  DateTime? parseValidityEndFromText(String text, {DateTime? now}) {
+    final reference = now ?? DateTime.now();
+    final normalized = _stripAccents(text.toUpperCase());
+
+    // « valable jusqu'au <date> » : date explicitement désignée.
+    final untilDate = _parseValableJusquau(normalized, reference);
+    if (untilDate != null) return untilDate;
+
+    // « Période de validité : du 01/09/2026 au 31/08/2031 » : on retient la
+    // date qui suit « au » (fin de période), pas celle qui suit « du ».
+    final endAfterAu = RegExp(
+        r'(?:VALIDITE|PERIODE|AGREMENT)[^]{0,60}?\bAU\s+'
+        r'(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})');
+    for (final m in endAfterAu.allMatches(normalized)) {
+      final yearText = m.group(3)!;
+      final year = yearText.length == 2
+          ? 2000 + int.parse(yearText)
+          : int.parse(yearText);
+      final date = _buildDate(
+        year: year,
+        month: int.parse(m.group(2)!),
+        day: int.parse(m.group(1)!),
+      );
+      if (date != null && date.isAfter(reference)) return date;
+    }
+
+    // « au 08/2031 » : validité jusqu'au dernier jour du mois.
+    final endAfterAuMonthYear = RegExp(
+        r'(?:VALIDITE|PERIODE|AGREMENT)[^]{0,60}?\bAU\s+'
+        r'(0[1-9]|1[0-2])[/.\-](\d{4})');
+    for (final m in endAfterAuMonthYear.allMatches(normalized)) {
+      final month = int.parse(m.group(1)!);
+      final year = int.parse(m.group(2)!);
+      final date = DateTime(year, month + 1, 0);
+      if (date.isAfter(reference)) return date;
+    }
+
+    // Secours : la date d'expiration la plus plausible du texte.
+    return parseExpiryFromText(text, now: now);
+  }
+
   /// Retourne la date qui suit directement « valable jusqu'au » / « jusqu'à »,
   /// au format `JJ/MM/AAAA` (ou `AA`) ou `MM/AAAA`, si elle est dans le futur.
   DateTime? _parseValableJusquau(String text, DateTime reference) {
-    final prefix = r"JUSQU'A?U?\s*(?:LE\s*)?[:\-]?\s*";
+    const prefix = r"JUSQU'A?U?\s*(?:LE\s*)?[:\-]?\s*";
 
     final dmy = RegExp(prefix + r'(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})');
     for (final m in dmy.allMatches(text)) {
@@ -227,4 +273,25 @@ class ExpiryDateExtractor {
     }
     return date;
   }
+
+  /// Retire les accents d'un texte déjà en majuscules, pour fiabiliser les
+  /// motifs regex (« PÉRIODE DE VALIDITÉ » → « PERIODE DE VALIDITE »).
+  String _stripAccents(String input) => input
+      .replaceAll('É', 'E')
+      .replaceAll('È', 'E')
+      .replaceAll('Ê', 'E')
+      .replaceAll('Ë', 'E')
+      .replaceAll('À', 'A')
+      .replaceAll('Â', 'A')
+      .replaceAll('Ã', 'A')
+      .replaceAll('Î', 'I')
+      .replaceAll('Ï', 'I')
+      .replaceAll('Ô', 'O')
+      .replaceAll('Ö', 'O')
+      .replaceAll('Ù', 'U')
+      .replaceAll('Û', 'U')
+      .replaceAll('Ü', 'U')
+      .replaceAll('Ç', 'C')
+      .replaceAll('Œ', 'OE')
+      .replaceAll('Æ', 'AE');
 }
