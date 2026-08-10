@@ -99,8 +99,15 @@ class AssmatProfileModel {
     this.identityDocumentUrl,
     this.identityDocumentUrlBack,
     this.identityDocumentExpiry,
+    this.identityDocumentNumber,
+    this.identityDocumentFirstName,
+    this.identityDocumentLastName,
+    this.identityDocumentBirthDate,
     this.criminalRecordUrl,
     this.criminalRecordUploadedAt,
+    // Contrôle de conformité de l'agrément
+    this.accreditationDocExtractedNumber,
+    this.accreditationDocExtractedExpiry,
   });
 
   final String uid;
@@ -203,12 +210,55 @@ class AssmatProfileModel {
   /// Date d'expiration du document d'identité.
   final DateTime? identityDocumentExpiry;
 
+  // ── Métadonnées extraites par le scan OCR de la pièce d'identité ───────────
+
+  /// Numéro de document lu par l'OCR (zone MRZ ou libellé « N° : … »).
+  final String? identityDocumentNumber;
+
+  /// Prénom(s) lu(s) par l'OCR (pré-remplis, corrigibles à la main).
+  final String? identityDocumentFirstName;
+
+  /// Nom de famille lu par l'OCR.
+  final String? identityDocumentLastName;
+
+  /// Date de naissance lue par l'OCR.
+  final DateTime? identityDocumentBirthDate;
+
   /// URL de la photo/scan du casier judiciaire (bulletin n°3) dans Firebase Storage.
   // TODO(Seb): Confirmer si le casier judiciaire doit être conservé ou supprimé après vérification.
   final String? criminalRecordUrl;
 
   /// Date de téléversement du casier judiciaire.
   final DateTime? criminalRecordUploadedAt;
+
+  // ── Contrôle de conformité de l'agrément ────────────────────────────────────
+
+  /// Numéro d'agrément lu sur le document/photo (OCR). Utilisé pour vérifier
+  /// qu'il correspond au numéro saisi.
+  final String? accreditationDocExtractedNumber;
+
+  /// Fin de période de validité lue sur le document/photo (OCR). Utilisée
+  /// pour vérifier qu'elle correspond à la date d'expiration saisie.
+  final DateTime? accreditationDocExtractedExpiry;
+
+  /// `true` si le numéro d'agrément saisi correspond au numéro lu sur le
+  /// document d'agrément (mêmes chiffres, indépendamment de la mise en forme).
+  bool get isAccreditationNumberMatching {
+    final extracted = accreditationDocExtractedNumber;
+    if (extracted == null || extracted.isEmpty) return false;
+    final entered = accreditationNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final read = extracted.replaceAll(RegExp(r'[^0-9]'), '');
+    return entered.isNotEmpty && entered == read;
+  }
+
+  /// `true` si la date d'expiration saisie correspond à la fin de période de
+  /// validité lue sur le document (même mois / même année).
+  bool get isAccreditationExpiryMatching {
+    final extracted = accreditationDocExtractedExpiry;
+    if (accreditationExpiry == null || extracted == null) return false;
+    return accreditationExpiry!.year == extracted.year &&
+        accreditationExpiry!.month == extracted.month;
+  }
 
   /// Retourne `true` si le profil est entièrement vérifié :
   /// - Identité vérifiée (`isIdentityVerified`)
@@ -304,9 +354,20 @@ class AssmatProfileModel {
       identityDocumentUrlBack: data['identityDocumentUrlBack'] as String?,
       identityDocumentExpiry:
           (data['identityDocumentExpiry'] as Timestamp?)?.toDate(),
+      // Métadonnées extraites par l'OCR
+      identityDocumentNumber: data['identityDocumentNumber'] as String?,
+      identityDocumentFirstName: data['identityDocumentFirstName'] as String?,
+      identityDocumentLastName: data['identityDocumentLastName'] as String?,
+      identityDocumentBirthDate:
+          (data['identityDocumentBirthDate'] as Timestamp?)?.toDate(),
       criminalRecordUrl: data['criminalRecordUrl'] as String?,
       criminalRecordUploadedAt:
           (data['criminalRecordUploadedAt'] as Timestamp?)?.toDate(),
+      // Contrôle de conformité de l'agrément
+      accreditationDocExtractedNumber:
+          data['accreditationDocExtractedNumber'] as String?,
+      accreditationDocExtractedExpiry:
+          (data['accreditationDocExtractedExpiry'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -378,11 +439,27 @@ class AssmatProfileModel {
         if (identityDocumentExpiry != null)
           'identityDocumentExpiry':
               Timestamp.fromDate(identityDocumentExpiry!),
+        // Métadonnées extraites par l'OCR
+        if (identityDocumentNumber != null)
+          'identityDocumentNumber': identityDocumentNumber,
+        if (identityDocumentFirstName != null)
+          'identityDocumentFirstName': identityDocumentFirstName,
+        if (identityDocumentLastName != null)
+          'identityDocumentLastName': identityDocumentLastName,
+        if (identityDocumentBirthDate != null)
+          'identityDocumentBirthDate':
+              Timestamp.fromDate(identityDocumentBirthDate!),
         if (criminalRecordUrl != null)
           'criminalRecordUrl': criminalRecordUrl,
         if (criminalRecordUploadedAt != null)
           'criminalRecordUploadedAt':
               Timestamp.fromDate(criminalRecordUploadedAt!),
+        // Contrôle de conformité de l'agrément
+        if (accreditationDocExtractedNumber != null)
+          'accreditationDocExtractedNumber': accreditationDocExtractedNumber,
+        if (accreditationDocExtractedExpiry != null)
+          'accreditationDocExtractedExpiry':
+              Timestamp.fromDate(accreditationDocExtractedExpiry!),
       };
 
   // ── Factory helpers ────────────────────────────────────────────────────────
@@ -474,10 +551,23 @@ class AssmatProfileModel {
     bool clearIdentityDocumentUrlBack = false,
     DateTime? identityDocumentExpiry,
     bool clearIdentityDocumentExpiry = false,
+    String? identityDocumentNumber,
+    bool clearIdentityDocumentNumber = false,
+    String? identityDocumentFirstName,
+    bool clearIdentityDocumentFirstName = false,
+    String? identityDocumentLastName,
+    bool clearIdentityDocumentLastName = false,
+    DateTime? identityDocumentBirthDate,
+    bool clearIdentityDocumentBirthDate = false,
     String? criminalRecordUrl,
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
     bool clearCriminalRecordUploadedAt = false,
+    // Contrôle de conformité de l'agrément
+    String? accreditationDocExtractedNumber,
+    bool clearAccreditationDocExtractedNumber = false,
+    DateTime? accreditationDocExtractedExpiry,
+    bool clearAccreditationDocExtractedExpiry = false,
   }) =>
       AssmatProfileModel(
         uid: uid,
@@ -554,12 +644,33 @@ class AssmatProfileModel {
         identityDocumentExpiry: clearIdentityDocumentExpiry
             ? null
             : (identityDocumentExpiry ?? this.identityDocumentExpiry),
+        identityDocumentNumber: clearIdentityDocumentNumber
+            ? null
+            : (identityDocumentNumber ?? this.identityDocumentNumber),
+        identityDocumentFirstName: clearIdentityDocumentFirstName
+            ? null
+            : (identityDocumentFirstName ?? this.identityDocumentFirstName),
+        identityDocumentLastName: clearIdentityDocumentLastName
+            ? null
+            : (identityDocumentLastName ?? this.identityDocumentLastName),
+        identityDocumentBirthDate: clearIdentityDocumentBirthDate
+            ? null
+            : (identityDocumentBirthDate ?? this.identityDocumentBirthDate),
         criminalRecordUrl: clearCriminalRecordUrl
             ? null
             : (criminalRecordUrl ?? this.criminalRecordUrl),
         criminalRecordUploadedAt: clearCriminalRecordUploadedAt
             ? null
             : (criminalRecordUploadedAt ?? this.criminalRecordUploadedAt),
+        // Contrôle de conformité de l'agrément
+        accreditationDocExtractedNumber: clearAccreditationDocExtractedNumber
+            ? null
+            : (accreditationDocExtractedNumber ??
+                this.accreditationDocExtractedNumber),
+        accreditationDocExtractedExpiry: clearAccreditationDocExtractedExpiry
+            ? null
+            : (accreditationDocExtractedExpiry ??
+                this.accreditationDocExtractedExpiry),
       );
 
   // ── Vérification du profil ───────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/address_suggestion.dart';
+import '../../../../core/services/accreditation_document_extractor.dart';
 import '../../../../core/services/expiry_date_extractor.dart';
 import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
@@ -23,6 +24,7 @@ import '../../../parent/presentation/widgets/filter_checkbox_tile.dart';
 import '../../../parent/presentation/widgets/profile_form_field.dart';
 import '../../../parent/presentation/widgets/personal_info_card.dart';
 import 'assmat_home_page.dart';
+import 'identity_document_scanner_page.dart';
 
 /// Source du fichier à uploader (photo ou document PDF/Word).
 enum _DocumentPickSource { gallery, camera, document }
@@ -108,8 +110,17 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
   String? _identityDocumentUrl;
   String? _identityDocumentUrlBack;
   DateTime? _identityDocumentExpiry;
+  String? _identityDocumentNumber;
+  String? _identityDocumentFirstName;
+  String? _identityDocumentLastName;
+  DateTime? _identityDocumentBirthDate;
   String? _criminalRecordUrl;
   DateTime? _criminalRecordUploadedAt;
+  // Contrôle de conformité de l'agrément
+  String? _accreditationDocExtractedNumber;
+  DateTime? _accreditationDocExtractedExpiry;
+  String? _accreditationDocumentLocalPath;
+  bool _isVerifyingAccreditation = false;
 
   // ── Cycle de vie ──────────────────────────────────────────────────────────
   bool _initialized = false;
@@ -194,10 +205,25 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _identityDocumentUrl = profile.identityDocumentUrl;
     _identityDocumentUrlBack = profile.identityDocumentUrlBack;
     _identityDocumentExpiry = profile.identityDocumentExpiry;
+    _identityDocumentNumber = profile.identityDocumentNumber;
+    _identityDocumentFirstName = profile.identityDocumentFirstName;
+    _identityDocumentLastName = profile.identityDocumentLastName;
+    _identityDocumentBirthDate = profile.identityDocumentBirthDate;
     _criminalRecordUrl = profile.criminalRecordUrl;
     _criminalRecordUploadedAt = profile.criminalRecordUploadedAt;
+    _accreditationDocExtractedNumber = profile.accreditationDocExtractedNumber;
+    _accreditationDocExtractedExpiry = profile.accreditationDocExtractedExpiry;
 
     _initialized = true;
+
+    // Auto-vérification : pour les profils existants, on recalcule
+    // l'indicateur et on synchronise Firestore si les critères sont déjà
+    // remplis (données complétées avant cette fonctionnalité).
+    if (_identityAutoVerified != profile.isIdentityVerified) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _persistCompliance();
+      });
+    }
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -224,6 +250,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       final savedAvailableSlots =
           int.tryParse(_availableSlotsCtrl.text.trim()) ??
               (_loadedProfile?.availableSlots ?? 0);
+      final verified = _identityAutoVerified;
+      final verifiedAt =
+          verified ? (_identityVerifiedAt ?? DateTime.now()) : null;
 
       // Dès que le profil est entièrement vérifié (identité + agrément), on
       // lève le délai de vérification de 30 jours.
@@ -293,6 +322,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             clearCriminalRecordUrl: _criminalRecordUrl == null,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
             clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+            isIdentityVerified: verified,
+            identityVerifiedAt: verifiedAt,
+            clearIdentityVerifiedAt: !verified,
           );
 
       _loadedProfile = _loadedProfile?.copyWith(
@@ -341,12 +373,28 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         clearIdentityDocumentUrlBack: _identityDocumentUrlBack == null,
         identityDocumentExpiry: _identityDocumentExpiry,
         clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
-        criminalRecordUrl: _criminalRecordUrl,
-        clearCriminalRecordUrl: _criminalRecordUrl == null,
-        criminalRecordUploadedAt: _criminalRecordUploadedAt,
-        clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
-      );
+            criminalRecordUrl: _criminalRecordUrl,
+            clearCriminalRecordUrl: _criminalRecordUrl == null,
+            criminalRecordUploadedAt: _criminalRecordUploadedAt,
+            clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+            isIdentityVerified: verified,
+            identityVerifiedAt: verifiedAt,
+            clearIdentityVerifiedAt: !verified,
+            accreditationDocExtractedNumber: _accreditationDocExtractedNumber,
+            clearAccreditationDocExtractedNumber:
+                _accreditationDocExtractedNumber == null,
+            accreditationDocExtractedExpiry: _accreditationDocExtractedExpiry,
+            clearAccreditationDocExtractedExpiry:
+                _accreditationDocExtractedExpiry == null,
+          );
       _locationCleared = false;
+
+      if (mounted && _isIdentityVerified != verified) {
+        setState(() {
+          _isIdentityVerified = verified;
+          _identityVerifiedAt = verifiedAt;
+        });
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -472,13 +520,36 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         contentType: picked.contentType,
       );
       if (mounted) {
-        setState(() => _accreditationPhotoUrl = url);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Document d'agrément mis à jour"),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() {
+          _accreditationPhotoUrl = url;
+          _accreditationDocumentLocalPath = picked.file.path;
+          _accreditationDocExtractedNumber = null;
+          _accreditationDocExtractedExpiry = null;
+        });
+        _persistCompliance();
+        final isImage = picked.contentType.startsWith('image/');
+        if (isImage) {
+          // OCR on-device : on lit le numéro d'agrément et la fin de période
+          // de validité sur la photo, puis on les compare à la saisie.
+          await _verifyAccreditationDocument(filePath: picked.file.path);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Vérification automatique indisponible pour un PDF/Word : '
+                  'saisissez le numéro et la date manuellement'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Document d'agrément mis à jour"),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -491,6 +562,41 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Relance l'OCR sur le document d'agrément (photo) pour contrôler que le
+  /// numéro saisi et la date d'expiration correspondent au document, puis
+  /// persiste le résultat.
+  Future<void> _verifyAccreditationDocument({String? filePath}) async {
+    final path = filePath ?? _accreditationDocumentLocalPath;
+    if (path == null || _isVerifyingAccreditation) return;
+    setState(() => _isVerifyingAccreditation = true);
+    try {
+      final data = await ref
+          .read(accreditationDocumentExtractorProvider)
+          .extract(path);
+      if (!mounted) return;
+      setState(() {
+        _accreditationDocExtractedNumber = data.number;
+        _accreditationDocExtractedExpiry = data.expiry;
+      });
+      await _persistCompliance();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            data.isEmpty
+                ? 'Numéro et date non détectés sur la photo'
+                : 'Document contrôlé',
+            ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[Agrément] Échec de l\'analyse du document : $e');
+    } finally {
+      if (mounted) setState(() => _isVerifyingAccreditation = false);
     }
   }
 
@@ -576,6 +682,79 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
     return 'application/octet-stream';
+  }
+
+  /// Critères d'auto-vérification de l'identité (sans modération) :
+  /// les deux faces de la pièce fournies (verso requis pour une CNI),
+  /// pièce non expirée et agrément PMI valide.
+  bool get _identityAutoVerified {
+    final identityProvided =
+        _identityDocumentUrl != null && _identityDocumentUrl!.isNotEmpty;
+    final backProvided = _identityDocumentUrlBack != null &&
+        _identityDocumentUrlBack!.isNotEmpty;
+    final cniBackProvided =
+        _identityDocumentType != IdentityDocumentType.cni || backProvided;
+    final docNotExpired = _identityDocumentExpiry != null &&
+        _identityDocumentExpiry!.isAfter(DateTime.now());
+    final accreditationValid = _accreditationExpiry != null &&
+        _accreditationExpiry!.isAfter(DateTime.now());
+    return identityProvided &&
+        cniBackProvided &&
+        docNotExpired &&
+        accreditationValid;
+  }
+
+  /// Sauvegarde immédiatement la section « Vérification & Conformité »
+  /// (pièce d'identité, agrément, casier judiciaire) afin que l'ajout soit
+  /// conservé et reste coché même après rechargement de la page.
+  Future<void> _persistCompliance() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+    final verified = _identityAutoVerified;
+    final verifiedAt = verified ? (_identityVerifiedAt ?? DateTime.now()) : null;
+    try {
+      await ref
+          .read(authRemoteDataSourceProvider)
+          .updateAssmatCompliance(
+            uid: user.uid,
+            identityDocumentType: _identityDocumentType?.key,
+            identityDocumentUrl: _identityDocumentUrl,
+            clearIdentityDocumentUrl: _identityDocumentUrl == null,
+            identityDocumentUrlBack: _identityDocumentUrlBack,
+            clearIdentityDocumentUrlBack: _identityDocumentUrlBack == null,
+            identityDocumentExpiry: _identityDocumentExpiry,
+            clearIdentityDocumentExpiry: _identityDocumentExpiry == null,
+            identityDocumentNumber: _identityDocumentNumber,
+            clearIdentityDocumentNumber: _identityDocumentNumber == null,
+            identityDocumentFirstName: _identityDocumentFirstName,
+            clearIdentityDocumentFirstName: _identityDocumentFirstName == null,
+            identityDocumentLastName: _identityDocumentLastName,
+            clearIdentityDocumentLastName: _identityDocumentLastName == null,
+            identityDocumentBirthDate: _identityDocumentBirthDate,
+            clearIdentityDocumentBirthDate: _identityDocumentBirthDate == null,
+            accreditationNumber: _accreditationNumberCtrl.text.trim(),
+            accreditationExpiry: _accreditationExpiry,
+            clearAccreditationExpiry: _accreditationExpiry == null,
+            accreditationPhotoUrl: _accreditationPhotoUrl,
+            clearAccreditationPhotoUrl: _accreditationPhotoUrl == null,
+            isAccreditationCertified: _isAccreditationCertified,
+            criminalRecordUrl: _criminalRecordUrl,
+            clearCriminalRecordUrl: _criminalRecordUrl == null,
+            criminalRecordUploadedAt: _criminalRecordUploadedAt,
+            clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+            isIdentityVerified: verified,
+            identityVerifiedAt: verifiedAt,
+            clearIdentityVerifiedAt: !verified,
+          );
+    } catch (e) {
+      debugPrint('[Conformité] Échec de la sauvegarde : $e');
+    }
+    if (mounted && _isIdentityVerified != verified) {
+      setState(() {
+        _isIdentityVerified = verified;
+        _identityVerifiedAt = verifiedAt;
+      });
+    }
   }
 
   Future<void> _addHomePhoto() async {
@@ -668,51 +847,17 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     required String successMessage,
     required ValueChanged<String> onUploaded,
   }) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Choisir depuis la galerie'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_rounded),
-              title: const Text('Prendre une photo'),
-              onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+    // Étape 1 — capture avec cadrage + OCR on-device : le scanner affiche le
+    // cadre de guidage, recadre le document puis pré-remplit les champs
+    // (nom, prénom, numéro, naissance, expiration). L'utilisateur corrige
+    // avant de valider.
+    final result = await Navigator.of(context).push<IdentityDocumentScanResult?>(
+      IdentityDocumentScannerPage.route(
+        side: side,
+        documentType: _identityDocumentType ?? IdentityDocumentType.cni,
       ),
     );
-
-    if (source == null || !mounted) return;
-
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
+    if (result == null || !mounted) return;
 
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
@@ -722,20 +867,25 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       final ds = ref.read(authRemoteDataSourceProvider);
       final url = await ds.uploadIdentityDocument(
         user.uid,
-        File(picked.path),
+        File(result.imagePath),
         side: side,
       );
 
-      // OCR on-device : le verso d'une CNI et le passeport portent la
-      // date d'expiration (zone MRZ). On la renseigne automatiquement.
-      final shouldExtractExpiry = side == 'back' ||
+      // L'OCR a déjà tourné sur l'appareil dans le scanner : on réutilise ses
+      // résultats (numéro, nom, prénom, naissance, expiration).
+      final extracted = result.extracted;
+      DateTime? detectedExpiry = extracted.expiryDate;
+
+      // Secours : si le scanner n'a rien détecté pour l'expiration (verso CNI
+      // ou passeport), on relance l'extraction ciblée de la date.
+      final shouldExtractExpiry =
+          side == 'back' ||
           _identityDocumentType == IdentityDocumentType.passeport;
-      DateTime? detectedExpiry;
-      if (shouldExtractExpiry) {
+      if (detectedExpiry == null && shouldExtractExpiry) {
         try {
           detectedExpiry = await ref
               .read(expiryDateExtractorProvider)
-              .extractExpiryDate(picked.path);
+              .extractExpiryDate(result.imagePath);
         } catch (e) {
           debugPrint('[OCR] Échec de l\'analyse du document : $e');
         }
@@ -744,11 +894,24 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       if (mounted) {
         setState(() {
           onUploaded(url);
+          // Le recto porte le nom, le prénom, la date de naissance et le
+          // numéro (libellés français, et MRZ pour le verso des anciennes
+          // CNI). Le verso ne sert que pour la date d'expiration
+          // (« Carte valable jusqu'au » / MRZ) : on n'écrase donc les
+          // métadonnées que lors du scan du recto, sinon le verso écraserait
+          // les valeurs déjà récupérées.
+          if (side == 'front') {
+            _identityDocumentNumber = extracted.documentNumber;
+            _identityDocumentFirstName = extracted.firstName;
+            _identityDocumentLastName = extracted.lastName;
+            _identityDocumentBirthDate = extracted.birthDate;
+          }
           if (detectedExpiry != null &&
               detectedExpiry.isAfter(DateTime.now())) {
             _identityDocumentExpiry = detectedExpiry;
           }
         });
+        _persistCompliance();
         final message = detectedExpiry != null
             ? 'Date d\'expiration détectée : ${_formatDate(detectedExpiry)}'
             : '$successMessage — renseignez la date d\'expiration si besoin';
@@ -812,6 +975,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           _criminalRecordUrl = url;
           _criminalRecordUploadedAt = DateTime.now();
         });
+        _persistCompliance();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Casier judiciaire mis à jour'),
@@ -1010,12 +1174,25 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
           _AccreditationCard(
             accreditationNumberController: _accreditationNumberCtrl,
             accreditationExpiry: _accreditationExpiry,
-            onAccreditationExpiryChanged: (d) => setState(() => _accreditationExpiry = d),
+            onAccreditationExpiryChanged: (d) {
+              setState(() => _accreditationExpiry = d);
+              _persistCompliance();
+            },
             accreditationPhotoUrl: _accreditationPhotoUrl,
             onChangePhoto: _changeAccreditationPhoto,
             pmiCodeController: _pmiCodeCtrl,
             isCertified: _isAccreditationCertified,
-            onCertifiedChanged: (v) => setState(() => _isAccreditationCertified = v),
+            onCertifiedChanged: (v) {
+              setState(() => _isAccreditationCertified = v);
+              _persistCompliance();
+            },
+            extractedNumber: _accreditationDocExtractedNumber,
+            extractedExpiry: _accreditationDocExtractedExpiry,
+            onNumberChanged: (_) => setState(() {}),
+            onRecheckDocument: _accreditationDocumentLocalPath != null
+                ? _verifyAccreditationDocument
+                : null,
+            isRechecking: _isVerifyingAccreditation,
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -1041,12 +1218,16 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             accreditationExpiry: _accreditationExpiry,
             criminalRecordUrl: _criminalRecordUrl,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
-            onIdentityDocumentTypeChanged: (type) =>
-                setState(() => _identityDocumentType = type),
+            onIdentityDocumentTypeChanged: (type) {
+              setState(() => _identityDocumentType = type);
+              _persistCompliance();
+            },
             onUploadIdentityDocumentFront: _uploadIdentityDocumentFront,
             onUploadIdentityDocumentBack: _uploadIdentityDocumentBack,
-            onIdentityDocumentExpiryChanged: (date) =>
-                setState(() => _identityDocumentExpiry = date),
+            onIdentityDocumentExpiryChanged: (date) {
+              setState(() => _identityDocumentExpiry = date);
+              _persistCompliance();
+            },
             onUploadCriminalRecord: _uploadCriminalRecord,
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -1924,6 +2105,11 @@ class _AccreditationCard extends StatelessWidget {
     required this.pmiCodeController,
     required this.isCertified,
     required this.onCertifiedChanged,
+    required this.extractedNumber,
+    required this.extractedExpiry,
+    required this.onNumberChanged,
+    required this.onRecheckDocument,
+    required this.isRechecking,
   });
 
   final TextEditingController accreditationNumberController;
@@ -1935,8 +2121,86 @@ class _AccreditationCard extends StatelessWidget {
   final bool isCertified;
   final ValueChanged<bool> onCertifiedChanged;
 
+  /// Numéro d'agrément lu sur le document (OCR), ou `null`.
+  final String? extractedNumber;
+
+  /// Fin de période de validité lue sur le document (OCR), ou `null`.
+  final DateTime? extractedExpiry;
+
+  /// Détecte la saisie du numéro pour rafraîchir le contrôle en direct.
+  final ValueChanged<String> onNumberChanged;
+
+  /// Relance l'OCR sur le document local (disponible durant la session).
+  final VoidCallback? onRecheckDocument;
+
+  final bool isRechecking;
+
   String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  /// Statut de contrôle du numéro saisi vs document.
+  _VerificationStatus _numberStatus() {
+    final extracted = extractedNumber;
+    if (extracted == null || extracted.isEmpty) {
+      return accreditationPhotoUrl == null || accreditationPhotoUrl!.isEmpty
+          ? _VerificationStatus.none
+          : _VerificationStatus.unknown;
+    }
+    return AccreditationDocumentExtractor.numbersMatch(
+      accreditationNumberController.text,
+      extracted,
+    )
+        ? _VerificationStatus.matching
+        : _VerificationStatus.mismatch;
+  }
+
+  /// Statut de contrôle de la date d'expiration vs document.
+  _VerificationStatus _expiryStatus() {
+    if (extractedExpiry == null) {
+      return accreditationPhotoUrl == null || accreditationPhotoUrl!.isEmpty
+          ? _VerificationStatus.none
+          : _VerificationStatus.unknown;
+    }
+    return AccreditationDocumentExtractor.datesMatch(
+      accreditationExpiry,
+      extractedExpiry,
+    )
+        ? _VerificationStatus.matching
+        : _VerificationStatus.mismatch;
+  }
+
+  String _numberDetail() {
+    switch (_numberStatus()) {
+      case _VerificationStatus.matching:
+        return 'Le numéro saisi correspond au numéro lu sur le document '
+            '($extractedNumber).';
+      case _VerificationStatus.mismatch:
+        return 'Le numéro lu sur le document ($extractedNumber) ne correspond '
+            'pas au numéro saisi.';
+      case _VerificationStatus.unknown:
+        return 'Numéro non détecté sur la photo : rapprochez la caméra du '
+            'numéro et relisez le document.';
+      case _VerificationStatus.none:
+        return 'Ajoutez le document d\'agrément pour vérifier le numéro.';
+    }
+  }
+
+  String _expiryDetail() {
+    switch (_expiryStatus()) {
+      case _VerificationStatus.matching:
+        return 'La date saisie correspond à la fin de validité du document '
+            '(${_fmt(extractedExpiry!)}).';
+      case _VerificationStatus.mismatch:
+        return 'Fin de validité lue sur le document : '
+            '${_fmt(extractedExpiry!)}. Corrigez la date d\'expiration si '
+            'nécessaire.';
+      case _VerificationStatus.unknown:
+        return 'Date de fin de validité non détectée sur la photo : '
+            'rapprochez la caméra et relisez le document.';
+      case _VerificationStatus.none:
+        return 'Ajoutez le document d\'agrément pour vérifier la date.';
+    }
+  }
 
   Future<void> _pickExpiry(BuildContext context) async {
     final picked = await showDatePicker(
@@ -1976,7 +2240,8 @@ class _AccreditationCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           ProfileFormField(
               label: 'Numéro d\'agrément',
-              controller: accreditationNumberController),
+              controller: accreditationNumberController,
+              onChanged: onNumberChanged),
           const SizedBox(height: AppSpacing.md),
           _DatePickerField(
               label: 'Date d\'expiration',
@@ -2085,6 +2350,53 @@ class _AccreditationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
+
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.verified_user_outlined,
+                  color: AppColors.primary, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Text('Contrôle de conformité',
+                  style: AppTextStyles.titleMedium
+                      .copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Vérification automatique du numéro d\'agrément et de la date '
+            'saisis par rapport au document (photo/scan).',
+            style: AppTextStyles.bodySmall
+                .copyWith(color: AppColors.secondaryText),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _VerificationRow(
+            label: 'Numéro d\'agrément',
+            status: _numberStatus(),
+            detail: _numberDetail(),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _VerificationRow(
+            label: 'Date de fin de validité',
+            status: _expiryStatus(),
+            detail: _expiryDetail(),
+          ),
+          if (onRecheckDocument != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton.icon(
+              onPressed: isRechecking ? null : onRecheckDocument,
+              icon: isRechecking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 18),
+              label: Text(isRechecking ? 'Analyse en cours…' : 'Relire le document'),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+
           InkWell(
             onTap: () => onCertifiedChanged(!isCertified),
             borderRadius: BorderRadius.circular(AppRadii.md),
@@ -2145,6 +2457,75 @@ class _AccreditationCard extends StatelessWidget {
           Text('Ce code vous rattache à votre PMI de secteur',
               style: AppTextStyles.bodySmall
                   .copyWith(color: AppColors.secondaryText)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Résultat du contrôle de conformité d'un champ (numéro / date).
+enum _VerificationStatus { none, unknown, matching, mismatch }
+
+/// Ligne de contrôle : libellé + icône de statut + détail.
+class _VerificationRow extends StatelessWidget {
+  const _VerificationRow({
+    required this.label,
+    required this.status,
+    required this.detail,
+  });
+
+  final String label;
+  final _VerificationStatus status;
+  final String detail;
+
+  (IconData, Color) _iconFor() => switch (status) {
+        _VerificationStatus.matching => (
+            Icons.check_circle_rounded,
+            AppColors.success,
+          ),
+        _VerificationStatus.mismatch => (
+            Icons.error_rounded,
+            AppColors.error,
+          ),
+        _VerificationStatus.unknown => (
+            Icons.help_rounded,
+            AppColors.accent,
+          ),
+        _VerificationStatus.none => (
+            Icons.radio_button_unchecked_rounded,
+            AppColors.secondaryText,
+          ),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color) = _iconFor();
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(detail,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.secondaryText)),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -269,6 +269,9 @@ class AuthRemoteDataSource {
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
     bool clearCriminalRecordUploadedAt = false,
+    bool? isIdentityVerified,
+    DateTime? identityVerifiedAt,
+    bool clearIdentityVerifiedAt = false,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -343,10 +346,130 @@ class AuthRemoteDataSource {
           'criminalRecordUploadedAt': FieldValue.delete()
         else if (criminalRecordUploadedAt != null)
           'criminalRecordUploadedAt': Timestamp.fromDate(criminalRecordUploadedAt),
+        if (isIdentityVerified != null)
+          'isIdentityVerified': isIdentityVerified,
+        if (clearIdentityVerifiedAt)
+          'identityVerifiedAt': FieldValue.delete()
+        else if (identityVerifiedAt != null)
+          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt),
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(
           e.message ?? 'Erreur lors de la mise à jour du profil.');
+    }
+  }
+
+  /// Persiste uniquement la section « Vérification & Conformité » :
+  /// pièce d'identité (type, recto/verso, expiration), agrément PMI
+  /// (numéro, expiration, document, certification) et casier judiciaire.
+  Future<void> updateAssmatCompliance({
+    required String uid,
+    String? identityDocumentType,
+    String? identityDocumentUrl,
+    bool clearIdentityDocumentUrl = false,
+    String? identityDocumentUrlBack,
+    bool clearIdentityDocumentUrlBack = false,
+    DateTime? identityDocumentExpiry,
+    bool clearIdentityDocumentExpiry = false,
+    String? identityDocumentNumber,
+    bool clearIdentityDocumentNumber = false,
+    String? identityDocumentFirstName,
+    bool clearIdentityDocumentFirstName = false,
+    String? identityDocumentLastName,
+    bool clearIdentityDocumentLastName = false,
+    DateTime? identityDocumentBirthDate,
+    bool clearIdentityDocumentBirthDate = false,
+    String? accreditationNumber,
+    DateTime? accreditationExpiry,
+    bool clearAccreditationExpiry = false,
+    String? accreditationPhotoUrl,
+    bool clearAccreditationPhotoUrl = false,
+    bool? isAccreditationCertified,
+    String? criminalRecordUrl,
+    bool clearCriminalRecordUrl = false,
+    DateTime? criminalRecordUploadedAt,
+    bool clearCriminalRecordUploadedAt = false,
+    bool? isIdentityVerified,
+    DateTime? identityVerifiedAt,
+    bool clearIdentityVerifiedAt = false,
+    String? accreditationDocExtractedNumber,
+    bool clearAccreditationDocExtractedNumber = false,
+    DateTime? accreditationDocExtractedExpiry,
+    bool clearAccreditationDocExtractedExpiry = false,
+  }) async {
+    try {
+      await _firebase.assmatDoc(uid).update({
+        if (identityDocumentType != null)
+          'identityDocumentType': identityDocumentType,
+        if (clearIdentityDocumentUrl)
+          'identityDocumentUrl': FieldValue.delete()
+        else if (identityDocumentUrl != null)
+          'identityDocumentUrl': identityDocumentUrl,
+        if (clearIdentityDocumentUrlBack)
+          'identityDocumentUrlBack': FieldValue.delete()
+        else if (identityDocumentUrlBack != null)
+          'identityDocumentUrlBack': identityDocumentUrlBack,
+        if (clearIdentityDocumentExpiry)
+          'identityDocumentExpiry': FieldValue.delete()
+        else if (identityDocumentExpiry != null)
+          'identityDocumentExpiry': Timestamp.fromDate(identityDocumentExpiry),
+        if (clearIdentityDocumentNumber)
+          'identityDocumentNumber': FieldValue.delete()
+        else if (identityDocumentNumber != null)
+          'identityDocumentNumber': identityDocumentNumber,
+        if (clearIdentityDocumentFirstName)
+          'identityDocumentFirstName': FieldValue.delete()
+        else if (identityDocumentFirstName != null)
+          'identityDocumentFirstName': identityDocumentFirstName,
+        if (clearIdentityDocumentLastName)
+          'identityDocumentLastName': FieldValue.delete()
+        else if (identityDocumentLastName != null)
+          'identityDocumentLastName': identityDocumentLastName,
+        if (clearIdentityDocumentBirthDate)
+          'identityDocumentBirthDate': FieldValue.delete()
+        else if (identityDocumentBirthDate != null)
+          'identityDocumentBirthDate':
+              Timestamp.fromDate(identityDocumentBirthDate),
+        if (accreditationNumber != null)
+          'accreditationNumber': accreditationNumber,
+        if (clearAccreditationExpiry)
+          'accreditationExpiry': FieldValue.delete()
+        else if (accreditationExpiry != null)
+          'accreditationExpiry': Timestamp.fromDate(accreditationExpiry),
+        if (clearAccreditationPhotoUrl)
+          'accreditationPhotoUrl': FieldValue.delete()
+        else if (accreditationPhotoUrl != null)
+          'accreditationPhotoUrl': accreditationPhotoUrl,
+        if (isAccreditationCertified != null)
+          'isAccreditationCertified': isAccreditationCertified,
+        if (clearCriminalRecordUrl)
+          'criminalRecordUrl': FieldValue.delete()
+        else if (criminalRecordUrl != null)
+          'criminalRecordUrl': criminalRecordUrl,
+        if (clearCriminalRecordUploadedAt)
+          'criminalRecordUploadedAt': FieldValue.delete()
+        else if (criminalRecordUploadedAt != null)
+          'criminalRecordUploadedAt':
+              Timestamp.fromDate(criminalRecordUploadedAt),
+        if (isIdentityVerified != null)
+          'isIdentityVerified': isIdentityVerified,
+        if (clearIdentityVerifiedAt)
+          'identityVerifiedAt': FieldValue.delete()
+        else if (identityVerifiedAt != null)
+          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt),
+        if (clearAccreditationDocExtractedNumber)
+          'accreditationDocExtractedNumber': FieldValue.delete()
+        else if (accreditationDocExtractedNumber != null)
+          'accreditationDocExtractedNumber': accreditationDocExtractedNumber,
+        if (clearAccreditationDocExtractedExpiry)
+          'accreditationDocExtractedExpiry': FieldValue.delete()
+        else if (accreditationDocExtractedExpiry != null)
+          'accreditationDocExtractedExpiry':
+              Timestamp.fromDate(accreditationDocExtractedExpiry),
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(
+          e.message ?? 'Erreur lors de la mise à jour de la conformité.');
     }
   }
 
