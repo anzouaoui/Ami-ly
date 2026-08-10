@@ -10,6 +10,7 @@ import '../../../contract/data/services/contract_service.dart';
 import '../../../contract/data/services/docusign_service.dart';
 import '../../../contract/presentation/pages/docusign_signature_page.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/utils/address_parser.dart';
 import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
@@ -32,6 +33,8 @@ class _Step2InitialData {
     required this.assmatFirstName,
     required this.assmatLastName,
     required this.assmatAddress,
+    this.assmatPhone,
+    this.assmatEmail,
     required this.children,
   });
 
@@ -43,6 +46,15 @@ class _Step2InitialData {
   final String assmatFirstName;
   final String assmatLastName;
   final String assmatAddress;
+
+  /// Téléphone de l'assistante maternelle, s'il est récupérable.
+  /// `null` si indisponible (le profil assmat ne stocke pas de téléphone).
+  final String? assmatPhone;
+
+  /// Email de l'assistante maternelle, s'il est récupérable.
+  /// `null` si indisponible.
+  final String? assmatEmail;
+
   final List<ChildModel> children;
 }
 
@@ -468,15 +480,23 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
         final assmatAsync = widget.assmatUid.isNotEmpty
             ? ref.watch(assmatProfileByUidProvider(widget.assmatUid))
             : null;
+        final assmatUserAsync = widget.assmatUid.isNotEmpty
+            ? ref.watch(userByUidProvider(widget.assmatUid))
+            : null;
         final childrenAsync = ref.watch(childrenProvider);
 
-        if (parentAsync.isLoading || userAsync.isLoading || childrenAsync.isLoading || (assmatAsync?.isLoading ?? false)) {
+        if (parentAsync.isLoading ||
+            userAsync.isLoading ||
+            childrenAsync.isLoading ||
+            (assmatAsync?.isLoading ?? false) ||
+            (assmatUserAsync?.isLoading ?? false)) {
           return const Center(child: CircularProgressIndicator());
         }
 
         final parentProfile = parentAsync.valueOrNull;
         final currentUser = userAsync.valueOrNull;
         final assmatProfile = assmatAsync?.valueOrNull;
+        final assmatUser = assmatUserAsync?.valueOrNull;
         final children = childrenAsync.valueOrNull ?? <ChildModel>[];
 
         if (parentProfile == null || currentUser == null || assmatProfile == null) {
@@ -505,6 +525,10 @@ class _EngagementContractPageState extends ConsumerState<EngagementContractPage>
             assmatFirstName: assmatProfile.firstName,
             assmatLastName: assmatProfile.lastName,
             assmatAddress: assmatProfile.address,
+            // TODO(Seb): le téléphone assmat n'est pas stocké dans
+            // AssmatProfileModel ; on pourrait le lire depuis users/{uid}.phoneNumber.
+            assmatPhone: null,
+            assmatEmail: assmatUser?.email,
             children: children,
           ),
         );
@@ -859,12 +883,20 @@ class _Step2State extends State<_Step2> {
     if (d != null) {
       _nomCtrl.text = d.parentLastName;
       _prenomCtrl.text = d.parentFirstName;
-      _adresseCtrl.text = d.parentAddress;
+      final parentAddress = parseBANAddress(d.parentAddress);
+      _adresseCtrl.text = parentAddress.street;
+      _villeCtrl.text = parentAddress.city;
+      _cpCtrl.text = parentAddress.postalCode;
       _telCtrl.text = d.parentPhone;
       _emailCtrl.text = d.parentEmail;
       _nomSalarieCtrl.text = d.assmatLastName;
       _prenomSalarieCtrl.text = d.assmatFirstName;
-      _adresseSalarieCtrl.text = d.assmatAddress;
+      final assmatAddress = parseBANAddress(d.assmatAddress);
+      _adresseSalarieCtrl.text = assmatAddress.street;
+      _villeSalarieCtrl.text = assmatAddress.city;
+      _cpSalarieCtrl.text = assmatAddress.postalCode;
+      _telSalarieCtrl.text = d.assmatPhone ?? '';
+      _emailSalarieCtrl.text = d.assmatEmail ?? '';
       _children = d.children;
     }
     if (draft != null) {
