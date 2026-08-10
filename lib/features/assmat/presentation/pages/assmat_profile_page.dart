@@ -215,6 +215,15 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     _accreditationDocExtractedExpiry = profile.accreditationDocExtractedExpiry;
 
     _initialized = true;
+
+    // Auto-vérification : pour les profils existants, on recalcule
+    // l'indicateur et on synchronise Firestore si les critères sont déjà
+    // remplis (données complétées avant cette fonctionnalité).
+    if (_identityAutoVerified != profile.isIdentityVerified) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _persistCompliance();
+      });
+    }
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -241,6 +250,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       final savedAvailableSlots =
           int.tryParse(_availableSlotsCtrl.text.trim()) ??
               (_loadedProfile?.availableSlots ?? 0);
+      final verified = _identityAutoVerified;
+      final verifiedAt =
+          verified ? (_identityVerifiedAt ?? DateTime.now()) : null;
 
       await ref.read(authRemoteDataSourceProvider).updateAssmatProfile(
             uid: user.uid,
@@ -299,6 +311,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             clearCriminalRecordUrl: _criminalRecordUrl == null,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
             clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+            isIdentityVerified: verified,
+            identityVerifiedAt: verifiedAt,
+            clearIdentityVerifiedAt: !verified,
           );
 
       _loadedProfile = _loadedProfile?.copyWith(
@@ -348,6 +363,9 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             clearCriminalRecordUrl: _criminalRecordUrl == null,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
             clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+            isIdentityVerified: verified,
+            identityVerifiedAt: verifiedAt,
+            clearIdentityVerifiedAt: !verified,
             accreditationDocExtractedNumber: _accreditationDocExtractedNumber,
             clearAccreditationDocExtractedNumber:
                 _accreditationDocExtractedNumber == null,
@@ -356,6 +374,13 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
                 _accreditationDocExtractedExpiry == null,
           );
       _locationCleared = false;
+
+      if (mounted && _isIdentityVerified != verified) {
+        setState(() {
+          _isIdentityVerified = verified;
+          _identityVerifiedAt = verifiedAt;
+        });
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -645,12 +670,34 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     return 'application/octet-stream';
   }
 
+  /// Critères d'auto-vérification de l'identité (sans modération) :
+  /// les deux faces de la pièce fournies (verso requis pour une CNI),
+  /// pièce non expirée et agrément PMI valide.
+  bool get _identityAutoVerified {
+    final identityProvided =
+        _identityDocumentUrl != null && _identityDocumentUrl!.isNotEmpty;
+    final backProvided = _identityDocumentUrlBack != null &&
+        _identityDocumentUrlBack!.isNotEmpty;
+    final cniBackProvided =
+        _identityDocumentType != IdentityDocumentType.cni || backProvided;
+    final docNotExpired = _identityDocumentExpiry != null &&
+        _identityDocumentExpiry!.isAfter(DateTime.now());
+    final accreditationValid = _accreditationExpiry != null &&
+        _accreditationExpiry!.isAfter(DateTime.now());
+    return identityProvided &&
+        cniBackProvided &&
+        docNotExpired &&
+        accreditationValid;
+  }
+
   /// Sauvegarde immédiatement la section « Vérification & Conformité »
   /// (pièce d'identité, agrément, casier judiciaire) afin que l'ajout soit
   /// conservé et reste coché même après rechargement de la page.
   Future<void> _persistCompliance() async {
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
+    final verified = _identityAutoVerified;
+    final verifiedAt = verified ? (_identityVerifiedAt ?? DateTime.now()) : null;
     try {
       await ref
           .read(authRemoteDataSourceProvider)
@@ -681,9 +728,18 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
             clearCriminalRecordUrl: _criminalRecordUrl == null,
             criminalRecordUploadedAt: _criminalRecordUploadedAt,
             clearCriminalRecordUploadedAt: _criminalRecordUploadedAt == null,
+            isIdentityVerified: verified,
+            identityVerifiedAt: verifiedAt,
+            clearIdentityVerifiedAt: !verified,
           );
     } catch (e) {
       debugPrint('[Conformité] Échec de la sauvegarde : $e');
+    }
+    if (mounted && _isIdentityVerified != verified) {
+      setState(() {
+        _isIdentityVerified = verified;
+        _identityVerifiedAt = verifiedAt;
+      });
     }
   }
 
@@ -824,10 +880,18 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       if (mounted) {
         setState(() {
           onUploaded(url);
-          _identityDocumentNumber = extracted.documentNumber;
-          _identityDocumentFirstName = extracted.firstName;
-          _identityDocumentLastName = extracted.lastName;
-          _identityDocumentBirthDate = extracted.birthDate;
+          // Le recto porte le nom, le prénom, la date de naissance et le
+          // numéro (libellés français, et MRZ pour le verso des anciennes
+          // CNI). Le verso ne sert que pour la date d'expiration
+          // (« Carte valable jusqu'au » / MRZ) : on n'écrase donc les
+          // métadonnées que lors du scan du recto, sinon le verso écraserait
+          // les valeurs déjà récupérées.
+          if (side == 'front') {
+            _identityDocumentNumber = extracted.documentNumber;
+            _identityDocumentFirstName = extracted.firstName;
+            _identityDocumentLastName = extracted.lastName;
+            _identityDocumentBirthDate = extracted.birthDate;
+          }
           if (detectedExpiry != null &&
               detectedExpiry.isAfter(DateTime.now())) {
             _identityDocumentExpiry = detectedExpiry;

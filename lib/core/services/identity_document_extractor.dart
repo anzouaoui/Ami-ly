@@ -359,6 +359,29 @@ class IdentityDocumentExtractor {
       }
     }
 
+    // L'OCR place souvent la valeur sur la ligne suivante (« DATE DE
+    // NAISSANCE » puis « 09/01/1990 ») ou coupe le libellé en deux blocs.
+    // On retente alors sur tout le texte, en s'arrêtant au premier chiffre
+    // pour ne pas avaler une autre valeur.
+    if (birthDate == null) {
+      final naissanceWhole = RegExp(
+        r'DATE\s+DE\s+NAISSANCE[^0-9]{0,40}'
+        r'(\d{1,2})[/.\-\s](\d{1,2})[/.\-\s](\d{2,4})',
+      ).firstMatch(normalized);
+      if (naissanceWhole != null) {
+        final yearText = naissanceWhole.group(3)!;
+        final year = yearText.length == 2
+            ? _expandTwoDigitYear(int.parse(yearText), reference)
+            : int.parse(yearText);
+        final date = _buildDate(
+          year: year,
+          month: int.parse(naissanceWhole.group(2)!),
+          day: int.parse(naissanceWhole.group(1)!),
+        );
+        if (date != null && !date.isAfter(reference)) birthDate = date;
+      }
+    }
+
     if (lastName == null &&
         firstName == null &&
         documentNumber == null &&

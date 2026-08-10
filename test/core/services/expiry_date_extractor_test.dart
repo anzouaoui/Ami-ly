@@ -77,6 +77,24 @@ void main() {
           DateTime(2031, 8, 31));
     });
 
+    test('lit « valable jusqu\'au » quand l\'apostrophe est lue comme espace', () {
+      const text = 'CARTE VALABLE JUSQU AU 08/2031';
+      expect(extractor.parseExpiryFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
+    test('gère « JUSQU\'À » accentué', () {
+      const text = 'CARTE VALABLE JUSQU\'À : 08/2031';
+      expect(extractor.parseExpiryFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
+    test('lit « valable jusqu\'au » quand la date est sur la ligne suivante', () {
+      const text = 'CARTE VALABLE\nJUSQU\'AU : 08/2031';
+      expect(extractor.parseExpiryFromText(text, now: now),
+          DateTime(2031, 8, 31));
+    });
+
     test('retourne null quand seule une date passée est présente', () {
       const text = 'Date de naissance : 09/01/1990';
       expect(extractor.parseExpiryFromText(text, now: now), isNull);

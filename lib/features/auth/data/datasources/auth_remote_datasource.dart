@@ -268,6 +268,9 @@ class AuthRemoteDataSource {
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
     bool clearCriminalRecordUploadedAt = false,
+    bool? isIdentityVerified,
+    DateTime? identityVerifiedAt,
+    bool clearIdentityVerifiedAt = false,
   }) async {
     try {
       await _firebase.assmatDoc(uid).update({
@@ -340,6 +343,12 @@ class AuthRemoteDataSource {
           'criminalRecordUploadedAt': FieldValue.delete()
         else if (criminalRecordUploadedAt != null)
           'criminalRecordUploadedAt': Timestamp.fromDate(criminalRecordUploadedAt),
+        if (isIdentityVerified != null)
+          'isIdentityVerified': isIdentityVerified,
+        if (clearIdentityVerifiedAt)
+          'identityVerifiedAt': FieldValue.delete()
+        else if (identityVerifiedAt != null)
+          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt),
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(
@@ -377,6 +386,9 @@ class AuthRemoteDataSource {
     bool clearCriminalRecordUrl = false,
     DateTime? criminalRecordUploadedAt,
     bool clearCriminalRecordUploadedAt = false,
+    bool? isIdentityVerified,
+    DateTime? identityVerifiedAt,
+    bool clearIdentityVerifiedAt = false,
     String? accreditationDocExtractedNumber,
     bool clearAccreditationDocExtractedNumber = false,
     DateTime? accreditationDocExtractedExpiry,
@@ -436,6 +448,12 @@ class AuthRemoteDataSource {
         else if (criminalRecordUploadedAt != null)
           'criminalRecordUploadedAt':
               Timestamp.fromDate(criminalRecordUploadedAt),
+        if (isIdentityVerified != null)
+          'isIdentityVerified': isIdentityVerified,
+        if (clearIdentityVerifiedAt)
+          'identityVerifiedAt': FieldValue.delete()
+        else if (identityVerifiedAt != null)
+          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt),
         if (clearAccreditationDocExtractedNumber)
           'accreditationDocExtractedNumber': FieldValue.delete()
         else if (accreditationDocExtractedNumber != null)

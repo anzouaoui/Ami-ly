@@ -59,7 +59,7 @@ class ExpiryDateExtractor {
   /// Pure (aucune dépendance ML Kit) pour rester testable.
   DateTime? parseExpiryFromText(String text, {DateTime? now}) {
     final reference = now ?? DateTime.now();
-    final normalized = text.toUpperCase();
+    final normalized = _stripAccents(text.toUpperCase());
 
     // Le champ « Carte valable jusqu'au <date> » désigne explicitement la
     // date d'expiration : on la privilégie.
@@ -119,8 +119,11 @@ class ExpiryDateExtractor {
 
   /// Retourne la date qui suit directement « valable jusqu'au » / « jusqu'à »,
   /// au format `JJ/MM/AAAA` (ou `AA`) ou `MM/AAAA`, si elle est dans le futur.
+  ///
+  /// L'OCR lit souvent l'apostrophe comme un espace ou l'omet (« JUSQU AU »,
+  /// « JUSQUA ») et peut couper le libellé de la date : on tolère ces variantes.
   DateTime? _parseValableJusquau(String text, DateTime reference) {
-    const prefix = r"JUSQU'A?U?\s*(?:LE\s*)?[:\-]?\s*";
+    const prefix = r"JUSQU'?\s*A?U?\s*(?:LE\s*)?[:\-]?\s*";
 
     final dmy = RegExp(prefix + r'(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})');
     for (final m in dmy.allMatches(text)) {

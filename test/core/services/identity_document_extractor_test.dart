@@ -107,6 +107,44 @@ void main() {
       final data = extractor.parseIdentityFromText(text, now: now);
       expect(data.birthDate, DateTime(1990, 1, 9));
     });
+
+    test('lit la date de naissance quand la valeur est sur la ligne suivante',
+        () {
+      final text = [
+        'REPUBLIQUE FRANCAISE',
+        'CARTE NATIONALE D\'IDENTITE',
+        'NOM : DUPONT',
+        'PRENOM : ANDREA',
+        'DATE DE NAISSANCE',
+        '09/01/1990',
+        'CARTE VALABLE JUSQU\'AU : 08/2031',
+      ].join('\n');
+      final data = extractor.parseIdentityFromText(text, now: now);
+      expect(data.lastName, 'Dupont');
+      expect(data.firstName, 'Andrea');
+      expect(data.birthDate, DateTime(1990, 1, 9));
+      expect(data.expiryDate, DateTime(2031, 8, 31));
+    });
+
+    test('récupère naissance et expiration sur une CNI récente sans MRZ', () {
+      final text = [
+        'REPUBLIQUE FRANCAISE',
+        'CARTE NATIONALE D\'IDENTITE',
+        'NOM : DUPONT',
+        'PRENOM : ANDREA',
+        'DATE DE NAISSANCE',
+        '09.01.1990',
+        'N° : 2201234565',
+        'CARTE VALABLE JUSQU\'AU : 08/2031',
+      ].join('\n');
+      final data = extractor.parseIdentityFromText(text, now: now);
+      expect(data.lastName, 'Dupont');
+      expect(data.firstName, 'Andrea');
+      expect(data.documentNumber, '2201234565');
+      expect(data.birthDate, DateTime(1990, 1, 9));
+      expect(data.expiryDate, DateTime(2031, 8, 31));
+      expect(data.foundCount, 5);
+    });
   });
 
   group('parseIdentityFromText - cas limites', () {
