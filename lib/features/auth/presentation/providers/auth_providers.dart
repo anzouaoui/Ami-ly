@@ -69,3 +69,16 @@ final assmatProfileByUidProvider =
     StreamProvider.autoDispose.family<AssmatProfileModel?, String>((ref, uid) {
   return ref.read(authRemoteDataSourceProvider).watchAssmatProfile(uid);
 });
+
+/// Stream du document `users/{uid}` d'un utilisateur identifié par son UID.
+///
+/// Permet de récupérer des champs du compte (email, téléphone...) qui ne
+/// sont pas dupliqués dans le profil étendu (`parents/{uid}` /
+/// `assmats/{uid}`). Émet `null` si le document n'existe pas.
+final userByUidProvider =
+    StreamProvider.autoDispose.family<AppUser?, String>((ref, uid) {
+  return ref
+      .read(authRemoteDataSourceProvider)
+      .watchUserProfile(uid)
+      .map((model) => model?.toEntity());
+});
