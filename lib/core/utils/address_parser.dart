@@ -5,8 +5,12 @@
 /// - [city] : la ville, vide si non trouvée.
 typedef ParsedAddress = ({String street, String postalCode, String city});
 
-/// Découpe une adresse complète au format BAN standard
-/// (`"numéro + voie, code_postal ville"`) en ses composants.
+/// Découpe une adresse complète au format BAN standard en ses composants.
+///
+/// Deux formats sont gérés, le code postal (5 chiffres) précédant toujours
+/// la ville :
+/// - label BAN : `"25 Avenue Franklin D. Roosevelt 75008 Paris"` ;
+/// - avec virgule : `"25 Avenue Franklin D. Roosevelt, 75008 Paris"`.
 ///
 /// Exemple : `"25 Avenue Franklin D. Roosevelt, 75008 Paris"` →
 /// `(street: "25 Avenue Franklin D. Roosevelt", postalCode: "75008",
@@ -21,26 +25,24 @@ ParsedAddress parseBANAddress(String fullAddress) {
     return (street: '', postalCode: '', city: '');
   }
 
-  final segments = trimmed
-      .split(',')
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-  if (segments.length < 2) {
-    return (street: trimmed, postalCode: '', city: '');
+  // On cherche la dernière occurrence d'un code postal à 5 chiffres suivie
+  // d'un espace et de la ville (fin de chaîne). La voie = tout ce qui précède.
+  final codes = RegExp(r'\b(\d{5})\b').allMatches(trimmed).toList();
+  for (final code in codes.reversed) {
+    final separator = code.end < trimmed.length ? trimmed[code.end] : '';
+    if (separator != ' ' && separator != '\t') continue;
+    final city = trimmed.substring(code.end).trim();
+    if (city.isEmpty) continue;
+    final street = trimmed
+        .substring(0, code.start)
+        .replaceFirst(RegExp(r'[,;\s]+$'), '')
+        .trim();
+    return (
+      street: street,
+      postalCode: code.group(1)!,
+      city: city,
+    );
   }
 
-  // Le dernier segment doit suivre le format « code_postal ville »
-  // (ex : "75008 Paris"). Sinon, l'adresse n'est pas au format BAN.
-  final lastSegment = segments.last;
-  final match = RegExp(r'^(\d{5})\s+(.+)$').firstMatch(lastSegment);
-  if (match == null) {
-    return (street: trimmed, postalCode: '', city: '');
-  }
-
-  return (
-    street: segments.sublist(0, segments.length - 1).join(', '),
-    postalCode: match.group(1)!,
-    city: match.group(2)!.trim(),
-  );
+  return (street: trimmed, postalCode: '', city: '');
 }
