@@ -71,9 +71,16 @@ class AppTheme {
       ),
 
       inputDecorationTheme: InputDecorationTheme(
+        // Fond neutre de la charte (blanc) pour TOUS les champs, quel que
+        // soit le brightness : l'app force les fonds clairs sur ses écrans,
+        // un fillColor sombre (schéma dark) créait des champs noirs illisibles
+        // avec le texte clair de la charte.
         filled: true,
-        fillColor: scheme.surface,
+        fillColor: AppColors.surface,
         hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.hint),
+        labelStyle: AppTextStyles.bodyMedium.copyWith(
+          color: AppColors.primaryText,
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.md,
@@ -126,6 +133,12 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         titleTextStyle: AppTextStyles.titleLarge,
+      ),
+
+      // Curseur des champs de saisie : ambre de la charte, bien visible sur
+      // le fond clair neutre des inputs (light comme dark).
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: AppColors.primary,
       ),
     );
   }
