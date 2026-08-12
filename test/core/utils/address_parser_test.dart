@@ -25,6 +25,29 @@ void main() {
     });
   });
 
+  group('parseBANAddress - format label BAN (sans virgule)', () {
+    test('découpe adresse, code postal et ville', () {
+      final result = parseBANAddress('25 Avenue Franklin D. Roosevelt 75008 Paris');
+      expect(result.street, '25 Avenue Franklin D. Roosevelt');
+      expect(result.postalCode, '75008');
+      expect(result.city, 'Paris');
+    });
+
+    test('gère une ville composée de plusieurs mots', () {
+      final result = parseBANAddress('12 Rue des Fleurs 72000 Le Mans');
+      expect(result.street, '12 Rue des Fleurs');
+      expect(result.postalCode, '72000');
+      expect(result.city, 'Le Mans');
+    });
+
+    test('gère un numéro de rue de 5 chiffres avant le code postal', () {
+      final result = parseBANAddress('12345 Rue de la Paix 75008 Paris');
+      expect(result.street, '12345 Rue de la Paix');
+      expect(result.postalCode, '75008');
+      expect(result.city, 'Paris');
+    });
+  });
+
   group('parseBANAddress - adresse sans code postal', () {
     test('retourne l\'adresse complète et des champs ville/CP vides', () {
       const address = '25 Avenue Franklin D. Roosevelt';
