@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'app/app.dart';
+import 'core/config/app_env.dart';
 import 'core/services/firebase_service.dart';
 import 'core/services/stripe_service.dart';
 import 'firebase_options.dart';
@@ -18,17 +19,23 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint("Handling a background message: ${message.messageId}");
 }
 
-void _initDeferredServices() {
-  StripeService.initStripe();
+void _registerBackgroundMessageHandler() {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Échec explicite si une variable d'environnement obligatoire est absente.
+  AppEnv.validateOrThrow();
+  AppEnv.logWarnings(debugPrint);
+
   await FirebaseService.initialize(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Échec explicite si STRIPE_PUBLISHABLE_KEY est absente.
+  StripeService.initStripe();
 
   runApp(
     const ProviderScope(
@@ -37,6 +44,6 @@ Future<void> main() async {
   );
 
   SchedulerBinding.instance.addPostFrameCallback((_) {
-    _initDeferredServices();
+    _registerBackgroundMessageHandler();
   });
 }
