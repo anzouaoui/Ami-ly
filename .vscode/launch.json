@@ -1,1 +1,12 @@
-{ "version": "0.2.0", "configurations": [ { "name": "Flutter", "type": "dart", "args": [ "--dart-define=AGORA_APP_ID=aa0d27abc78f4dde91919c3ff3ad4c0d" ] } ] }
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Ami-ly (dev)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file=.env"]
+    }
+  ]
+}
