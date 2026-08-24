@@ -1,5 +1,6 @@
 import UIKit
 import Flutter
+import AVFoundation
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
@@ -9,6 +10,36 @@ import Flutter
   ) -> Bool {
     let controller = window?.rootViewController as? FlutterViewController
     if let controller = controller {
+      // iOS : Agora nécessite une session audio en catégorie playAndRecord
+      // pour capturer le micro en visio (sinon échec silencieux de capture).
+      // Appelé depuis configureAudioSessionForVideoCall() avant joinChannel.
+      let audioChannel = FlutterMethodChannel(
+        name: "com.app.amily/audio_session",
+        binaryMessenger: controller.binaryMessenger
+      )
+      audioChannel.setMethodCallHandler { (call, result) in
+        if call.method == "configurePlayAndRecord" {
+          do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(
+              .playAndRecord,
+              mode: .voiceChat,
+              options: [.allowBluetooth, .defaultToSpeaker]
+            )
+            try session.setActive(true)
+            result(nil)
+          } catch {
+            result(FlutterError(
+              code: "AUDIO_SESSION_ERROR",
+              message: error.localizedDescription,
+              details: nil
+            ))
+          }
+        } else {
+          result(FlutterMethodNotImplemented)
+        }
+      }
+
       let channel = FlutterMethodChannel(
         name: "com.app.amily/badge",
         binaryMessenger: controller.binaryMessenger

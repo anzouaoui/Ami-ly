@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  iOS / Agora : décision produit — le mode background "voip" (UIBackgroundModes
+	  + PushKit/CallKit) n'est PAS activé. Les visios ne continuent donc pas en
+	  arrière-plan sur iOS : si l'utilisateur passe l'app en arrière-plan, l'appel
+	  se coupe. Activer ce mode exige un intégration PushKit + reporting CallKit
+	  sous peine de rejet App Store.
+
+	  TODO(Seb): confirmer si le mode background VoIP est nécessaire
+	  (si oui: ajouter <key>UIBackgroundModes</key> voip + audio dans Info.plist
+	  et intégrer PushKit/CallKit).
+	-->
 	<key>aps-environment</key>
 	<string>production</string>
 </dict>

@@ -9,6 +9,7 @@ import 'package:amily/features/auth/presentation/providers/auth_providers.dart';
 import '../../../../core/config/app_env.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
+import '../helpers/audio_session_helper.dart';
 import '../providers/video_call_providers.dart';
 import '../widgets/local_video_view.dart';
 import '../widgets/remote_video_view.dart';
@@ -40,6 +41,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   RtcEngine? _engine;
   bool _isLoading = true;
   String? _error;
+  bool _permissionsPermanentlyDenied = false;
 
   @override
   void initState() {
@@ -59,12 +61,23 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       return;
     }
 
-    // Demande des permissions
+    // Demande des permissions.
+    // iOS : sans NSCameraUsageDescription/NSMicrophoneUsageDescription dans
+    // Info.plist, request() renvoie denied/permanentlyDenied sans jamais
+    // afficher la boîte de dialogue système. On distingue donc le refus
+    // simple du refus définitif (réglages) pour ne pas bloquer l'utilisateur.
     final camera = await Permission.camera.request();
     final mic = await Permission.microphone.request();
     if (!camera.isGranted || !mic.isGranted) {
+      final permanentlyDenied =
+          camera.isPermanentlyDenied || mic.isPermanentlyDenied;
+      if (!mounted) return;
       setState(() {
-        _error = 'Permissions caméra/microphone refusées.';
+        _error = permanentlyDenied
+            ? 'Permissions caméra/microphone refusées définitivement.\n'
+                'Activez-les dans Réglages > Ami-ly.'
+            : 'Permissions caméra/microphone refusées.';
+        _permissionsPermanentlyDenied = permanentlyDenied;
         _isLoading = false;
       });
       return;
@@ -106,6 +119,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
       if (token == null) return;
 
+      // L'utilisateur a pu quitter l'écran pendant le fetch du token.
+      if (!mounted) return;
+
       // Initialise le moteur Agora
       _engine = createAgoraRtcEngine();
       await _engine!.initialize(RtcEngineContext(
@@ -131,6 +147,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           setState(() => _error = 'Erreur Agora: $message');
         },
       ));
+
+      // iOS : force la catégorie audio playAndRecord avant d'activer le
+      // micro, sinon la capture peut échouer si un autre plugin a laissé
+      // l'AVAudioSession dans une catégorie incompatible (no-op Android).
+      await configureAudioSessionForVideoCall();
 
       // Active la vidéo et l'audio
       await _engine!.enableVideo();
@@ -239,6 +260,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               const SizedBox(height: 16),
               Text(_error!, style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 24),
+              if (_permissionsPermanentlyDenied)
+                const ElevatedButton(
+                  onPressed: openAppSettings,
+                  child: Text('Ouvrir les réglages'),
+                ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Retour'),
