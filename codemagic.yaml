@@ -12,6 +12,39 @@ workflows:
       cocoapods: default
       flutter: stable
     scripts:
+      - name: Generate codemagic.env (dart defines)
+        script: |
+          set -e
+          # Chemin ABSOLU du fichier, indépendant du répertoire courant du script
+          ENV_FILE="$CM_BUILD_DIR/codemagic.env"
+
+          # Vérifie les variables requises (définies dans les Environment variables Codemagic)
+          REQUIRED_VARS="FIREBASE_API_KEY_ANDROID FIREBASE_APP_ID_ANDROID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_STORAGE_BUCKET FIREBASE_API_KEY_IOS FIREBASE_APP_ID_IOS STRIPE_PUBLISHABLE_KEY AGORA_APP_ID"
+          MISSING=0
+          for VAR in $REQUIRED_VARS; do
+            if [ -z "$(printenv "$VAR")" ]; then
+              echo "ERREUR: $VAR n'est pas défini dans les Environment variables de l'app sur Codemagic"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            exit 1
+          fi
+
+          # Génère le fichier de dart-defines à partir des variables d'environnement
+          # (préfixes : FIREBASE_*, STRIPE_PUBLISHABLE_KEY, REVENUECAT_*, AGORA_*)
+          rm -f "$ENV_FILE"
+          env | grep -E '^(FIREBASE_|STRIPE_PUBLISHABLE_KEY|REVENUECAT_|AGORA_)' > "$ENV_FILE" || true
+
+          # Contrôle final : le fichier doit exister et être non vide
+          if [ ! -s "$ENV_FILE" ]; then
+            echo "ERREUR: $ENV_FILE est introuvable ou vide après génération"
+            exit 1
+          fi
+
+          # Log de diagnostic : uniquement les NOMS de variables (jamais les valeurs/secrets)
+          echo "codemagic.env généré : $ENV_FILE ($(wc -l < "$ENV_FILE") variables)"
+          echo "Variables capturées : $(cut -d= -f1 "$ENV_FILE" | tr '\n' ' ')"
       - name: Install pods
         script: |
           find . -name "Podfile" -execdir pod install \;
@@ -20,20 +53,18 @@ workflows:
           xcode-project use-profiles
       - name: Flutter build ipa
         script: |
-          # Vérifie les variables requises (définies dans les Environment variables Codemagic)
-          REQUIRED_VARS="FIREBASE_API_KEY_ANDROID FIREBASE_APP_ID_ANDROID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_STORAGE_BUCKET FIREBASE_API_KEY_IOS FIREBASE_APP_ID_IOS STRIPE_PUBLISHABLE_KEY AGORA_APP_ID"
-          for VAR in $REQUIRED_VARS; do
-            if [ -z "$(printenv "$VAR")" ]; then
-              echo "ERREUR: $VAR n'est pas défini dans les Environment variables de l'app sur Codemagic"
-              exit 1
-            fi
-          done
+          set -e
+          ENV_FILE="$CM_BUILD_DIR/codemagic.env"
 
-          # Génère le fichier de dart-defines à partir des variables d'environnement
-          # (préfixes : FIREBASE_*, STRIPE_PUBLISHABLE_KEY, REVENUECAT_*, AGORA_*)
-          env | grep -E '^(FIREBASE_|STRIPE_PUBLISHABLE_KEY|REVENUECAT_|AGORA_)' > codemagic.env
+          # Sécurité : vérifie que le fichier généré au pre-build est bien présent
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "ERREUR: $ENV_FILE introuvable. Contenu de $CM_BUILD_DIR :"
+            ls -la "$CM_BUILD_DIR"
+            exit 1
+          fi
+
           flutter build ipa --release \
-            --dart-define-from-file=codemagic.env \
+            --dart-define-from-file="$ENV_FILE" \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
