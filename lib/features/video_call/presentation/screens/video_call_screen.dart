@@ -39,6 +39,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   RtcEngine? _engine;
   bool _isLoading = true;
   String? _error;
+  bool _permissionsPermanentlyDenied = false;
 
   @override
   void initState() {
@@ -58,12 +59,23 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       return;
     }
 
-    // Demande des permissions
+    // Demande des permissions.
+    // iOS : sans NSCameraUsageDescription/NSMicrophoneUsageDescription dans
+    // Info.plist, request() renvoie denied/permanentlyDenied sans jamais
+    // afficher la boîte de dialogue système. On distingue donc le refus
+    // simple du refus définitif (réglages) pour ne pas bloquer l'utilisateur.
     final camera = await Permission.camera.request();
     final mic = await Permission.microphone.request();
     if (!camera.isGranted || !mic.isGranted) {
+      final permanentlyDenied =
+          camera.isPermanentlyDenied || mic.isPermanentlyDenied;
+      if (!mounted) return;
       setState(() {
-        _error = 'Permissions caméra/microphone refusées.';
+        _error = permanentlyDenied
+            ? 'Permissions caméra/microphone refusées définitivement.\n'
+                'Activez-les dans Réglages > Ami-ly.'
+            : 'Permissions caméra/microphone refusées.';
+        _permissionsPermanentlyDenied = permanentlyDenied;
         _isLoading = false;
       });
       return;
@@ -102,6 +114,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       );
 
       if (token == null) return;
+
+      // L'utilisateur a pu quitter l'écran pendant le fetch du token.
+      if (!mounted) return;
 
       // Initialise le moteur Agora
       _engine = createAgoraRtcEngine();
@@ -236,6 +251,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               const SizedBox(height: 16),
               Text(_error!, style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 24),
+              if (_permissionsPermanentlyDenied)
+                ElevatedButton(
+                  onPressed: openAppSettings,
+                  child: const Text('Ouvrir les réglages'),
+                ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Retour'),
