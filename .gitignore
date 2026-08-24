@@ -49,3 +49,6 @@ app.*.map.json
 key.properties
 *.jks
 *.keystore
+
+# Fichier de dart-defines généré par le pipeline Codemagic (contient des secrets)
+codemagic.env
