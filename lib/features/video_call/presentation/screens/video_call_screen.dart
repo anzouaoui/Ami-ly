@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:amily/features/auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
+import '../helpers/audio_session_helper.dart';
 import '../providers/video_call_providers.dart';
 import '../widgets/local_video_view.dart';
 import '../widgets/remote_video_view.dart';
@@ -143,6 +144,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           setState(() => _error = 'Erreur Agora: $message');
         },
       ));
+
+      // iOS : force la catégorie audio playAndRecord avant d'activer le
+      // micro, sinon la capture peut échouer si un autre plugin a laissé
+      // l'AVAudioSession dans une catégorie incompatible (no-op Android).
+      await configureAudioSessionForVideoCall();
 
       // Active la vidéo et l'audio
       await _engine!.enableVideo();
