@@ -15,20 +15,9 @@ class AppConstants {
   static const String profilePicturesPath = 'profile_pictures';
   static const String documentsPath = 'documents';
 
-  // --- RevenueCat (à remplir avec tes clés dans .env ou via --dart-define) ---
-  static const String revenueCatApiKeyAndroid = String.fromEnvironment(
-    'REVENUECAT_API_KEY_ANDROID',
-    defaultValue: '',
-  );
-  static const String revenueCatApiKeyIos = String.fromEnvironment(
-    'REVENUECAT_API_KEY_IOS',
-    defaultValue: '',
-  );
+  // --- Abonnement Ami-ly Pro ---
   static const String assmatProEntitlementId = 'amily_pro';
 
-  // --- Stripe ---
-  static const String stripePublishableKey = String.fromEnvironment(
-    'STRIPE_PUBLISHABLE_KEY',
-    defaultValue: '',
-  );
+  // Les clés d'API (Stripe, RevenueCat, Agora, Firebase) sont gérées dans
+  // lib/core/config/app_env.dart via --dart-define-from-file=.env.
 }

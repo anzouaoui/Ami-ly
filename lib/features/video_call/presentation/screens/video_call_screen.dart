@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:amily/features/auth/presentation/providers/auth_providers.dart';
+import '../../../../core/config/app_env.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
 import '../helpers/audio_session_helper.dart';
@@ -84,13 +85,15 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
     try {
       // Vérifie que l'App ID Agora est configuré
-      final appId = const String.fromEnvironment('AGORA_APP_ID', defaultValue: '')
+      final appId = AppEnv.agoraAppId
           .replaceAll('"', '')
           .replaceAll("'", '')
           .trim();
       if (appId.isEmpty) {
         setState(() {
-          _error = 'AGORA_APP_ID manquant. Lancez avec:\nflutter run --dart-define=AGORA_APP_ID=votre_id';
+          _error =
+              'AGORA_APP_ID manquant. Renseignez-le dans .env puis lancez:\n'
+              'flutter run --dart-define-from-file=.env';
           _isLoading = false;
         });
         return;
