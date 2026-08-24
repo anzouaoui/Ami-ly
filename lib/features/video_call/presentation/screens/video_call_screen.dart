@@ -258,9 +258,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               Text(_error!, style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 24),
               if (_permissionsPermanentlyDenied)
-                ElevatedButton(
+                const ElevatedButton(
                   onPressed: openAppSettings,
-                  child: const Text('Ouvrir les réglages'),
+                  child: Text('Ouvrir les réglages'),
                 ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
