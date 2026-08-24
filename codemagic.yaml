@@ -15,7 +15,8 @@ workflows:
       - name: Generate codemagic.env (dart defines)
         script: |
           set -e
-          # Chemin ABSOLU du fichier, indépendant du répertoire courant du script
+          # Se place à la racine du projet (répertoire de clone Codemagic)
+          cd "$CM_BUILD_DIR"
           ENV_FILE="$CM_BUILD_DIR/codemagic.env"
 
           # Vérifie les variables requises (définies dans les Environment variables Codemagic)
@@ -54,6 +55,8 @@ workflows:
       - name: Flutter build ipa
         script: |
           set -e
+          # Exécute le build depuis la racine du projet
+          cd "$CM_BUILD_DIR"
           ENV_FILE="$CM_BUILD_DIR/codemagic.env"
 
           # Sécurité : vérifie que le fichier généré au pre-build est bien présent
