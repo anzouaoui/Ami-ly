@@ -30,14 +30,22 @@ workflows:
           ENV_FILE="$CM_BUILD_DIR/codemagic.env"
 
           # Variables obligatoires (doivent venir des groupes declares ci-dessus)
-          REQUIRED_VARS="FIREBASE_API_KEY_ANDROID FIREBASE_APP_ID_ANDROID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_STORAGE_BUCKET FIREBASE_API_KEY_IOS FIREBASE_APP_ID_IOS STRIPE_PUBLISHABLE_KEY AGORA_APP_ID"
+          REQUIRED_VARS="FIREBASE_API_KEY_ANDROID FIREBASE_APP_ID_ANDROID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_STORAGE_BUCKET FIREBASE_API_KEY_IOS FIREBASE_APP_ID_IOS FIREBASE_IOS_BUNDLE_ID REVENUECAT_API_KEY_ANDROID REVENUECAT_API_KEY_IOS STRIPE_PUBLISHABLE_KEY AGORA_APP_ID"
+          # DefaultValue dans app_env.dart : avertissement au lieu d'échec bloquant
+          SOFT_VARS="FIREBASE_IOS_BUNDLE_ID"
 
           # Verifie chaque secret AVANT generation : message clair si groupe mal reference
           MISSING=0
           for VAR in $REQUIRED_VARS; do
             if [ -z "$(printenv "$VAR" || true)" ]; then
-              echo "ERREUR: $VAR absente de l'environnement (verifier le champ 'groups' ou le groupe Codemagic)"
-              MISSING=1
+              IS_SOFT=0
+              for SV in $SOFT_VARS; do [ "$VAR" = "$SV" ] && IS_SOFT=1 && break; done
+              if [ "$IS_SOFT" -eq 1 ]; then
+                echo "ATTENTION: $VAR absente — valeur par défaut utilisée (defaultValue dans app_env.dart)"
+              else
+                echo "ERREUR: $VAR absente de l'environnement (verifier le champ 'groups' ou le groupe Codemagic)"
+                MISSING=1
+              fi
             fi
           done
           [ "$MISSING" -eq 0 ] || exit 1
@@ -52,7 +60,13 @@ workflows:
             exit 1
           fi
           for VAR in $REQUIRED_VARS; do
-            grep -q "^${VAR}=" "$ENV_FILE" || { echo "ERREUR: $VAR manquante dans $ENV_FILE"; exit 1; }
+            IS_SOFT=0
+            for SV in $SOFT_VARS; do [ "$VAR" = "$SV" ] && IS_SOFT=1 && break; done
+            if [ "$IS_SOFT" -eq 1 ]; then
+              grep -q "^${VAR}=" "$ENV_FILE" || echo "ATTENTION: $VAR absente de $ENV_FILE — valeur par défaut utilisée"
+            else
+              grep -q "^${VAR}=" "$ENV_FILE" || { echo "ERREUR: $VAR manquante dans $ENV_FILE"; exit 1; }
+            fi
           done
 
           # Diagnostic : noms uniquement, jamais les valeurs (secrets)
