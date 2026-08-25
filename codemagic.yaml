@@ -7,7 +7,7 @@ workflows:
       # [AJOUTE] Requis par publishing -> app_store_connect -> auth: integration
       # Remplacer par le nom EXACT de votre intégration App Store Connect,
       # visible dans Codemagic UI > Teams > Integrations > App Store Connect
-      app_store_connect: codemagic_integration
+      app_store_connect: bricapattes-appstore
     environment:
       # [MODIFIE] Import explicite des groupes de variables/secrets definis dans
       # l'UI Codemagic (Settings > Environment variables). SANS ce champ "groups",
