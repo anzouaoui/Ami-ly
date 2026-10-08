@@ -14,6 +14,7 @@ import '../providers/video_call_providers.dart';
 import '../widgets/local_video_view.dart';
 import '../widgets/remote_video_view.dart';
 import '../widgets/call_controls_bar.dart';
+import '../../../../shared/models/conversation_model.dart';
 import '../../../../shared/models/message_model.dart';
 
 /// Écran principal de visioconférence Agora.
@@ -226,10 +227,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             responderUid: currentUser.uid,
           );
 
-      // convId = '${parentUid}_${assmatUid}' (cf. ConversationModel.buildId).
-      final convParticipants = convId.split('_');
-      final otherUid =
-          isParent ? convParticipants.last : convParticipants.first;
+      final otherUid = isParent
+          ? ConversationModel.assmatUidOf(convId)
+          : ConversationModel.parentUidOf(convId);
       try {
         ref.read(notificationTriggersProvider).onVisioResponse(
               recipientUid: otherUid,

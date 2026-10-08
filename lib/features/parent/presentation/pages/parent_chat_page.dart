@@ -15,8 +15,9 @@ import '../../../notifications/presentation/providers/notification_triggers.dart
 import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
+import '../../../../shared/models/conversation_model.dart';
 import '../../../../shared/models/message_model.dart';
-import '../../../../shared/utils/chat_time_format.dart';
+import '../../../../shared/widgets/chat_bubble.dart';
 import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import 'engagement_contract_page.dart';
 
@@ -335,7 +336,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
                               if (msg.type == MessageType.visioResponse) {
                                 return const SizedBox.shrink();
                               }
-                              return _BubbleTile(
+                              return ChatBubble(
                                 msg: msg,
                                 isMe: msg.senderUid == myUid,
                               );
@@ -490,68 +491,6 @@ class _ContractBanner extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-// ─── Bubble ───────────────────────────────────────────────────────────────────
-
-class _BubbleTile extends StatelessWidget {
-  const _BubbleTile({required this.msg, required this.isMe});
-  final MessageModel msg;
-  final bool isMe;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = chatMessageTimeLabel(msg.sentAt);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Flexible(
-            child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.68,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isMe
-                        ? AppColors.primary
-                        : const Color(0xFFF0F0EE),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 16),
-                    ),
-                  ),
-                  child: Text(
-                    msg.text,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: isMe ? Colors.white : AppColors.primaryText,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.hint, fontSize: 10),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1061,7 +1000,7 @@ class _VisioCard extends ConsumerWidget {
     String? createdCallId;
 
     if (status == VisioStatus.accepted) {
-      final assmatUid = convId!.split('_').last;
+      final assmatUid = ConversationModel.assmatUidOf(convId!);
       final controller = ref.read(videoCallControllerProvider.notifier);
       await controller.startCall(
         callerId: currentUser.uid,
@@ -1084,7 +1023,7 @@ class _VisioCard extends ConsumerWidget {
         );
 
     try {
-      final assmatUid = convId!.split('_').last;
+      final assmatUid = ConversationModel.assmatUidOf(convId!);
       ref.read(notificationTriggersProvider).onVisioResponse(
             recipientUid: assmatUid,
             senderUid: currentUser.uid,
@@ -1113,36 +1052,8 @@ class _VisioCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _markCompleted(BuildContext context, WidgetRef ref) async {
-    final datasource = ref.read(messagingDatasourceProvider);
-    try {
-      await datasource.respondToVisio(
-        convId: convId!,
-        msgId: message.id,
-        status: VisioStatus.completed,
-        responderIsParent: true,
-        responderUid: parentUid!,
-      );
-
-      // Notification in-app pour l'assmat
-      try {
-        final assmatUid = convId!.split('_').last;
-        ref.read(notificationTriggersProvider).onVisioResponse(
-              recipientUid: assmatUid,
-              senderUid: parentUid!,
-              senderName: 'Le parent',
-              conversationId: convId!,
-              status: VisioStatus.completed,
-            );
-      } catch (_) {}
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
-        );
-      }
-    }
-  }
+  Future<void> _markCompleted(BuildContext context, WidgetRef ref) =>
+      _makeDecision(context, ref, VisioStatus.completed);
 
   Future<void> _makeDecision(
       BuildContext context, WidgetRef ref, VisioStatus status) async {
@@ -1158,7 +1069,7 @@ class _VisioCard extends ConsumerWidget {
 
       // Notification in-app pour l'assmat
       try {
-        final assmatUid = convId!.split('_').last;
+        final assmatUid = ConversationModel.assmatUidOf(convId!);
         ref.read(notificationTriggersProvider).onVisioResponse(
               recipientUid: assmatUid,
               senderUid: parentUid!,

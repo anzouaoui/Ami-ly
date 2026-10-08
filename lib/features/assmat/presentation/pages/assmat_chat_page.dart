@@ -10,8 +10,9 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
+import '../../../../shared/models/conversation_model.dart';
 import '../../../../shared/models/message_model.dart';
-import '../../../../shared/utils/chat_time_format.dart';
+import '../../../../shared/widgets/chat_bubble.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
@@ -81,7 +82,7 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
 
     // Notification in-app pour le parent (convId = parentUid_assmatUid)
     try {
-      final parentUid = widget.conversationId.split('_').first;
+      final parentUid = ConversationModel.parentUidOf(widget.conversationId);
       ref.read(notificationTriggersProvider).onMessageSent(
             recipientUid: parentUid,
             senderUid: currentUser.uid,
@@ -239,7 +240,11 @@ class _AssMatChatPageState extends ConsumerState<AssMatChatPage> {
                                   return const SizedBox.shrink();
                                 }
                                 final isMe = msg.senderUid == myUid;
-                                return _BubbleTile(msg: msg, isMe: isMe);
+                                return ChatBubble(
+                                  msg: msg,
+                                  isMe: isMe,
+                                  showReadReceipt: true,
+                                );
                               },
                           ),
                         ),
@@ -682,7 +687,7 @@ class _AssmatVisioCard extends ConsumerWidget {
 
     // 3. Notification
     try {
-      final parentUid = conversationId.split('_').first;
+      final parentUid = ConversationModel.parentUidOf(conversationId);
       ref.read(notificationTriggersProvider).onVisioProposalSent(
             recipientUid: parentUid,
             senderUid: currentUser.uid,
@@ -701,21 +706,8 @@ class _AssmatVisioCard extends ConsumerWidget {
     String? createdCallId;
 
     if (status == VisioStatus.accepted) {
-      final parentUid = conversationId.split('_').first;
-      String parentName = 'Parent';
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('parents')
-            .doc(parentUid)
-            .get();
-        if (doc.exists) {
-          final data = doc.data();
-          final first = data?['firstName'] as String? ?? '';
-          final last = data?['lastName'] as String? ?? '';
-          parentName = '$first $last'.trim();
-          if (parentName.isEmpty) parentName = 'Parent';
-        }
-      } catch (_) {}
+      final parentUid = ConversationModel.parentUidOf(conversationId);
+      final parentName = await _fetchParentName(parentUid);
 
       final controller = ref.read(videoCallControllerProvider.notifier);
       await controller.startCall(
@@ -740,7 +732,7 @@ class _AssmatVisioCard extends ConsumerWidget {
 
     // Notification in-app pour le parent
     try {
-      final parentUid = conversationId.split('_').first;
+      final parentUid = ConversationModel.parentUidOf(conversationId);
       ref.read(notificationTriggersProvider).onVisioResponse(
             recipientUid: parentUid,
             senderUid: currentUser.uid,
@@ -751,13 +743,9 @@ class _AssmatVisioCard extends ConsumerWidget {
     } catch (_) {}
   }
 
-  Future<void> _joinVisio(BuildContext context, WidgetRef ref) async {
-    final currentUser = ref.read(currentUserProvider).valueOrNull;
-    if (currentUser == null) return;
-
-    final parentUid = conversationId.split('_').first;
-
-    String parentName = 'Parent';
+  /// Nom complet du parent (`parents/{uid}`), ou `Parent` s'il est
+  /// introuvable ou vide.
+  Future<String> _fetchParentName(String parentUid) async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('parents')
@@ -767,10 +755,20 @@ class _AssmatVisioCard extends ConsumerWidget {
         final data = doc.data();
         final first = data?['firstName'] as String? ?? '';
         final last = data?['lastName'] as String? ?? '';
-        parentName = '$first $last'.trim();
-        if (parentName.isEmpty) parentName = 'Parent';
+        final fullName = '$first $last'.trim();
+        if (fullName.isNotEmpty) return fullName;
       }
     } catch (_) {}
+    return 'Parent';
+  }
+
+  Future<void> _joinVisio(BuildContext context, WidgetRef ref) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final parentUid = ConversationModel.parentUidOf(conversationId);
+
+    final parentName = await _fetchParentName(parentUid);
 
     if (!context.mounted) return;
 
@@ -803,7 +801,7 @@ class _AssmatVisioCard extends ConsumerWidget {
 
       // Notification in-app pour le parent
       try {
-        final parentUid = conversationId.split('_').first;
+        final parentUid = ConversationModel.parentUidOf(conversationId);
         ref.read(notificationTriggersProvider).onVisioResponse(
               recipientUid: parentUid,
               senderUid: currentUser.uid,
@@ -822,81 +820,3 @@ class _AssmatVisioCard extends ConsumerWidget {
   }
 }
 
-// ─── Bubble tile ──────────────────────────────────────────────────────────────
-
-class _BubbleTile extends StatelessWidget {
-  const _BubbleTile({required this.msg, required this.isMe});
-  final MessageModel msg;
-  final bool isMe;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = chatMessageTimeLabel(msg.sentAt);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Flexible(
-            child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.68,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isMe
-                        ? AppColors.primary
-                        : const Color(0xFFF0F0EE),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 16),
-                    ),
-                  ),
-                  child: Text(
-                    msg.text,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: isMe ? Colors.white : AppColors.primaryText,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      time,
-                      style: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.hint, fontSize: 10),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 3),
-                      Icon(
-                        msg.isRead
-                            ? Icons.done_all_rounded
-                            : Icons.done_rounded,
-                        size: 13,
-                        color: msg.isRead
-                            ? AppColors.primary
-                            : AppColors.secondaryText,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
