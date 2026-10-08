@@ -1793,28 +1793,6 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(label,
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.secondaryText)),
-        ),
-        Text(value,
-            style: AppTextStyles.bodySmall
-                .copyWith(fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-}
-
 class _SimRow extends StatelessWidget {
   const _SimRow(
       {required this.label,

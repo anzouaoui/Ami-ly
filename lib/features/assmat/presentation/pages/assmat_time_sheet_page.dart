@@ -4,13 +4,10 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../core/widgets/coming_soon.dart';
 
 
-const _kMonthsFull = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -177,7 +174,7 @@ class _AssMatTimeSheetPageState extends State<AssMatTimeSheetPage> {
                   ),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded,
                       color: AppColors.secondaryText),
-                  items: _kMonthsFull
+                  items: frenchMonthNames
                       .map((m) => DropdownMenuItem(
                             value: m,
                             child: Text(m,

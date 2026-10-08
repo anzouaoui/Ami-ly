@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 
 class AssMatNewContractPage extends StatefulWidget {
   const AssMatNewContractPage({super.key});
@@ -832,7 +833,7 @@ class _WeeklyScheduleFieldState extends State<_WeeklyScheduleField> {
         await showTimePicker(context: context, initialTime: initial);
     if (picked != null) {
       ctrl.text =
-          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+          formatClock(picked.hour, picked.minute);
       setState(() {});
     }
   }
@@ -1053,7 +1054,6 @@ class _RemunerationBody extends StatefulWidget {
 class _RemunerationBodyState extends State<_RemunerationBody> {
   bool _alsaceMoselle = false;
   bool _isBrut = true;
-  bool _pajemploiPlus = true;
   String _majAdd = '0 %';
   String _majSup = '25 %';
   final _tauxCtrl = TextEditingController(text: '4');
@@ -1379,32 +1379,6 @@ class _SegmentButton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CmgRow extends StatelessWidget {
-  const _CmgRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: const Color(0xFF004D40))),
-          Text(value,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: const Color(0xFF00796B),
-                fontWeight: FontWeight.w700,
-              )),
-        ],
       ),
     );
   }

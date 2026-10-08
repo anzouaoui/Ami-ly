@@ -41,7 +41,11 @@ String formatFrenchLongDate(DateTime date) =>
     '${date.day} ${frenchMonthName(date.month)} ${date.year}';
 
 /// Heure sur 24 h avec zéros : `09:05`.
-String formatHourMinute(DateTime date) =>
-    '${_twoDigits(date.hour)}:${_twoDigits(date.minute)}';
+String formatHourMinute(DateTime date) => formatClock(date.hour, date.minute);
+
+/// Heure [hour]:[minute] sur 24 h avec zéros : `formatClock(9, 5)` → `09:05`.
+/// Pratique pour un `TimeOfDay`.
+String formatClock(int hour, int minute) =>
+    '${_twoDigits(hour)}:${_twoDigits(minute)}';
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');

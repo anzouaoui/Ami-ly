@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../core/widgets/coming_soon.dart';
 import 'assmat_home_page.dart';
 
@@ -31,10 +32,6 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
   void _prevWeek() => setState(() => _weekStart = _weekStart.subtract(const Duration(days: 7)));
   void _nextWeek() => setState(() => _weekStart = _weekStart.add(const Duration(days: 7)));
 
-  static const _months = [
-    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-  ];
   String _fmtDateShort(DateTime d) =>
       '${d.day} ${_kMonthsShort[d.month - 1]}';
 
@@ -42,7 +39,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
       'Semaine du ${_fmtDateShort(_weekStart)} au ${_fmtDateShort(_weekEnd)}';
 
   String get _monthLabel =>
-      '${_months[_weekStart.month - 1]} ${_weekStart.year}';
+      '${frenchMonthName(_weekStart.month)} ${_weekStart.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -223,13 +220,6 @@ class _TabGrid extends StatelessWidget {
   const _TabGrid({required this.current, required this.onTap});
   final int current;
   final ValueChanged<int> onTap;
-
-  static const _labels = [
-    'Planning semaine',
-    'Calendrier annuel',
-    'Congés',
-    'Statistiques',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -714,18 +704,13 @@ class _PlanningSemaineContent extends StatelessWidget {
 class _CalendrierContent extends StatelessWidget {
   const _CalendrierContent();
 
-  static const _months = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: List.generate(12, (m) {
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: _MonthCard(month: m + 1, year: 2026, label: _months[m]),
+          child: _MonthCard(month: m + 1, year: 2026, label: frenchMonthNamesCapitalized[m]),
         );
       }),
     );
@@ -1434,7 +1419,7 @@ class _AddScheduleSheetState extends State<_AddScheduleSheet> {
     final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked != null) {
       ctrl.text =
-          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+          formatClock(picked.hour, picked.minute);
     }
   }
 

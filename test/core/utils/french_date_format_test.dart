@@ -17,4 +17,9 @@ void main() {
     expect(formatHourMinute(DateTime(2026, 1, 1, 9, 5)), '09:05');
     expect(formatHourMinute(DateTime(2026, 1, 1, 18, 30)), '18:30');
   });
+
+  test('formatClock', () {
+    expect(formatClock(7, 3), '07:03');
+    expect(formatClock(23, 45), '23:45');
+  });
 }

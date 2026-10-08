@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../core/widgets/coming_soon.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ class _AssMatChatBetweenPageState extends State<AssMatChatBetweenPage> {
 
   String _nowTime() {
     final now = TimeOfDay.now();
-    return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    return formatClock(now.hour, now.minute);
   }
 
   Color get _avatarBg =>

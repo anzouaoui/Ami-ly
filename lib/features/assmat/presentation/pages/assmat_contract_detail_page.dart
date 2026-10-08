@@ -5,6 +5,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import 'assmat_contract_models.dart';
 
 // ---------------------------------------------------------------------------
@@ -333,10 +334,6 @@ class _SuiviMensuelTab extends StatefulWidget {
 }
 
 class _SuiviMensuelTabState extends State<_SuiviMensuelTab> {
-  static const _monthLabels = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ];
 
   int _selectedMonth = 2; // 0-based → Mars
   int _selectedYear = 2026;
@@ -370,7 +367,7 @@ class _SuiviMensuelTabState extends State<_SuiviMensuelTab> {
     super.dispose();
   }
 
-  String get _monthLabel => '${_monthLabels[_selectedMonth]} $_selectedYear';
+  String get _monthLabel => '${frenchMonthNamesCapitalized[_selectedMonth]} $_selectedYear';
 
   // ── Calculation helpers ──────────────────────────────────────────────────
 
@@ -549,8 +546,6 @@ class _SuiviMensuelTabState extends State<_SuiviMensuelTab> {
       ),
     );
   }
-
-  static const _history = <_MonthHistory>[];
 }
 
 // Month picker bottom sheet
@@ -570,10 +565,6 @@ class _MonthPickerSheet extends StatefulWidget {
 }
 
 class _MonthPickerSheetState extends State<_MonthPickerSheet> {
-  static const _labels = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ];
 
   late int _month;
   late int _year;
@@ -633,7 +624,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                     borderRadius: BorderRadius.circular(AppRadii.sm),
                   ),
                   child: Text(
-                    _labels[i].substring(0, 3),
+                    frenchMonthNamesCapitalized[i].substring(0, 3),
                     style: AppTextStyles.labelMedium.copyWith(
                       color: selected ? AppColors.onPrimary : AppColors.primaryText,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -997,15 +988,11 @@ class _PajemploiTab extends StatefulWidget {
 }
 
 class _PajemploiTabState extends State<_PajemploiTab> {
-  static const _monthLabels = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ];
 
   int _selectedMonth = 2;
   int _selectedYear = 2026;
 
-  String get _monthLabel => '${_monthLabels[_selectedMonth]} $_selectedYear';
+  String get _monthLabel => '${frenchMonthNamesCapitalized[_selectedMonth]} $_selectedYear';
 
   void _showMonthPicker() {
     showModalBottomSheet<void>(

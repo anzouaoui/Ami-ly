@@ -6,6 +6,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/name_initials.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -416,7 +417,7 @@ class _FamilyCard extends ConsumerWidget {
             contact: ChatContact(
               name: parentName.isNotEmpty ? parentName : 'Parent',
               initials: parentName.isNotEmpty
-                  ? parentName.split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join()
+                  ? initialsOf(parentName)
                   : 'P',
             ),
             conversationId: result.convId,

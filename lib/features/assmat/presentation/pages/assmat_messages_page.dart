@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/name_initials.dart';
 import '../../../../shared/models/conversation_model.dart';
 import '../../../../shared/utils/chat_time_format.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -204,12 +205,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = conv.parentName
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0].toUpperCase())
-        .join();
+    final initials = initialsOf(conv.parentName);
     final unread = conv.unreadAssmat;
     final timeLabel = conversationTimeLabel(conv.lastMessageAt);
 
