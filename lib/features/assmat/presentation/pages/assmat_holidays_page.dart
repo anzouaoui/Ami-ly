@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import 'assmat_home_page.dart';
 
 class AssMatHolidaysPage extends StatefulWidget {
@@ -1868,7 +1869,7 @@ class _AddHolidaySheetState extends State<_AddHolidaySheet> {
     );
     if (picked != null) {
       ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          formatDayMonthYear(picked);
       setState(() {});
     }
   }

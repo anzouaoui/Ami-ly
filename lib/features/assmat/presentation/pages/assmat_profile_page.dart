@@ -16,6 +16,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/address_suggestion.dart';
 import '../../../../core/services/accreditation_document_extractor.dart';
 import '../../../../core/services/expiry_date_extractor.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../core/widgets/coming_soon.dart';
 import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
@@ -907,7 +908,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
         });
         _persistCompliance();
         final message = detectedExpiry != null
-            ? 'Date d\'expiration détectée : ${_formatDate(detectedExpiry)}'
+            ? 'Date d\'expiration détectée : ${formatDayMonthYear(detectedExpiry)}'
             : '$successMessage — renseignez la date d\'expiration si besoin';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -945,9 +946,6 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
       onUploaded: (url) => _identityDocumentUrlBack = url,
     );
   }
-
-  String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   Future<void> _uploadCriminalRecord() async {
     final picked = await _pickDocumentOrImage();
@@ -2129,9 +2127,6 @@ class _AccreditationCard extends StatelessWidget {
 
   final bool isRechecking;
 
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
   /// Statut de contrôle du numéro saisi vs document.
   _VerificationStatus _numberStatus() {
     final extracted = extractedNumber;
@@ -2183,10 +2178,10 @@ class _AccreditationCard extends StatelessWidget {
     switch (_expiryStatus()) {
       case _VerificationStatus.matching:
         return 'La date saisie correspond à la fin de validité du document '
-            '(${_fmt(extractedExpiry!)}).';
+            '(${formatDayMonthYear(extractedExpiry!)}).';
       case _VerificationStatus.mismatch:
         return 'Fin de validité lue sur le document : '
-            '${_fmt(extractedExpiry!)}. Corrigez la date d\'expiration si '
+            '${formatDayMonthYear(extractedExpiry!)}. Corrigez la date d\'expiration si '
             'nécessaire.';
       case _VerificationStatus.unknown:
         return 'Date de fin de validité non détectée sur la photo : '
@@ -2239,7 +2234,7 @@ class _AccreditationCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _DatePickerField(
               label: 'Date d\'expiration',
-              value: accreditationExpiry != null ? _fmt(accreditationExpiry!) : 'Sélectionner une date',
+              value: accreditationExpiry != null ? formatDayMonthYear(accreditationExpiry!) : 'Sélectionner une date',
               onTap: () => _pickExpiry(context)),
           const SizedBox(height: AppSpacing.lg),
           Row(
@@ -2879,9 +2874,6 @@ class _IdentityAndComplianceCard extends StatelessWidget {
 
   static const _rgpdBg = Color(0xFFFFF8E1);
 
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
   Future<void> _pickIdentityExpiry(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
@@ -3079,7 +3071,7 @@ class _IdentityAndComplianceCard extends StatelessWidget {
                 _DatePickerField(
                   label: 'Date d\'expiration',
                   value: identityDocumentExpiry != null
-                      ? _fmt(identityDocumentExpiry!)
+                      ? formatDayMonthYear(identityDocumentExpiry!)
                       : 'Sélectionner une date',
                   onTap: () => _pickIdentityExpiry(context),
                 ),
@@ -3116,7 +3108,7 @@ class _IdentityAndComplianceCard extends StatelessWidget {
                     _isAccreditationExpired
                         ? 'Agrément expiré — renouvellez-le dans la section Agrément'
                         : (accreditationExpiry != null
-                            ? 'Agrément valide jusqu\'au ${_fmt(accreditationExpiry!)}'
+                            ? 'Agrément valide jusqu\'au ${formatDayMonthYear(accreditationExpiry!)}'
                             : 'Renseignez votre numéro et date d\'expiration dans la section Agrément'),
                     style: AppTextStyles.bodySmall.copyWith(
                       color: _isAccreditationExpired
@@ -3162,7 +3154,7 @@ class _IdentityAndComplianceCard extends StatelessWidget {
                     criminalRecordUploadedAt != null) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Téléversé le ${_fmt(criminalRecordUploadedAt!)}',
+                    'Téléversé le ${formatDayMonthYear(criminalRecordUploadedAt!)}',
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.secondaryText),
                   ),
@@ -3501,7 +3493,7 @@ class _SignedContractsVault extends StatelessWidget {
           final signedAt = (data['finalizedAt'] as String?) ??
               (data['updatedAt'] as String?) ?? '';
           final subtitle = signedAt.isNotEmpty
-              ? 'Signé le ${_formatDate(signedAt)}'
+              ? 'Signé le ${formatIsoDayMonthYear(signedAt)}'
               : 'Actif';
           final label = parentName.isNotEmpty ? parentName : childName;
 
@@ -3585,16 +3577,6 @@ class _SignedContractsVault extends StatelessWidget {
     );
   }
 
-  String _formatDate(String iso) {
-    try {
-      final dt = DateTime.parse(iso);
-      return '${dt.day.toString().padLeft(2, '0')}/'
-          '${dt.month.toString().padLeft(2, '0')}/'
-          '${dt.year}';
-    } catch (_) {
-      return iso;
-    }
-  }
 }
 
 // ─── Mes données personnelles ─────────────────────────────────────────────────

@@ -1134,6 +1134,10 @@ class _StatCard extends StatelessWidget {
 
 // ─── Récapitulatif par enfant ─────────────────────────────────────────────────
 
+/// Durée en heures avec une décimale : `3.0h`, `7.5h`.
+String _formatHoursOneDecimal(double h) =>
+    h == h.truncateToDouble() ? '${h.toInt()}.0h' : '${h.toStringAsFixed(1)}h';
+
 class _ChildSummarySection extends StatelessWidget {
   const _ChildSummarySection({required this.schedule});
   final List<List<(String, String, String)>> schedule;
@@ -1152,9 +1156,6 @@ class _ChildSummarySection extends StatelessWidget {
     }
     return map;
   }
-
-  String _fmtH(double h) =>
-      h == h.truncateToDouble() ? '${h.toInt()}.0h' : '${h.toStringAsFixed(1)}h';
 
   @override
   Widget build(BuildContext context) {
@@ -1209,7 +1210,7 @@ class _ChildSummarySection extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    _fmtH(entry.value),
+                    _formatHoursOneDecimal(entry.value),
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
@@ -1242,9 +1243,6 @@ class _WeekDayBarsSection extends StatelessWidget {
                     int.parse(s[0]) * 60 - int.parse(s[1])) /
                 60.0;
       });
-
-  String _fmtH(double h) =>
-      h == h.truncateToDouble() ? '${h.toInt()}.0h' : '${h.toStringAsFixed(1)}h';
 
   @override
   Widget build(BuildContext context) {
@@ -1289,7 +1287,7 @@ class _WeekDayBarsSection extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _fmtH(h),
+                        _formatHoursOneDecimal(h),
                         style: AppTextStyles.bodySmall
                             .copyWith(fontWeight: FontWeight.w600),
                       ),
@@ -1667,7 +1665,7 @@ class _AddHolidaysSheetState extends State<_AddHolidaysSheet> {
     );
     if (picked != null) {
       ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          formatDayMonthYear(picked);
       setState(() {});
     }
   }

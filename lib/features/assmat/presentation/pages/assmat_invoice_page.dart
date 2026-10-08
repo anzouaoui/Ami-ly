@@ -989,7 +989,7 @@ class _NewPromesseSheetState extends State<_NewPromesseSheet> {
     );
     if (picked != null) {
       ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          formatDayMonthYear(picked);
       setState(() {});
     }
   }

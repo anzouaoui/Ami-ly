@@ -1432,9 +1432,6 @@ class _IndemnitesBodyState extends State<_IndemnitesBody> {
   double get _montantEntretienJour => _duree * _tauxEntretien;
   double get _montantRepasJour => _duree * _tauxRepas;
 
-  String _fmt(double v) =>
-      '${v.toStringAsFixed(2).replaceAll('.', ',')} €';
-
   @override
   Widget build(BuildContext context) {
     final entretienOk = _montantEntretienJour >= _minEntretienJour;
@@ -1472,8 +1469,8 @@ class _IndemnitesBodyState extends State<_IndemnitesBody> {
         const SizedBox(height: AppSpacing.sm),
         _IndemniteResultRow(
           label: 'Montant journalier entretien',
-          value: _fmt(_montantEntretienJour),
-          minValue: _fmt(_minEntretienJour),
+          value: _formatEuros(_montantEntretienJour),
+          minValue: _formatEuros(_minEntretienJour),
           isOk: entretienOk,
         ),
 
@@ -1503,8 +1500,8 @@ class _IndemnitesBodyState extends State<_IndemnitesBody> {
         const SizedBox(height: AppSpacing.sm),
         _IndemniteResultRow(
           label: 'Montant journalier repas',
-          value: _fmt(_montantRepasJour),
-          minValue: _fmt(_minRepasJour),
+          value: _formatEuros(_montantRepasJour),
+          minValue: _formatEuros(_minRepasJour),
           isOk: repasOk,
         ),
         const SizedBox(height: 4),
@@ -2122,9 +2119,6 @@ class _ResultCard extends StatelessWidget {
   final double net;
   final double ratio;
 
-  String _fmt(double v) =>
-      v.toStringAsFixed(2).replaceAll('.', ',') + ' €';
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2143,8 +2137,8 @@ class _ResultCard extends StatelessWidget {
                 .copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _ResultRow(label: 'Brut', value: _fmt(brut)),
-          _ResultRow(label: 'Net arrondi', value: _fmt(net)),
+          _ResultRow(label: 'Brut', value: _formatEuros(brut)),
+          _ResultRow(label: 'Net arrondi', value: _formatEuros(net)),
           _ResultRow(
             label: 'Ratio',
             value: ratio.toStringAsFixed(4),
@@ -2246,7 +2240,7 @@ class _DateFieldState extends State<_DateField> {
     );
     if (picked != null) {
       _ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          formatDayMonthYear(picked);
     }
   }
 
@@ -2622,3 +2616,7 @@ class _BottomBar extends StatelessWidget {
     );
   }
 }
+
+/// Montant en euros à la française : `1234.5` → `1234,50 €`.
+String _formatEuros(double v) =>
+    '${v.toStringAsFixed(2).replaceAll('.', ',')} €';

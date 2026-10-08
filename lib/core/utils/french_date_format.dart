@@ -48,4 +48,18 @@ String formatHourMinute(DateTime date) => formatClock(date.hour, date.minute);
 String formatClock(int hour, int minute) =>
     '${_twoDigits(hour)}:${_twoDigits(minute)}';
 
+/// Date courte : `08/10/2026`.
+String formatDayMonthYear(DateTime date) =>
+    '${_twoDigits(date.day)}/${_twoDigits(date.month)}/${date.year}';
+
+/// Date ISO 8601 au format `dd/MM/yyyy`, ou [iso] tel quel s'il n'est pas
+/// une date valide.
+String formatIsoDayMonthYear(String iso) {
+  try {
+    return formatDayMonthYear(DateTime.parse(iso));
+  } catch (_) {
+    return iso;
+  }
+}
+
 String _twoDigits(int value) => value.toString().padLeft(2, '0');

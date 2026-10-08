@@ -22,4 +22,13 @@ void main() {
     expect(formatClock(7, 3), '07:03');
     expect(formatClock(23, 45), '23:45');
   });
+
+  test('formatDayMonthYear', () {
+    expect(formatDayMonthYear(DateTime(2026, 3, 7)), '07/03/2026');
+  });
+
+  test('formatIsoDayMonthYear', () {
+    expect(formatIsoDayMonthYear('2026-03-07T10:00:00.000'), '07/03/2026');
+    expect(formatIsoDayMonthYear('pas une date'), 'pas une date');
+  });
 }

@@ -10,6 +10,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/services/identity_document_extractor.dart';
 import '../../../../core/services/identity_document_scanner_service.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 
 /// Résultat retourné par [IdentityDocumentScannerPage] après validation :
@@ -224,9 +225,6 @@ class _IdentityDocumentScannerPageState
     );
     Navigator.of(context).pop(result);
   }
-
-  String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -483,7 +481,7 @@ class _IdentityDocumentScannerPageState
                     key: const ValueKey('birth_date_field'),
                     label: 'Date de naissance',
                     value: _birthDate != null
-                        ? _formatDate(_birthDate!)
+                        ? formatDayMonthYear(_birthDate!)
                         : 'Sélectionner une date',
                     onTap: _pickBirthDate,
                   ),
@@ -492,7 +490,7 @@ class _IdentityDocumentScannerPageState
                     key: const ValueKey('expiry_date_field'),
                     label: 'Date d\'expiration',
                     value: _expiryDate != null
-                        ? _formatDate(_expiryDate!)
+                        ? formatDayMonthYear(_expiryDate!)
                         : 'Sélectionner une date',
                     onTap: _pickExpiryDate,
                   ),

@@ -7,6 +7,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../core/utils/geo_distance.dart';
 import '../../../../shared/utils/assmat_display.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
@@ -1210,9 +1211,6 @@ class _DateField extends StatelessWidget {
   final VoidCallback onTap;
   final DateTime? date;
 
-  String _format(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
   @override
   Widget build(BuildContext context) {
     final hasDate = date != null;
@@ -1243,7 +1241,7 @@ class _DateField extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Flexible(
               child: Text(
-                hasDate ? _format(date!) : hint,
+                hasDate ? formatDayMonthYear(date!) : hint,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: hasDate
                       ? AppColors.primary
