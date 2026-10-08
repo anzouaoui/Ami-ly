@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -9,6 +7,8 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/geo_distance.dart';
+import '../../../../shared/utils/assmat_display.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../providers/favorites_provider.dart';
@@ -109,17 +109,19 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         (_childAgeMonths > 0 ? 1 : 0);
   }
 
-  /// Calcul de distance Haversine entre deux points (en km).
-  double _haversine(double lat1, double lon1, double lat2, double lon2) {
-    const r = 6371.0;
-    final dLat = (lat2 - lat1) * math.pi / 180;
-    final dLon = (lon2 - lon1) * math.pi / 180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * math.pi / 180) *
-            math.cos(lat2 * math.pi / 180) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  /// Distance parent → assmat en km, ou null si l'une des deux positions
+  /// est inconnue.
+  double? _distanceKm(
+    AssmatProfileModel a,
+    double? parentLat,
+    double? parentLon,
+  ) {
+    final location = a.location;
+    if (parentLat == null || parentLon == null || location == null) {
+      return null;
+    }
+    return haversineKm(
+        parentLat, parentLon, location.latitude, location.longitude);
   }
 
   /// Applique les filtres client-side sur la liste brute Firestore.
@@ -147,15 +149,8 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
       if (_onlyAvailable && a.availableSlots <= 0) return false;
 
       // Filtre rayon — seulement si parent ET assmat ont des coordonnées.
-      if (parentLat != null &&
-          parentLon != null &&
-          a.location != null) {
-        final dist = _haversine(
-          parentLat, parentLon,
-          a.location!.latitude, a.location!.longitude,
-        );
-        if (dist > _radiusKm) return false;
-      }
+      final dist = _distanceKm(a, parentLat, parentLon);
+      if (dist != null && dist > _radiusKm) return false;
 
       // Filtre disponibilité souhaitée — seulement si une date de début est choisie.
       if (_dateFrom != null && a.availableFrom != null) {
@@ -193,17 +188,9 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         return list;
       case _SortOrder.distance:
         if (parentLat == null || parentLon == null) return list;
-        list.sort((a, b) {
-          final da = a.location != null
-              ? _haversine(parentLat, parentLon,
-                  a.location!.latitude, a.location!.longitude)
-              : double.infinity;
-          final db = b.location != null
-              ? _haversine(parentLat, parentLon,
-                  b.location!.latitude, b.location!.longitude)
-              : double.infinity;
-          return da.compareTo(db);
-        });
+        double distanceOf(AssmatProfileModel a) =>
+            _distanceKm(a, parentLat, parentLon) ?? double.infinity;
+        list.sort((a, b) => distanceOf(a).compareTo(distanceOf(b)));
         return list;
       case _SortOrder.places:
         list.sort((a, b) => b.availableSlots.compareTo(a.availableSlots));
@@ -226,9 +213,8 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
     double? parentLon,
   ) {
     final firstName = a.firstName;
-    final initials = firstName.isNotEmpty ? firstName[0].toUpperCase() : '?';
-
-    final name = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
+    final initials = firstNameInitial(firstName);
+    final name = assmatDisplayName(firstName);
 
     // Affiche uniquement la ville + pays, jamais l'adresse complète.
     final city = a.city;
@@ -244,18 +230,12 @@ class _FindChildminderPageState extends ConsumerState<FindChildminderPage> {
         : 'Complet';
 
     // Distance calculée si les deux GeoPoints sont disponibles.
-    String distance = '—';
-    if (parentLat != null &&
-        parentLon != null &&
-        a.location != null) {
-      final km = _haversine(
-        parentLat, parentLon,
-        a.location!.latitude, a.location!.longitude,
-      );
-      distance = km < 1
-          ? '${(km * 1000).round()} m'
-          : '${km.toStringAsFixed(1)} km';
-    }
+    final km = _distanceKm(a, parentLat, parentLon);
+    final distance = km == null
+        ? '—'
+        : km < 1
+            ? '${(km * 1000).round()} m'
+            : '${km.toStringAsFixed(1)} km';
 
     return ChildminderSummary(
       uid: a.uid,

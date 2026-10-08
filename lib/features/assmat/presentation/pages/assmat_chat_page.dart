@@ -11,6 +11,7 @@ import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../../shared/models/message_model.dart';
+import '../../../../shared/utils/chat_time_format.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../../../notifications/presentation/providers/notification_triggers.dart';
@@ -830,7 +831,7 @@ class _BubbleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = _formatTime(msg.sentAt);
+    final time = chatMessageTimeLabel(msg.sentAt);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -897,21 +898,5 @@ class _BubbleTile extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-      return '$h:$m';
-    }
-    final yesterday = now.subtract(const Duration(days: 1));
-    if (dt.year == yesterday.year &&
-        dt.month == yesterday.month &&
-        dt.day == yesterday.day) {
-      return 'Hier $h:$m';
-    }
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} $h:$m';
   }
 }

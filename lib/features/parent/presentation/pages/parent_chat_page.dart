@@ -7,6 +7,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/name_initials.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/data/messaging_datasource.dart';
 import '../../../messaging/providers/messaging_providers.dart';
@@ -15,6 +16,7 @@ import '../../../video_call/domain/entities/call.dart';
 import '../../../video_call/presentation/helpers/visio_join_helper.dart';
 import '../../../video_call/presentation/providers/video_call_providers.dart';
 import '../../../../shared/models/message_model.dart';
+import '../../../../shared/utils/chat_time_format.dart';
 import '../../../../shared/widgets/unverified_profile_sheet.dart';
 import 'engagement_contract_page.dart';
 
@@ -183,12 +185,7 @@ class _ParentChatPageState extends ConsumerState<ParentChatPage> {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final myUid = currentUser?.uid ?? '';
 
-    final initials = widget.assmatName
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0].toUpperCase())
-        .join();
+    final initials = initialsOf(widget.assmatName);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -506,7 +503,7 @@ class _BubbleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = _formatTime(msg.sentAt);
+    final time = chatMessageTimeLabel(msg.sentAt);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -556,24 +553,6 @@ class _BubbleTile extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    if (dt.year == now.year &&
-        dt.month == now.month &&
-        dt.day == now.day) {
-      return '$h:$m';
-    }
-    final yesterday = now.subtract(const Duration(days: 1));
-    if (dt.year == yesterday.year &&
-        dt.month == yesterday.month &&
-        dt.day == yesterday.day) {
-      return 'Hier $h:$m';
-    }
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} $h:$m';
   }
 }
 

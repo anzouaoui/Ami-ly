@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../shared/models/conversation_model.dart';
+import '../../../../shared/utils/chat_time_format.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import 'assmat_chat_page.dart';
 import 'assmat_home_page.dart';
@@ -211,7 +211,7 @@ class _ConversationTile extends StatelessWidget {
         .map((w) => w[0].toUpperCase())
         .join();
     final unread = conv.unreadAssmat;
-    final timeLabel = _timeLabel(conv.lastMessageAt);
+    final timeLabel = conversationTimeLabel(conv.lastMessageAt);
 
     return InkWell(
       onTap: () => Navigator.of(context).push(
@@ -323,23 +323,5 @@ class _ConversationTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static String _timeLabel(DateTime? dt) {
-    if (dt == null) return '';
-    final now = DateTime.now();
-    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-      return DateFormat('HH:mm').format(dt);
-    }
-    final yesterday = now.subtract(const Duration(days: 1));
-    if (dt.year == yesterday.year &&
-        dt.month == yesterday.month &&
-        dt.day == yesterday.day) {
-      return 'Hier';
-    }
-    if (now.difference(dt).inDays < 7) {
-      return DateFormat('EEE', 'fr_FR').format(dt);
-    }
-    return DateFormat('dd/MM').format(dt);
   }
 }

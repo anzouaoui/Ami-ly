@@ -7,6 +7,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../core/widgets/coming_soon.dart';
 import '../../data/models/child_model.dart';
 import '../providers/parent_providers.dart';
@@ -48,23 +49,9 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
     'samedi',
     'dimanche',
   ];
-  static const _months = [
-    'janvier',
-    'février',
-    'mars',
-    'avril',
-    'mai',
-    'juin',
-    'juillet',
-    'août',
-    'septembre',
-    'octobre',
-    'novembre',
-    'décembre',
-  ];
 
   String get _formattedDate =>
-      '${_weekdays[_date.weekday - 1]} ${_date.day} ${_months[_date.month - 1]} ${_date.year}';
+      '${_weekdays[_date.weekday - 1]} ${_date.day} ${frenchMonthName(_date.month)} ${_date.year}';
 
   void _shift(int days) {
     setState(() => _date = _date.add(Duration(days: days)));
