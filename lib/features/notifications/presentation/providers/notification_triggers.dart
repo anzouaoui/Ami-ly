@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/french_date_format.dart';
 import '../../../../shared/models/message_model.dart';
 
 /// Helper pour déclencher les notifications in-app lors d'événements métier.
@@ -41,10 +42,8 @@ class NotificationTriggers {
     required DateTime visioDate,
     required String visioProposalId,
   }) async {
-    final day =
-        '${visioDate.day} ${_monthName(visioDate.month)} ${visioDate.year}';
-    final hour =
-        '${visioDate.hour.toString().padLeft(2, '0')}:${visioDate.minute.toString().padLeft(2, '0')}';
+    final day = formatFrenchLongDate(visioDate);
+    final hour = formatHourMinute(visioDate);
 
     await _notificationService.createNotification(
       recipientUid: recipientUid,
@@ -65,23 +64,15 @@ class NotificationTriggers {
     required String conversationId,
     required VisioStatus status,
   }) async {
-    final String statusLabel;
-    switch (status) {
-      case VisioStatus.accepted:
-        statusLabel = 'acceptée';
-      case VisioStatus.refused:
-        statusLabel = 'refusée';
-      case VisioStatus.match:
-        statusLabel = 'match validé';
-      case VisioStatus.rejected:
-        statusLabel = 'match refusé';
-      case VisioStatus.reflection:
-        statusLabel = 'en réflexion';
-      case VisioStatus.completed:
-        statusLabel = 'terminée';
-      default:
-        statusLabel = status.name;
-    }
+    final statusLabel = switch (status) {
+      VisioStatus.accepted => 'acceptée',
+      VisioStatus.refused => 'refusée',
+      VisioStatus.match => 'match validé',
+      VisioStatus.rejected => 'match refusé',
+      VisioStatus.reflection => 'en réflexion',
+      VisioStatus.completed => 'terminée',
+      _ => status.name,
+    };
 
     await _notificationService.createNotification(
       recipientUid: recipientUid,
@@ -122,19 +113,13 @@ class NotificationTriggers {
     required String newStatus,
     required String childName,
   }) async {
-    final String statusLabel;
-    switch (newStatus) {
-      case 'active':
-        statusLabel = 'activé';
-      case 'terminated':
-        statusLabel = 'résilié';
-      case 'pendingParent':
-        statusLabel = 'en attente de signature parent';
-      case 'pendingAssmat':
-        statusLabel = 'en attente de signature assmat';
-      default:
-        statusLabel = newStatus;
-    }
+    final statusLabel = switch (newStatus) {
+      'active' => 'activé',
+      'terminated' => 'résilié',
+      'pendingParent' => 'en attente de signature parent',
+      'pendingAssmat' => 'en attente de signature assmat',
+      _ => newStatus,
+    };
 
     await _notificationService.createNotification(
       recipientUid: recipientUid,
@@ -174,24 +159,6 @@ class NotificationTriggers {
       body: 'Le délai de vérification de votre profil (30 jours) a expiré. '
           'Votre profil a été retiré de la recherche.',
     );
-  }
-
-  String _monthName(int m) {
-    const months = [
-      'janvier',
-      'février',
-      'mars',
-      'avril',
-      'mai',
-      'juin',
-      'juillet',
-      'août',
-      'septembre',
-      'octobre',
-      'novembre',
-      'décembre',
-    ];
-    return months[m - 1];
   }
 }
 
