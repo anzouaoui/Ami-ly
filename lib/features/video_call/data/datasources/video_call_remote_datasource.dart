@@ -87,7 +87,7 @@ class VideoCallRemoteDatasource {
   /// (soit callerId, soit calleeId).
   Stream<List<CallModel>> watchIncomingCalls(String userId) {
     return _calls
-        .where('status', isEqualTo: 'ringing')
+        .where('status', isEqualTo: CallStatus.ringing.name)
         .snapshots()
         .map((snap) {
       final calls = snap.docs
@@ -104,32 +104,27 @@ class VideoCallRemoteDatasource {
   /// ou (callerId == b && calleeId == a), ou null sinon.
   Future<CallModel?> findExistingRingingCall(String userA, String userB) async {
     try {
-      final snapA = await _calls
-          .where('callerId', isEqualTo: userA)
-          .where('calleeId', isEqualTo: userB)
-          .where('status', isEqualTo: 'ringing')
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .get();
-      if (snapA.docs.isNotEmpty) {
-        return CallModel.fromFirestore(snapA.docs.first);
-      }
-
-      final snapB = await _calls
-          .where('callerId', isEqualTo: userB)
-          .where('calleeId', isEqualTo: userA)
-          .where('status', isEqualTo: 'ringing')
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .get();
-      if (snapB.docs.isNotEmpty) {
-        return CallModel.fromFirestore(snapB.docs.first);
-      }
-
-      return null;
+      return await _latestRingingCall(callerId: userA, calleeId: userB) ??
+          await _latestRingingCall(callerId: userB, calleeId: userA);
     } on FirebaseException catch (_) {
       return null;
     }
+  }
+
+  /// Appel ringing le plus récent de [callerId] vers [calleeId], ou null.
+  Future<CallModel?> _latestRingingCall({
+    required String callerId,
+    required String calleeId,
+  }) async {
+    final snap = await _calls
+        .where('callerId', isEqualTo: callerId)
+        .where('calleeId', isEqualTo: calleeId)
+        .where('status', isEqualTo: CallStatus.ringing.name)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return CallModel.fromFirestore(snap.docs.first);
   }
 
   /// Appelle la Cloud Function pour obtenir un token Agora signé.

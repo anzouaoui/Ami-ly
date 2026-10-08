@@ -39,33 +39,23 @@ class VideoCallRepositoryImpl implements VideoCallRepository {
   }
 
   @override
-  Future<Either<Failure, void>> acceptCall(String callId) async {
-    try {
-      await _remote.updateCallStatus(callId, CallStatus.accepted);
-      return const Right(null);
-    } on FirestoreException catch (e) {
-      return Left(FirestoreFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
-  }
+  Future<Either<Failure, void>> acceptCall(String callId) =>
+      _updateStatus(callId, CallStatus.accepted);
 
   @override
-  Future<Either<Failure, void>> activateCall(String callId) async {
-    try {
-      await _remote.updateCallStatus(callId, CallStatus.ringing);
-      return const Right(null);
-    } on FirestoreException catch (e) {
-      return Left(FirestoreFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
-  }
+  Future<Either<Failure, void>> activateCall(String callId) =>
+      _updateStatus(callId, CallStatus.ringing);
 
   @override
-  Future<Either<Failure, void>> endCall(String callId) async {
+  Future<Either<Failure, void>> endCall(String callId) =>
+      _updateStatus(callId, CallStatus.ended);
+
+  Future<Either<Failure, void>> _updateStatus(
+    String callId,
+    CallStatus status,
+  ) async {
     try {
-      await _remote.updateCallStatus(callId, CallStatus.ended);
+      await _remote.updateCallStatus(callId, status);
       return const Right(null);
     } on FirestoreException catch (e) {
       return Left(FirestoreFailure(e.message));

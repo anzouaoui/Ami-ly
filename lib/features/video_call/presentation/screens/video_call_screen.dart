@@ -54,10 +54,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     final call = ref.read(videoCallControllerProvider).call;
 
     if (call == null) {
-      setState(() {
-        _error = 'Aucun appel actif.';
-        _isLoading = false;
-      });
+      _showError('Aucun appel actif.');
       return;
     }
 
@@ -72,14 +69,13 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       final permanentlyDenied =
           camera.isPermanentlyDenied || mic.isPermanentlyDenied;
       if (!mounted) return;
-      setState(() {
-        _error = permanentlyDenied
+      _showError(
+        permanentlyDenied
             ? 'Permissions caméra/microphone refusées définitivement.\n'
                 'Activez-les dans Réglages > Ami-ly.'
-            : 'Permissions caméra/microphone refusées.';
-        _permissionsPermanentlyDenied = permanentlyDenied;
-        _isLoading = false;
-      });
+            : 'Permissions caméra/microphone refusées.',
+        permissionsPermanentlyDenied: permanentlyDenied,
+      );
       return;
     }
 
@@ -90,12 +86,10 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           .replaceAll("'", '')
           .trim();
       if (appId.isEmpty) {
-        setState(() {
-          _error =
-              'AGORA_APP_ID manquant. Renseignez-le dans .env puis lancez:\n'
-              'flutter run --dart-define-from-file=.env';
-          _isLoading = false;
-        });
+        _showError(
+          'AGORA_APP_ID manquant. Renseignez-le dans .env puis lancez:\n'
+          'flutter run --dart-define-from-file=.env',
+        );
         return;
       }
 
@@ -105,16 +99,12 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           .read(videoCallRepositoryProvider)
           .getAgoraToken(channelName: call.channelName, uid: uid);
 
-      String? token;
-      tokenResult.fold(
+      final token = tokenResult.fold<String?>(
         (failure) {
-          setState(() {
-            _error = failure.message;
-            _isLoading = false;
-          });
-          return;
+          _showError(failure.message);
+          return null;
         },
-        (t) => token = t,
+        (t) => t,
       );
 
       if (token == null) return;
@@ -160,7 +150,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
       // Rejoint le canal
       await _engine!.joinChannel(
-        token: token!,
+        token: token,
         channelId: call.channelName,
         options: const ChannelMediaOptions(
           clientRoleType: ClientRoleType.clientRoleBroadcaster,
@@ -174,11 +164,20 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      setState(() {
-        _error = 'Erreur initialisation: $e';
-        _isLoading = false;
-      });
+      _showError('Erreur initialisation: $e');
     }
+  }
+
+  /// Affiche l'écran d'erreur à la place du chargement.
+  void _showError(
+    String message, {
+    bool permissionsPermanentlyDenied = false,
+  }) {
+    setState(() {
+      _error = message;
+      if (permissionsPermanentlyDenied) _permissionsPermanentlyDenied = true;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -227,7 +226,10 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             responderUid: currentUser.uid,
           );
 
-      final otherUid = isParent ? convId.split('_').last : convId.split('_').first;
+      // convId = '${parentUid}_${assmatUid}' (cf. ConversationModel.buildId).
+      final convParticipants = convId.split('_');
+      final otherUid =
+          isParent ? convParticipants.last : convParticipants.first;
       try {
         ref.read(notificationTriggersProvider).onVisioResponse(
               recipientUid: otherUid,

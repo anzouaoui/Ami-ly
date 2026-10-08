@@ -202,16 +202,18 @@ class VideoCallController extends Notifier<VideoCallState> {
         ref.read(videoCallRepositoryProvider).watchCall(callId).listen(
       (call) {
         if (call == null) return;
-        final newState = call.status == CallStatus.accepted
-            ? CallState.connected
-            : call.status == CallStatus.ended
-                ? CallState.ended
-                : CallState.ringing;
-        state = state.copyWith(call: call, state: newState);
+        state = state.copyWith(call: call, state: _callStateFor(call.status));
       },
     );
   }
 }
+
+/// État UI correspondant au statut Firestore d'un appel.
+CallState _callStateFor(CallStatus status) => switch (status) {
+      CallStatus.accepted => CallState.connected,
+      CallStatus.ended => CallState.ended,
+      CallStatus.pending || CallStatus.ringing => CallState.ringing,
+    };
 
 final videoCallControllerProvider =
     NotifierProvider<VideoCallController, VideoCallState>(

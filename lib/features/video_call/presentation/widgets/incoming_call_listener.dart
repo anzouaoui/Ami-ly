@@ -32,8 +32,7 @@ class IncomingCallListener extends ConsumerWidget {
         incomingCalls.when(
           data: (calls) {
             if (calls.isEmpty) return const SizedBox.shrink();
-            final call = calls.first;
-            return _IncomingCallOverlay(callId: call.id, call: call);
+            return _IncomingCallOverlay(call: calls.first);
           },
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),
@@ -44,9 +43,8 @@ class IncomingCallListener extends ConsumerWidget {
 }
 
 class _IncomingCallOverlay extends ConsumerWidget {
-  const _IncomingCallOverlay({required this.callId, required this.call});
+  const _IncomingCallOverlay({required this.call});
 
-  final String callId;
   final Call call;
 
   @override
@@ -121,11 +119,11 @@ class _IncomingCallOverlay extends ConsumerWidget {
                     onTap: () async {
                       await ref
                           .read(videoCallControllerProvider.notifier)
-                          .acceptCall(callId, callData: call);
+                          .acceptCall(call.id, callData: call);
                       if (context.mounted) {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => VideoCallScreen(callId: callId),
+                            builder: (_) => VideoCallScreen(callId: call.id),
                           ),
                         );
                       }

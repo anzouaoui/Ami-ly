@@ -33,6 +33,21 @@ Future<void> joinVisioCall({
   final repository = ref.read(videoCallRepositoryProvider);
   final controller = ref.read(videoCallControllerProvider.notifier);
 
+  // Ouvre l'écran vidéo de l'appel [id], si la page appelante est toujours
+  // montée.
+  void openCallScreen(String id) {
+    if (!context.mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VideoCallScreen(
+          callId: id,
+          convId: convId,
+          visioMessageId: messageId,
+        ),
+      ),
+    );
+  }
+
   try {
     // Cas 1 : un callId est déjà stocké sur le message.
     if (callId != null && callId.isNotEmpty) {
@@ -46,17 +61,7 @@ Future<void> joinVisioCall({
       if (existingCall != null && existingCall.id == callId) {
         // L'appel est déjà ringing → on l'accepte.
         await controller.acceptCall(callId, callData: existingCall);
-        if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => VideoCallScreen(
-                callId: callId,
-                convId: convId,
-                visioMessageId: messageId,
-              ),
-            ),
-          );
-        }
+        openCallScreen(callId);
         return;
       }
 
@@ -66,34 +71,14 @@ Future<void> joinVisioCall({
 
       if (callData != null && callData.status == CallStatus.pending) {
         await controller.joinPendingCall(callId, callData);
-        if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => VideoCallScreen(
-                callId: callId,
-                convId: convId,
-                visioMessageId: messageId,
-              ),
-            ),
-          );
-        }
+        openCallScreen(callId);
         return;
       }
 
       // L'appel existe dans un autre état (accepted, ended) → on tente de le rejoindre.
       if (callData != null) {
         await controller.acceptCall(callId, callData: callData);
-        if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => VideoCallScreen(
-                callId: callId,
-                convId: convId,
-                visioMessageId: messageId,
-              ),
-            ),
-          );
-        }
+        openCallScreen(callId);
       }
       return;
     }
@@ -107,17 +92,7 @@ Future<void> joinVisioCall({
 
     if (existingCall != null) {
       await controller.acceptCall(existingCall.id, callData: existingCall);
-      if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => VideoCallScreen(
-              callId: existingCall.id,
-              convId: convId,
-              visioMessageId: messageId,
-            ),
-          ),
-        );
-      }
+      openCallScreen(existingCall.id);
       return;
     }
 
@@ -129,17 +104,7 @@ Future<void> joinVisioCall({
       calleeName: otherName,
     );
     final newCallId = ref.read(videoCallControllerProvider).call?.id;
-    if (newCallId != null && context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => VideoCallScreen(
-            callId: newCallId,
-            convId: convId,
-            visioMessageId: messageId,
-          ),
-        ),
-      );
-    }
+    if (newCallId != null) openCallScreen(newCallId);
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
