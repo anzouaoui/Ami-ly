@@ -21,6 +21,31 @@ class ContractService {
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
+  /// Valeur affichée dans le PDF pour un champ non renseigné.
+  static const _placeholder = '………';
+
+  static const _contractTypeEngagement = 'engagement';
+  static const _contractTypeCdi = 'cdi';
+
+  /// Statuts d'un contrat encore en cours de création / signature.
+  static final _inProgressStatuses = [
+    ContractStatus.draft.name,
+    ContractStatus.pendingParent.name,
+    ContractStatus.pendingAssmat.name,
+  ];
+
+  // Styles de texte du PDF.
+  static const _body = pw.TextStyle(fontSize: 9);
+  static const _bodyBold =
+      pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold);
+  static const _bodyItalic =
+      pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic);
+  static const _subheading =
+      pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold);
+
+  static String _orPlaceholder(String value) =>
+      value.isNotEmpty ? value : _placeholder;
+
   CollectionReference<Map<String, dynamic>> get _contracts =>
       _firestore.collection('contracts');
 
@@ -35,7 +60,7 @@ class ContractService {
     final existing = await _contracts
         .where('parentUid', isEqualTo: parentUid)
         .where('assmatUid', isEqualTo: assmatUid)
-        .where('status', whereIn: [ContractStatus.draft.name, ContractStatus.pendingParent.name, ContractStatus.pendingAssmat.name])
+        .where('status', whereIn: _inProgressStatuses)
         .limit(1)
         .get();
 
@@ -55,7 +80,15 @@ class ContractService {
   }
 
   /// Génère le PDF du contrat avec les données du formulaire.
-  Future<List<int>> generateContractPdf(ContractFormData data, {String contractType = 'engagement'}) async {
+  ///
+  /// [contractType] : `'engagement'` (engagement réciproque), `'cdi'`, ou
+  /// toute autre valeur pour un contrat générique.
+  Future<List<int>> generateContractPdf(
+    ContractFormData data, {
+    String contractType = _contractTypeEngagement,
+  }) async {
+    final isEngagement = contractType == _contractTypeEngagement;
+    final isCdi = contractType == _contractTypeCdi;
     final doc = pw.Document();
 
     doc.addPage(
@@ -63,9 +96,9 @@ class ContractService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(50),
         build: (context) => [
-          _buildHeader(contractType == 'engagement'),
+          _buildHeader(isEngagement),
           pw.SizedBox(height: 24),
-          if (contractType == 'cdi') ...[
+          if (isCdi) ...[
             _buildCdiSectionTitle('Entre le particulier employeur :'),
             _buildCdiEmployeurSection(data),
           ] else
@@ -80,7 +113,7 @@ class ContractService {
               _row('Email', data.emailEmployeur),
             ]),
           pw.SizedBox(height: 16),
-          if (contractType == 'cdi') ...[
+          if (isCdi) ...[
             _buildCdiSectionTitle('Entre le salarié :'),
             _buildCdiSalarieSection(data),
           ] else
@@ -94,7 +127,7 @@ class ContractService {
               _row('Email', data.emailSalarie),
             ]),
           pw.SizedBox(height: 16),
-          if (contractType == 'cdi') ...[
+          if (isCdi) ...[
             _buildCdiEngagementSection(),
             pw.SizedBox(height: 16),
             _buildCdiLieuTravailSection(),
@@ -154,7 +187,7 @@ class ContractService {
           ]),
           pw.SizedBox(height: 32),
           pw.Paragraph(
-            text: contractType == 'engagement'
+            text: isEngagement
                 ? 'Fait pour servir et valoir ce que de droit.\n'
                     'Document généré par Ami-ly — signature électronique.'
                 : 'Fait pour servir et valoir ce que de droit, dans le cadre d\'un contrat de travail à durée indéterminée.\n'
@@ -329,7 +362,7 @@ class ContractService {
           'et de l\'emploi à domicile. Le salarié est informé de la possibilité '
           'de consulter le texte de la Convention collective nationale sur le '
           'site internet www.legifrance.gouv.fr.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 12),
@@ -347,7 +380,7 @@ class ContractService {
           '→ Ircem prévoyance\n'
           'Toutes deux domiciliées: 261 avenue des Nations-Unies – BP 593 – '
           '59060 ROUBAIX Cedex',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
       ],
     );
@@ -361,7 +394,7 @@ class ContractService {
         pw.SizedBox(height: 8),
         pw.Text(
           'Le lieu de travail et d\'accueil de l\'enfant est exclusivement fixé :',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
         _checkboxRow('Au domicile du salarié'),
@@ -385,22 +418,20 @@ class ContractService {
         pw.SizedBox(width: 8),
         pw.Text(
           label,
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
       ],
     );
   }
 
   pw.Widget _buildCdiDateEffetSection(ContractFormData data) {
-    final childNom = data.nomEnfant.isNotEmpty ? data.nomEnfant : '………';
+    final childNom = _orPlaceholder(data.nomEnfant);
     final childPrenom = data.childFirstName.isNotEmpty
         ? data.childFirstName
-        : data.prenomEnfant.isNotEmpty
-            ? data.prenomEnfant
-            : '………';
+        : _orPlaceholder(data.prenomEnfant);
     final childDateNaissance =
-        data.dateNaissanceEnfant.isNotEmpty ? data.dateNaissanceEnfant : '………';
-    final dateDebut = data.dateDebut.isNotEmpty ? data.dateDebut : '………';
+        _orPlaceholder(data.dateNaissanceEnfant);
+    final dateDebut = _orPlaceholder(data.dateDebut);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -410,88 +441,67 @@ class ContractService {
         pw.SizedBox(height: 8),
         pw.Text(
           'Le présent contrat est établi pour l\'accueil de l\'enfant :',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
-        pw.Row(
-          children: [
-            pw.SizedBox(width: 30, child: pw.Text('Nom :',
-                style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
-            pw.Text(childNom,
-                style: const pw.TextStyle(fontSize: 9)),
-          ],
-        ),
+        _childInfoRow('Nom :', childNom),
         pw.SizedBox(height: 3),
-        pw.Row(
-          children: [
-            pw.SizedBox(width: 30, child: pw.Text('Prénom :',
-                style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
-            pw.Text(childPrenom,
-                style: const pw.TextStyle(fontSize: 9)),
-          ],
-        ),
+        _childInfoRow('Prénom :', childPrenom),
         pw.SizedBox(height: 3),
-        pw.Row(
-          children: [
-            pw.SizedBox(width: 30, child: pw.Text('Né(e) le :',
-                style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
-            pw.Text(childDateNaissance,
-                style: const pw.TextStyle(fontSize: 9)),
-          ],
-        ),
+        _childInfoRow('Né(e) le :', childDateNaissance),
         pw.SizedBox(height: 8),
         pw.Text(
           'Il prendra effet à la date de l\'embauche, le $dateDebut, '
           'pour une durée indéterminée. '
           '(À compter du premier jour de la période d\'essai).',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 12),
         pw.Text(
           'Période d\'essai',
-          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          style: _subheading,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           '(Articles 44-1 du socle commun et 95-1 du socle spécifique '
           '« assistant maternel » de la convention collective).',
-          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+          style: _bodyItalic,
         ),
         pw.SizedBox(height: 6),
-        _cdiField('Durée de la période d\'essai :', data.periodeEssai.isNotEmpty ? data.periodeEssai : '………'),
+        _cdiField('Durée de la période d\'essai :', data.periodeEssai),
         pw.SizedBox(height: 6),
         pw.Text(
           'La période d\'essai ainsi que le délai de prévenance en cas de '
           'rupture durant la période d\'essai sont facultatifs.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 12),
         pw.Text(
           'Période d\'adaptation',
-          style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          style: _subheading,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           '(Article 94 du socle spécifique « assistant maternel » de la '
           'convention collective).',
-          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+          style: _bodyItalic,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
           'La période d\'adaptation débute le premier jour de travail effectif, '
           'pour une durée maximale de 30 jours calendaires.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Les parties conviennent d\'une période d\'adaptation de '
-          '${data.dureeAdaptation.isNotEmpty ? data.dureeAdaptation : '………'} '
+          '${_orPlaceholder(data.dureeAdaptation)} '
           'jours calendaires, organisée du '
-          '${data.dateDebutAdaptation.isNotEmpty ? data.dateDebutAdaptation : '………'} '
-          'au ${data.dateFinAdaptation.isNotEmpty ? data.dateFinAdaptation : '………'}.',
-          style: const pw.TextStyle(fontSize: 9),
+          '${_orPlaceholder(data.dateDebutAdaptation)} '
+          'au ${_orPlaceholder(data.dateFinAdaptation)}.',
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
@@ -500,9 +510,19 @@ class ContractService {
           'd\'essai, le salarié sera rémunéré sur la base du salaire mensuel '
           'du présent contrat duquel sera déduite la rémunération des heures '
           'de travail non effectué.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
+      ],
+    );
+  }
+
+  /// Ligne « libellé : valeur » de l'identité de l'enfant (section 3).
+  pw.Widget _childInfoRow(String label, String value) {
+    return pw.Row(
+      children: [
+        pw.SizedBox(width: 30, child: pw.Text(label, style: _bodyBold)),
+        pw.Text(value, style: _body),
       ],
     );
   }
@@ -510,9 +530,9 @@ class ContractService {
   pw.Widget _buildCdiDureeHorairesAccueilSection(ContractFormData data) {
     final is52Semaines = data.semainesAn == '52';
     final is46OuMoins = data.semainesAn.isNotEmpty && data.semainesAn != '52';
-    final heureParSem = data.heuresParSemaine.isNotEmpty ? data.heuresParSemaine : '………';
-    final nbSem = data.nombreSemainesAn.isNotEmpty ? data.nombreSemainesAn : '………';
-    final delaiPrev = data.delaiPrevenance.isNotEmpty ? data.delaiPrevenance : '………';
+    final heureParSem = _orPlaceholder(data.heuresParSemaine);
+    final nbSem = _orPlaceholder(data.nombreSemainesAn);
+    final delaiPrev = _orPlaceholder(data.delaiPrevenance);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -523,12 +543,12 @@ class ContractService {
         pw.Text(
           '(Articles 97-1, 97-2 et 98-1-1 du socle spécifique '
           '« assistant maternel » de la convention collective).',
-          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+          style: _bodyItalic,
         ),
         pw.SizedBox(height: 8),
         pw.Text(
           'L\'enfant sera accueilli (au choix) :',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
         _checkboxRow(
@@ -539,30 +559,26 @@ class ContractService {
         pw.SizedBox(height: 12),
         pw.Text(
           'Cas n°1 :',
-          style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+          style: _bodyBold,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Le salarié travaille $heureParSem heures / semaine réparties comme suit :',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
-        _buildSimpleTable(['Jours de travail', 'Horaires de travail', 'Nombre d\'heures']),
+        _buildSimpleTable(_scheduleTableHeaders),
         pw.SizedBox(height: 6),
         pw.Text(
           'Les parties conviennent de la possibilité de modifier les éléments '
           'mentionnés ci-dessus, sous réserve du respect d\'un délai de '
           'prévenance de $delaiPrev semaines calendaires. '
           '(À définir entre les parties.)',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
-        pw.Text(
-          'La durée maximale de travail est fixée à 48 heures par semaine, '
-          'calculée sur une moyenne de 4 mois.',
-          style: const pw.TextStyle(fontSize: 9),
-        ),
+        pw.Text(_maxWeeklyHoursNotice, style: _body),
         pw.SizedBox(height: 12),
         _checkboxRow(
           'Accueil de l\'enfant sur 46 semaines ou moins (hors congés, '
@@ -572,29 +588,29 @@ class ContractService {
         pw.SizedBox(height: 12),
         pw.Text(
           'Cas n°2 :',
-          style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+          style: _bodyBold,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Le salarié accueille l\'enfant pendant $nbSem semaines. '
           '(Préciser le nombre de semaines de garde effective sur '
           'les 12 mois consécutifs.)',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Le salarié travaille $heureParSem heures et ……… jours par semaine :',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
-        _buildSimpleTable(['Jours de travail', 'Horaires de travail', 'Nombre d\'heures']),
+        _buildSimpleTable(_scheduleTableHeaders),
         pw.SizedBox(height: 6),
         pw.Text(
           'Les parties conviennent de la possibilité de modifier les éléments '
           'mentionnés ci-dessus, sous réserve du respect d\'un délai de '
           'prévenance de $delaiPrev semaines calendaires '
           '(à définir entre les parties).',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
           textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
@@ -608,14 +624,20 @@ class ContractService {
             checked: true,
           ),
         pw.SizedBox(height: 4),
-        pw.Text(
-          'La durée maximale de travail est fixée à 48 heures par semaine, '
-          'calculée sur une moyenne de 4 mois.',
-          style: const pw.TextStyle(fontSize: 9),
-        ),
+        pw.Text(_maxWeeklyHoursNotice, style: _body),
       ],
     );
   }
+
+  static const _scheduleTableHeaders = [
+    'Jours de travail',
+    'Horaires de travail',
+    'Nombre d\'heures',
+  ];
+
+  static const _maxWeeklyHoursNotice =
+      'La durée maximale de travail est fixée à 48 heures par semaine, '
+      'calculée sur une moyenne de 4 mois.';
 
   pw.Widget _buildSimpleTable(List<String> headers) {
     return pw.Container(
@@ -649,14 +671,14 @@ class ContractService {
   }
 
   pw.Widget _buildCdiRemunerationSection(ContractFormData data) {
-    final salaireBrut = data.salaireHoraire.isNotEmpty ? data.salaireHoraire : '………';
-    final salaireNet = data.salaireHoraireNet.isNotEmpty ? data.salaireHoraireNet : '………';
-    final salaireBrutMajore = data.salaireBrutBaseMajore.isNotEmpty ? data.salaireBrutBaseMajore : '………';
-    final salaireNetMajore = data.salaireNetBaseMajore.isNotEmpty ? data.salaireNetBaseMajore : '………';
-    final tauxMajore = data.tauxHoraireBrutMajore.isNotEmpty ? data.tauxHoraireBrutMajore : '………';
+    final salaireBrut = _orPlaceholder(data.salaireHoraire);
+    final salaireNet = _orPlaceholder(data.salaireHoraireNet);
+    final salaireBrutMajore = _orPlaceholder(data.salaireBrutBaseMajore);
+    final salaireNetMajore = _orPlaceholder(data.salaireNetBaseMajore);
+    final tauxMajore = _orPlaceholder(data.tauxHoraireBrutMajore);
     final is52Sem = data.semainesAn == '52';
-    final mensuelBrut = data.salaireMensuel.isNotEmpty ? data.salaireMensuel : '………';
-    final mensuelNet = data.salaireMensuelNet.isNotEmpty ? data.salaireMensuelNet : '………';
+    final mensuelBrut = _orPlaceholder(data.salaireMensuel);
+    final mensuelNet = _orPlaceholder(data.salaireMensuelNet);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -664,12 +686,12 @@ class ContractService {
         _buildCdiSectionTitle('5. Rémunération à la date d\'embauche'),
         pw.SizedBox(height: 10),
         pw.Text('Salaire horaire de base',
-            style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+            style: _subheading),
         pw.SizedBox(height: 6),
         pw.Text(
           'Salaire horaire brut de base : $salaireBrut€  '
           'Salaire horaire net de base : $salaireNet€',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
@@ -679,13 +701,13 @@ class ContractService {
           'Les heures complémentaires peuvent donner lieu à une majoration '
           'de salaire, sur décision écrite des parties prévue dans le contrat '
           'de travail (article 110-2 de la convention collective).',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
           'Salaire horaire brut de base majoré : $salaireBrutMajore€  '
           'Salaire horaire net de base majoré : $salaireNetMajore€',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
@@ -695,15 +717,15 @@ class ContractService {
           'horaire brut majoré de $tauxMajore% (ce taux ne pouvant '
           'être inférieur à 10% selon l\'article 110-1 de la convention '
           'collective).',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 12),
         pw.Text('Salaire mensuel de base',
-            style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+            style: _subheading),
         pw.SizedBox(height: 6),
         pw.Text(
           is52Sem ? 'Cas n°1 :' : 'Cas n°2 :',
-          style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+          style: _bodyBold,
         ),
         pw.SizedBox(height: 3),
         pw.Text(
@@ -712,7 +734,7 @@ class ContractService {
                   'sur une période de 12 mois consécutifs'
               : 'Accueil de l\'enfant 46 semaines ou moins, hors congés, '
                   'sur une période de 12 mois consécutifs',
-          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+          style: _bodyItalic,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
@@ -723,17 +745,17 @@ class ContractService {
               : 'Le salaire mensuel brut est calculé de la façon suivante : '
                   'salaire horaire brut × nombre d\'heures de travail '
                   'hebdomadaire × nombre de semaines programmées ÷ 12 mois',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
           'Salaire mensuel brut de base : $mensuelBrut€  '
           'Salaire mensuel net de base : $mensuelNet€',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 10),
         pw.Text('Régularisation prévisionnelle',
-            style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+            style: _subheading),
         pw.SizedBox(height: 4),
         pw.Text(
           'Selon l\'article 109-2 de la convention collective, une '
@@ -743,14 +765,14 @@ class ContractService {
           'aux salaires qui auraient dû être versés en application du contrat '
           'de travail, au titre des heures réellement effectuées. Cette '
           'régularisation est établie par un écrit, signé par les parties.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Au cours de l\'exécution du contrat de travail, les '
           'régularisations prévisionnelles annuelles se compensent entre '
           'elles et n\'entraînent pas de règlement.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
@@ -758,56 +780,54 @@ class ContractService {
           'de la régularisation sont déclarées et font l\'objet d\'un '
           'règlement dans les conditions prévues à l\'article 56 du socle '
           'commun de la convention collective.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
       ],
     );
   }
 
   pw.Widget _buildCdiIndemnitesSection(ContractFormData data) {
-    final indemniteEntretien = data.indemniteEntretienMontant.isNotEmpty
-        ? data.indemniteEntretienMontant : '………';
-    final indemniteJourHeures = data.indemniteEntretienJourHeures.isNotEmpty
-        ? data.indemniteEntretienJourHeures : '………';
-    final repasMontant = data.repasMontant.isNotEmpty ? data.repasMontant : '………';
-    final fraisKm = data.fraisDeplacementKm.isNotEmpty ? data.fraisDeplacementKm : '………';
-    final paiementJour = data.paiementJour.isNotEmpty ? data.paiementJour : '………';
+    final indemniteEntretien = _orPlaceholder(data.indemniteEntretienMontant);
+    final indemniteJourHeures = _orPlaceholder(data.indemniteEntretienJourHeures);
+    final repasMontant = _orPlaceholder(data.repasMontant);
+    final fraisKm = _orPlaceholder(data.fraisDeplacementKm);
+    final paiementJour = _orPlaceholder(data.paiementJour);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text('Indemnités d\'entretien, frais de repas et indemnités de déplacement',
-            style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+            style: _subheading),
         pw.SizedBox(height: 8),
         pw.Text('Indemnités d\'entretien',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           'Le montant horaire de cette indemnité est prévu dans le contrat '
           'de travail. Il varie en fonction de la durée de travail effectif, '
           'sans pouvoir être inférieur à 90% du minimum garanti lorsque la '
           'durée de travail journalière est de neuf (9) heures.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Quel que soit le nombre d\'heures de travail effectif par jour '
           'de travail, le montant journalier de cette indemnité ne peut pas '
           'être inférieur à 2,65 €.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           'Pour une journée de $indemniteJourHeures heures, le montant '
           'horaire de l\'indemnité d\'entretien est de $indemniteEntretien €.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 8),
         pw.Text('Frais de repas',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text('Les repas sont fournis par (cocher la mention utile) :',
-            style: const pw.TextStyle(fontSize: 9)),
+            style: _body),
         pw.SizedBox(height: 3),
         _checkboxRow(
           'Le particulier employeur sur une base de $repasMontant €/repas.',
@@ -820,16 +840,16 @@ class ContractService {
         ),
         pw.SizedBox(height: 8),
         pw.Text('Frais de déplacement',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           '$fraisKm €/km (ne peut être ni inférieur au barème de '
           'l\'administration ni supérieur au barème fiscal).',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 8),
         pw.Text('Indemnité de fin de contrat',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           'En fin de CDI, en cas de retrait d\'enfant, l\'employeur doit '
@@ -839,17 +859,17 @@ class ContractService {
           'soumises à contributions et cotisations sociales telles que '
           'l\'indemnité kilométrique, l\'indemnité d\'entretien et les frais '
           'de repas).',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 8),
         pw.Text('Date de paiement du salaire',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           'La rémunération mensuelle (y compris les indemnités d\'entretien, '
           'et le cas échéant les indemnités de repas et de déplacement), '
           'est versée au salarié le $paiementJour de chaque mois.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 4),
         if (data.pajemploiPlus)
@@ -881,7 +901,7 @@ class ContractService {
           ),
           pw.Expanded(
             child: pw.Text(
-              value.isNotEmpty ? value : '………',
+              _orPlaceholder(value),
               style: const pw.TextStyle(
                 fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
@@ -894,7 +914,7 @@ class ContractService {
   }
 
   pw.Widget _buildCdiReposHebdomadaireSection(ContractFormData data) {
-    final reposJour = data.reposHebdoJour.isNotEmpty ? data.reposHebdoJour : '………';
+    final reposJour = _orPlaceholder(data.reposHebdoJour);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -904,14 +924,14 @@ class ContractService {
         pw.Text(
           'La période de repos hebdomadaire du salarié est fixée au : '
           '$reposJour auquel s\'ajoute le repos quotidien de 11 heures.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 6),
         pw.Text(
           'Cependant, l\'enfant peut exceptionnellement être confié au '
           'salarié, avec son accord écrit. Les parties conviennent alors '
           'que le travail pendant la période de repos hebdomadaire est :',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         _checkboxRow(
@@ -928,7 +948,7 @@ class ContractService {
   }
 
   pw.Widget _buildCdiJoursFeriesSection(ContractFormData data) {
-    final jfMajoration = data.jfMajoration.isNotEmpty ? data.jfMajoration : '………';
+    final jfMajoration = _orPlaceholder(data.jfMajoration);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -936,7 +956,7 @@ class ContractService {
         _buildCdiSectionTitle('7. Jours fériés'),
         pw.SizedBox(height: 8),
         pw.Text('Le 1er mai sera (cocher la mention utile) :',
-            style: const pw.TextStyle(fontSize: 9)),
+            style: _body),
         pw.SizedBox(height: 4),
         _checkboxRow(
           'chômé. Le paiement du jour férié est inclus dans la mensualisation.',
@@ -951,7 +971,7 @@ class ContractService {
         ),
         pw.SizedBox(height: 10),
         pw.Text('Les jours fériés ordinaires travaillés (cocher les cases correspondantes) :',
-            style: const pw.TextStyle(fontSize: 9)),
+            style: _body),
         pw.SizedBox(height: 4),
         _buildCdiJfCheckboxRow('1er janvier', data.jfTravaille1erJanvier),
         _buildCdiJfCheckboxRow('Vendredi Saint (Alsace-Moselle uniquement)', data.jfTravailleVendrediSaint),
@@ -971,7 +991,7 @@ class ContractService {
           'Le jour férié chômé qui tombe un jour habituellement travaillé '
           'par le salarié est rémunéré dans les conditions prévues par '
           'l\'article 47-2 du socle commun de la convention collective.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
@@ -980,7 +1000,7 @@ class ContractService {
           'majorée de $jfMajoration% (taux de majoration ne pouvant être '
           'inférieur à 10%), calculée sur la base du salaire habituel '
           'fixé au présent contrat.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
       ],
     );
@@ -1004,11 +1024,11 @@ class ContractService {
         pw.Text(
           '(Article 48-1-1 du socle commun et 102-1 et 102-2 du socle '
           'spécifique « assistant maternel » de la convention collective)',
-          style: const pw.TextStyle(fontSize: 9, fontStyle: pw.FontStyle.italic),
+          style: _bodyItalic,
         ),
         pw.SizedBox(height: 6),
         pw.Text('Prise des congés annuels',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           'Les congés payés annuels doivent être pris. Lorsque le salarié '
@@ -1020,13 +1040,13 @@ class ContractService {
           'alors les dates de ses congés annuels par écrit à chacun de '
           'ses particuliers employeurs, au plus tard le 1er mars de chaque '
           'année, répartis comme suit :',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text('→ 4 semaines pendant la période du 1er mai au 31 octobre de l\'année;',
-            style: const pw.TextStyle(fontSize: 9)),
+            style: _body),
         pw.Text('→ 1 semaine en hiver.',
-            style: const pw.TextStyle(fontSize: 9)),
+            style: _body),
         pw.SizedBox(height: 4),
         pw.Text(
           'Lorsque le salarié travaille pour un seul particulier employeur, '
@@ -1038,15 +1058,15 @@ class ContractService {
           '48-1-1-1 du socle commun de la convention collective, il '
           'bénéficie de congés complémentaires non rémunérés pour lui '
           'permettre de bénéficier d\'un repos annuel de 30 jours ouvrables.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 8),
         pw.Text('Indemnité de congés annuels',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           is52Sem ? 'Cas n°1 :' : 'Cas n°2 :',
-          style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+          style: _bodyBold,
         ),
         pw.SizedBox(height: 3),
         pw.Text(
@@ -1057,7 +1077,7 @@ class ContractService {
                   'sont pris, en lieu et place de la rémunération.'
               : 'Accueil de l\'enfant 46 semaines ou moins, hors congés, '
                   'sur une période de 12 mois consécutifs.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         if (!is52Sem) ...[
           pw.SizedBox(height: 4),
@@ -1066,11 +1086,11 @@ class ContractService {
             'payés pour l\'année de référence écoulée, calculée au 31 mai '
             'de chaque année, s\'ajoute au salaire mensuel de base prévu '
             'au présent contrat.',
-            style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+            style: _body, textAlign: pw.TextAlign.justify,
           ),
           pw.SizedBox(height: 4),
           pw.Text('Elle est versée (à choisir) :',
-              style: const pw.TextStyle(fontSize: 9)),
+              style: _body),
           pw.SizedBox(height: 3),
           _checkboxRow('soit en une seule fois au mois de juin.',
               checked: data.congesVersement == 'juin'),
@@ -1085,19 +1105,19 @@ class ContractService {
         ],
         pw.SizedBox(height: 8),
         pw.Text('Rémunération de l\'indemnité de congés payés',
-            style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            style: _bodyBold),
         pw.SizedBox(height: 4),
         pw.Text(
           'L\'indemnité de congés payés est calculée par comparaison entre '
           'les méthodes suivantes, étant précisé que le montant le plus '
           'avantageux pour le salarié sera retenu :',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
         pw.Text(
           '→ La rémunération brute que le salarié aurait perçue pour une '
           'durée de travail égale à celle du congé payé.',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 2),
         pw.Text(
@@ -1107,7 +1127,7 @@ class ContractService {
           'la période de référence pour l\'acquisition des congés payés à '
           'rémunérer, y compris celle versée au titre des congés payés '
           'pris au cours de ladite période.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
       ],
     );
@@ -1124,7 +1144,7 @@ class ContractService {
           'informations personnelles transmises entre elles dans le cadre '
           'de l\'exécution du présent contrat. Elles prennent les mesures '
           'nécessaires pour garantir cette confidentialité.',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
       ],
     );
@@ -1144,15 +1164,15 @@ class ContractService {
           'l\'accueil ou l\'accompagnement des enfants accueillis, adaptées '
           'à leur situation (activités conseillées ou à proscrire, '
           'utilisation d\'un cahier de liaison, présence d\'animaux …) :',
-          style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+          style: _body, textAlign: pw.TextAlign.justify,
         ),
         pw.SizedBox(height: 4),
-        pw.Text(conditions, style: const pw.TextStyle(fontSize: 9)),
+        pw.Text(conditions, style: _body),
         pw.SizedBox(height: 6),
         pw.Text(
           '→ Les documents à joindre au contrat de travail '
           '(article 90-4 de la convention collective) :',
-          style: const pw.TextStyle(fontSize: 9),
+          style: _body,
         ),
         pw.SizedBox(height: 2),
         pw.Text('https://www.legifrance.gouv.fr',
@@ -1162,8 +1182,8 @@ class ContractService {
   }
 
   pw.Widget _buildCdiSignaturesSection(ContractFormData data) {
-    final faitA = data.faitA.isNotEmpty ? data.faitA : '………';
-    final faitLe = data.faitLe.isNotEmpty ? data.faitLe : '………';
+    final faitA = _orPlaceholder(data.faitA);
+    final faitLe = _orPlaceholder(data.faitLe);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1175,48 +1195,18 @@ class ContractService {
             'Le présent contrat est établi en deux exemplaires. Un '
             'exemplaire est remis au salarié et l\'autre est conservé par '
             'le particulier employeur.',
-            style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.justify,
+            style: _body, textAlign: pw.TextAlign.justify,
           ),
         ),
         pw.SizedBox(height: 6),
         pw.Text('Fait à : $faitA     Le : $faitLe',
-            style: const pw.TextStyle(fontSize: 9)),
+            style: _body),
         pw.SizedBox(height: 20),
         pw.Row(
           children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('Signature du particulier employeur',
-                      style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                  pw.SizedBox(height: 4),
-                  pw.Text('(précédée de « Lu et approuvé »)',
-                      style: const pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic)),
-                  pw.SizedBox(height: 40),
-                  pw.Container(
-                    height: 1, color: PdfColors.grey400,
-                  ),
-                ],
-              ),
-            ),
+            _signatureColumn('Signature du particulier employeur'),
             pw.SizedBox(width: 30),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('Signature de l\'assistant maternel',
-                      style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                  pw.SizedBox(height: 4),
-                  pw.Text('(précédée de « Lu et approuvé »)',
-                      style: const pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic)),
-                  pw.SizedBox(height: 40),
-                  pw.Container(
-                    height: 1, color: PdfColors.grey400,
-                  ),
-                ],
-              ),
-            ),
+            _signatureColumn('Signature de l\'assistant maternel'),
           ],
         ),
         pw.SizedBox(height: 16),
@@ -1230,7 +1220,7 @@ class ContractService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text('Avec Pajemploi+ :',
-                  style: const pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                  style: _bodyBold),
               pw.SizedBox(height: 2),
               pw.Text(
                 'Simplifiez vos démarches en choisissant de confier à '
@@ -1247,6 +1237,28 @@ class ContractService {
           ),
         ),
       ],
+    );
+  }
+
+  /// Colonne de signature : intitulé, mention « Lu et approuvé », ligne.
+  pw.Widget _signatureColumn(String title) {
+    return pw.Expanded(
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(title, style: _bodyBold),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            '(précédée de « Lu et approuvé »)',
+            style: const pw.TextStyle(
+              fontSize: 8,
+              fontStyle: pw.FontStyle.italic,
+            ),
+          ),
+          pw.SizedBox(height: 40),
+          pw.Container(height: 1, color: PdfColors.grey400),
+        ],
+      ),
     );
   }
 
@@ -1298,16 +1310,13 @@ class ContractService {
   }
 
   /// Calcule le hash SHA-256 du PDF.
+  ///
+  /// NB : le hash porte sur l'encodage base64 du PDF, et l'implémentation
+  /// maison [_SHA256] ne suit pas exactement la norme (cf. test de
+  /// caractérisation). Ne pas modifier sans migrer les hash déjà stockés.
   String computePdfHash(List<int> pdfBytes) {
-    final bytes = utf8.encode(base64.encode(pdfBytes));
-    final hash = _sha256(bytes);
-    return hash;
-  }
-
-  String _sha256(List<int> bytes) {
-    final sha = _SHA256();
-    sha.update(bytes);
-    return sha.digest();
+    final base64Bytes = utf8.encode(base64.encode(pdfBytes));
+    return (_SHA256()..update(base64Bytes)).digest();
   }
 
   /// Upload le PDF vers Firebase Storage.
@@ -1315,7 +1324,16 @@ class ContractService {
     required String contractId,
     required List<int> pdfBytes,
   }) async {
-    final ref = _storage.ref('contracts/$contractId/contrat_engagement.pdf');
+    return _uploadPdfTo(
+      'contracts/$contractId/contrat_engagement.pdf',
+      pdfBytes,
+    );
+  }
+
+  /// Dépose [pdfBytes] à [path] dans Storage et retourne l'URL de
+  /// téléchargement.
+  Future<String> _uploadPdfTo(String path, List<int> pdfBytes) async {
+    final ref = _storage.ref(path);
     await ref.putData(Uint8List.fromList(pdfBytes));
     return await ref.getDownloadURL();
   }
@@ -1337,7 +1355,7 @@ class ContractService {
     String pdfHash = '',
     String? ipAddress,
     String method = 'typed_name',
-    String contractType = 'engagement',
+    String contractType = _contractTypeEngagement,
   }) async {
     final now = DateTime.now().toIso8601String();
     final data = formData.toJson();
@@ -1387,7 +1405,7 @@ class ContractService {
   Future<void> generateFinalizedPdf({
     required String contractId,
     required ContractFormData formData,
-    String contractType = 'engagement',
+    String contractType = _contractTypeEngagement,
   }) async {
     final doc = await _contracts.doc(contractId).get();
     final data = doc.data();
@@ -1397,12 +1415,13 @@ class ContractService {
     final assmatSigned = data['assmatSignedAt'] as String?;
     if (parentSigned == null || assmatSigned == null) return;
 
-    final pdfBytes = await generateContractPdf(formData, contractType: contractType);
+    final pdfBytes =
+        await generateContractPdf(formData, contractType: contractType);
     final hash = computePdfHash(pdfBytes);
-
-    final ref = _storage.ref('contracts/$contractId/contrat_finalise.pdf');
-    await ref.putData(Uint8List.fromList(pdfBytes));
-    final pdfUrl = await ref.getDownloadURL();
+    final pdfUrl = await _uploadPdfTo(
+      'contracts/$contractId/contrat_finalise.pdf',
+      pdfBytes,
+    );
 
     await _contracts.doc(contractId).update({
       'finalPdfUrl': pdfUrl,
@@ -1437,20 +1456,18 @@ class ContractService {
         .where('parentUid', isEqualTo: parentUid)
         .where('assmatUid', isEqualTo: assmatUid)
         .where('status', whereIn: [
-          ContractStatus.draft.name,
-          ContractStatus.pendingParent.name,
-          ContractStatus.pendingAssmat.name,
+          ..._inProgressStatuses,
           ContractStatus.active.name,
         ])
         .limit(1)
         .get();
-        
+
     if (existing.docs.isEmpty) return null;
-    
+
     final doc = existing.docs.first;
     final data = doc.data();
     final contractData = data['contractData'] as Map<String, dynamic>?;
-    
+
     if (contractData == null) return null;
     
     return (
@@ -1461,99 +1478,13 @@ class ContractService {
     );
   }
 
+  /// Désérialise un brouillon. Contrairement à [ContractFormData.fromJson],
+  /// `enfant.childId` n'est pas relu (comportement historique conservé).
   static ContractFormData _parseContractFormData(Map<String, dynamic> json) {
-    final employer = json['employeur'] as Map<String, dynamic>? ?? {};
-    final salarie = json['salarie'] as Map<String, dynamic>? ?? {};
-    final enfant = json['enfant'] as Map<String, dynamic>? ?? {};
-    final contrat = json['contrat'] as Map<String, dynamic>? ?? {};
-
-    return ContractFormData(
-      civiliteEmployeur: employer['civilite'] as String? ?? '',
-      typeEmployeur: employer['type'] as String? ?? '',
-      nomEmployeur: employer['nom'] as String? ?? '',
-      nomNaissanceEmployeur: employer['nomNaissance'] as String? ?? '',
-      nomUsageEmployeur: employer['nomUsage'] as String? ?? '',
-      prenomEmployeur: employer['prenom'] as String? ?? '',
-      adresseEmployeur: employer['adresse'] as String? ?? '',
-      villeEmployeur: employer['ville'] as String? ?? '',
-      cpEmployeur: employer['cp'] as String? ?? '',
-      telEmployeur: employer['telephone'] as String? ?? '',
-      emailEmployeur: employer['email'] as String? ?? '',
-      pajemploiNo: employer['pajemploiNo'] as String? ?? '',
-      idccCode: employer['idccCode'] as String? ?? '3239',
-      civiliteSalarie: salarie['civilite'] as String? ?? '',
-      nomSalarie: salarie['nom'] as String? ?? '',
-      nomNaissanceSalarie: salarie['nomNaissance'] as String? ?? '',
-      nomUsageSalarie: salarie['nomUsage'] as String? ?? '',
-      prenomSalarie: salarie['prenom'] as String? ?? '',
-      adresseSalarie: salarie['adresse'] as String? ?? '',
-      villeSalarie: salarie['ville'] as String? ?? '',
-      cpSalarie: salarie['cp'] as String? ?? '',
-      telSalarie: salarie['telephone'] as String? ?? '',
-      emailSalarie: salarie['email'] as String? ?? '',
-      securiteSocialeNo: salarie['securiteSocialeNo'] as String? ?? '',
-      agrementRef: salarie['agrementRef'] as String? ?? '',
-      agrementDate: salarie['agrementDate'] as String? ?? '',
-      assuranceRcPro: salarie['assuranceRcPro'] as String? ?? '',
-      assuranceRcProPoliceNo: salarie['assuranceRcProPoliceNo'] as String? ?? '',
-      assuranceAuto: salarie['assuranceAuto'] as String? ?? '',
-      assuranceAutoPoliceNo: salarie['assuranceAutoPoliceNo'] as String? ?? '',
-      childFirstName: enfant['prenom'] as String? ?? '',
-      prenomEnfant: enfant['prenomComplet'] as String? ?? '',
-      nomEnfant: enfant['nom'] as String? ?? '',
-      dateNaissanceEnfant: enfant['dateNaissance'] as String? ?? '',
-      dateDebut: contrat['dateDebut'] as String? ?? '',
-      dateEmbauche: contrat['dateEmbauche'] as String? ?? '',
-      finContrat: contrat['finContrat'] as String? ?? '',
-      periodeEssai: contrat['periodeEssai'] as String? ?? '',
-      dureeAdaptation: contrat['dureeAdaptation'] as String? ?? '',
-      dateDebutAdaptation: contrat['dateDebutAdaptation'] as String? ?? '',
-      dateFinAdaptation: contrat['dateFinAdaptation'] as String? ?? '',
-      heuresSemaine: contrat['heuresSemaine'] as String? ?? '',
-      heuresMois: contrat['heuresMois'] as String? ?? '',
-      semainesAn: contrat['semainesAn'] as String? ?? '',
-      salaireMensuel: contrat['salaireMensuel'] as String? ?? '',
-      salaireHoraire: contrat['salaireHoraire'] as String? ?? '',
-      salaireHoraireNet: contrat['salaireHoraireNet'] as String? ?? '',
-      salaireBrutBaseMajore: contrat['salaireBrutBaseMajore'] as String? ?? '',
-      salaireNetBaseMajore: contrat['salaireNetBaseMajore'] as String? ?? '',
-      tauxHoraireBrutMajore: contrat['tauxHoraireBrutMajore'] as String? ?? '',
-      heuresParSemaine: contrat['heuresParSemaine'] as String? ?? '',
-      nombreSemainesAn: contrat['nombreSemainesAn'] as String? ?? '',
-      delaiPrevenance: contrat['delaiPrevenance'] as String? ?? '',
-      planningRemis: contrat['planningRemis'] as bool? ?? false,
-      salaireMensuelNet: contrat['salaireMensuelNet'] as String? ?? '',
-      indemniteEntretienMontant: contrat['indemniteEntretienMontant'] as String? ?? '',
-      indemniteEntretienJourHeures: contrat['indemniteEntretienJourHeures'] as String? ?? '',
-      repasFournisParEmployeur: contrat['repasFournisParEmployeur'] as bool? ?? false,
-      repasMontant: contrat['repasMontant'] as String? ?? '',
-      fraisDeplacementKm: contrat['fraisDeplacementKm'] as String? ?? '',
-      paiementJour: contrat['paiementJour'] as String? ?? '',
-      pajemploiPlus: contrat['pajemploiPlus'] as bool? ?? false,
-      reposHebdoJour: contrat['reposHebdoJour'] as String? ?? '',
-      reposTravailRemunere: contrat['reposTravailRemunere'] as bool? ?? false,
-      reposTravailRecupere: contrat['reposTravailRecupere'] as bool? ?? false,
-      premierMaiChome: contrat['premierMaiChome'] as bool? ?? false,
-      premierMaiTravaille: contrat['premierMaiTravaille'] as bool? ?? false,
-      jfTravaille1erJanvier: contrat['jfTravaille1erJanvier'] as bool? ?? false,
-      jfTravailleVendrediSaint: contrat['jfTravailleVendrediSaint'] as bool? ?? false,
-      jfTravailleLundiPaques: contrat['jfTravailleLundiPaques'] as bool? ?? false,
-      jfTravaille8Mai: contrat['jfTravaille8Mai'] as bool? ?? false,
-      jfTravailleAscension: contrat['jfTravailleAscension'] as bool? ?? false,
-      jfTravailleLundiPentecote: contrat['jfTravailleLundiPentecote'] as bool? ?? false,
-      jfTravailleAbolition: contrat['jfTravailleAbolition'] as bool? ?? false,
-      jfTravaille14Juillet: contrat['jfTravaille14Juillet'] as bool? ?? false,
-      jfTravaille15Aout: contrat['jfTravaille15Aout'] as bool? ?? false,
-      jfTravaille1erNovembre: contrat['jfTravaille1erNovembre'] as bool? ?? false,
-      jfTravaille11Novembre: contrat['jfTravaille11Novembre'] as bool? ?? false,
-      jfTravaille25Decembre: contrat['jfTravaille25Decembre'] as bool? ?? false,
-      jfTravaille26Decembre: contrat['jfTravaille26Decembre'] as bool? ?? false,
-      jfMajoration: contrat['jfMajoration'] as String? ?? '',
-      congesVersement: contrat['congesVersement'] as String? ?? '',
-      conditionsParticulieres: contrat['conditionsParticulieres'] as String? ?? '',
-      faitA: contrat['faitA'] as String? ?? '',
-      faitLe: contrat['faitLe'] as String? ?? '',
-    );
+    final enfant = Map<String, dynamic>.of(
+      json['enfant'] as Map<String, dynamic>? ?? const {},
+    )..remove('childId');
+    return ContractFormData.fromJson({...json, 'enfant': enfant});
   }
 
   /// Récupère l'adresse IP approximative via un service externe.
