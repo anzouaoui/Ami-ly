@@ -5,7 +5,9 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../data/models/match_suggestion.dart';
 import '../providers/matching_providers.dart';
+import 'match_suggestions_section.dart';
 
 /// Carte "Familles en recherche près de chez vous" pour le dashboard assmat.
 class AssmatMatchSuggestionsCard extends ConsumerWidget {
@@ -18,106 +20,21 @@ class AssmatMatchSuggestionsCard extends ConsumerWidget {
     return suggestions.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
-      data: (list) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppRadii.lg),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Header(onRefresh: () => triggerAssmatMatching(ref)),
-                if (list.isEmpty)
-                  const _EmptyState()
-                else
-                  ...list.take(5).map((s) => Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md, 0, AppSpacing.md, AppSpacing.md,
-                    ),
-                    child: _AssmatMatchCard(suggestion: s),
-                  )),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          const Icon(Icons.people_alt_outlined,
-              size: 20, color: AppColors.primary),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Familles en recherche près de chez vous',
-              style: AppTextStyles.titleMedium.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 32,
-            height: 32,
-            child: IconButton(
-              onPressed: onRefresh,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              padding: EdgeInsets.zero,
-              tooltip: 'Actualiser',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.people_outline_rounded,
-            size: 40,
-            color: AppColors.secondaryText,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Aucune famille trouvée',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Activez votre profil dans les paramètres pour apparaître dans les recherches.',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.secondaryText,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      data: (list) => MatchSuggestionsSection(
+        headerIcon: Icons.people_alt_outlined,
+        headerIconColor: AppColors.primary,
+        title: 'Familles en recherche près de chez vous',
+        onRefresh: () => triggerAssmatMatching(ref),
+        emptyState: const MatchSuggestionsEmptyState(
+          icon: Icons.people_outline_rounded,
+          title: 'Aucune famille trouvée',
+          message: 'Activez votre profil dans les paramètres pour apparaître '
+              'dans les recherches.',
+        ),
+        items: list
+            .take(kDashboardSuggestionsLimit)
+            .map((s) => _AssmatMatchCard(suggestion: s))
+            .toList(),
       ),
     );
   }
@@ -126,12 +43,11 @@ class _EmptyState extends StatelessWidget {
 class _AssmatMatchCard extends StatelessWidget {
   const _AssmatMatchCard({required this.suggestion});
 
-  // ignore: unused_element
-  final dynamic suggestion;
+  final MatchSuggestion suggestion;
 
   @override
   Widget build(BuildContext context) {
-    final reasons = suggestion.reasons as List;
+    final reasons = suggestion.reasons;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -154,11 +70,11 @@ class _AssmatMatchCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-            Text(
-              'Familles en recherche près de chez vous',
-              style: AppTextStyles.titleMedium.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+                  Text(
+                    'Familles en recherche près de chez vous',
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (suggestion.distanceKm != null)
                     Text(
