@@ -46,6 +46,11 @@ class InAppSignatureWidget extends StatefulWidget {
 }
 
 class _InAppSignatureWidgetState extends State<InAppSignatureWidget> {
+  /// Texte affiché à côté de la case à cocher ET enregistré dans l'audit de
+  /// signature : les deux doivent rester identiques.
+  static const _consentText = 'Je reconnais avoir pris connaissance du contrat '
+      "d'engagement réciproque et l'accepter sans réserve.";
+
   bool _consentChecked = false;
   final _nameController = TextEditingController();
 
@@ -68,15 +73,16 @@ class _InAppSignatureWidgetState extends State<InAppSignatureWidget> {
 
     final result = SignatureResult(
       signedName: _nameController.text.trim(),
-      consentText:
-          'Je reconnais avoir pris connaissance du contrat '
-          "d'engagement réciproque et l'accepter sans réserve.",
+      consentText: _consentText,
     );
     widget.onSigned(result);
   }
 
   @override
   Widget build(BuildContext context) {
+    final nameStatusColor =
+        _nameMatches ? AppColors.success : AppColors.accent;
+
     return Column(
       children: [
         Container(
@@ -156,9 +162,7 @@ class _InAppSignatureWidgetState extends State<InAppSignatureWidget> {
                                   ? Icons.check_circle
                                   : Icons.error_outline,
                               size: 14,
-                              color: _nameMatches
-                                  ? AppColors.success
-                                  : AppColors.accent,
+                              color: nameStatusColor,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -166,9 +170,7 @@ class _InAppSignatureWidgetState extends State<InAppSignatureWidget> {
                                   ? 'Nom correct'
                                   : 'Le nom ne correspond pas',
                               style: AppTextStyles.labelSmall.copyWith(
-                                color: _nameMatches
-                                    ? AppColors.success
-                                    : AppColors.accent,
+                                color: nameStatusColor,
                               ),
                             ),
                           ],
@@ -186,8 +188,7 @@ class _InAppSignatureWidgetState extends State<InAppSignatureWidget> {
                   value: _consentChecked,
                   onChanged: (v) => setState(() => _consentChecked = v ?? false),
                   title: Text(
-                    "Je reconnais avoir pris connaissance du contrat "
-                    "d'engagement réciproque et l'accepter sans réserve.",
+                    _consentText,
                     style: AppTextStyles.labelSmall.copyWith(
                       color: AppColors.primaryText,
                     ),

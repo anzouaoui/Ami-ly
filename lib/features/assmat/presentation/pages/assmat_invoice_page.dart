@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
 import 'assmat_home_page.dart';
 
 class AssMatInvoicePage extends StatefulWidget {
@@ -677,10 +678,6 @@ class _NewInvoiceSheetState extends State<_NewInvoiceSheet> {
     'Famille Dupont – Lucas Dupont',
     'Famille Leroy – Emma Leroy',
   ];
-  static const _moisOptions = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ];
 
   @override
   void dispose() {
@@ -768,7 +765,7 @@ class _NewInvoiceSheetState extends State<_NewInvoiceSheet> {
                                 .copyWith(color: AppColors.hint)),
                         icon: const Icon(Icons.keyboard_arrow_down_rounded,
                             color: AppColors.secondaryText),
-                        items: _moisOptions
+                        items: frenchMonthNamesCapitalized
                             .map((m) =>
                                 DropdownMenuItem(value: m, child: Text(m)))
                             .toList(),
@@ -992,7 +989,7 @@ class _NewPromesseSheetState extends State<_NewPromesseSheet> {
     );
     if (picked != null) {
       ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          formatDayMonthYear(picked);
       setState(() {});
     }
   }

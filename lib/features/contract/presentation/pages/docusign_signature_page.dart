@@ -54,14 +54,42 @@ class _DocusignSignaturePageState extends State<DocusignSignaturePage> {
       ..loadRequest(Uri.parse(widget.signingUrl));
   }
 
+  /// Notifie [DocusignSignaturePage.onSigned] (une seule fois) quand DocuSign
+  /// redirige vers une URL de fin de signature. Couvre aussi le callback
+  /// `docusign-callback?event=signing_complete`.
   void _checkUrlForCompletion(String url) {
-    if (url.contains('signing_complete') ||
-        url.contains('docusign-callback') && url.contains('event=signing_complete')) {
-      if (!_isCompleted) {
-        _isCompleted = true;
-        widget.onSigned();
-      }
+    if (_isCompleted || !url.contains('signing_complete')) return;
+    _isCompleted = true;
+    widget.onSigned();
+  }
+
+  void _onClosePressed() {
+    if (_isCompleted) {
+      Navigator.of(context).pop();
+      return;
     }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Annuler la signature ?'),
+        content: const Text(
+          'Si vous quittez maintenant, la signature ne sera pas complétée.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Continuer'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Quitter'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -71,34 +99,7 @@ class _DocusignSignaturePageState extends State<DocusignSignaturePage> {
         title: const Text('Signature'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () {
-            if (!_isCompleted) {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Annuler la signature ?'),
-                  content: const Text(
-                    'Si vous quittez maintenant, la signature ne sera pas complétée.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Continuer'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Quitter'),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              Navigator.of(context).pop();
-            }
-          },
+          onPressed: _onClosePressed,
         ),
       ),
       body: Stack(

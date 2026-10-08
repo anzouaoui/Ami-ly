@@ -4,6 +4,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import 'assmat_home_page.dart';
 import 'assmat_time_sheet_page.dart';
 
@@ -15,10 +17,6 @@ const _kChildren = <String>[];
 
 const _kWeekdays = [
   'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'
-];
-const _kMonths = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -38,7 +36,7 @@ class _AssMatDayJourneyPageState extends State<AssMatDayJourneyPage> {
   void _nextDay() => setState(() => _date = _date.add(const Duration(days: 1)));
 
   String get _dateLabel =>
-      '${_kWeekdays[_date.weekday - 1]} ${_date.day} ${_kMonths[_date.month - 1]} ${_date.year}';
+      '${_kWeekdays[_date.weekday - 1]} ${_date.day} ${frenchMonthNames[_date.month - 1]} ${_date.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -320,7 +318,7 @@ class _DayJourneyContentState extends State<_DayJourneyContent> {
     if (picked != null) {
       setState(() {
         ctrl.text =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+            formatClock(picked.hour, picked.minute);
       });
     }
   }
@@ -740,12 +738,7 @@ class _DayJourneyContentState extends State<_DayJourneyContent> {
               const SizedBox(height: AppSpacing.sm),
               // Upload zone
               GestureDetector(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ajout de photos — à venir'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                ),
+                onTap: () => showComingSoon(context, 'Ajout de photos'),
                 child: CustomPaint(
                   painter: _DashedBorderPainter(
                     color: AppColors.divider,
@@ -991,43 +984,6 @@ class _FieldLabel extends StatelessWidget {
         color: AppColors.secondaryText,
         fontWeight: FontWeight.w500,
       ),
-    );
-  }
-}
-
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    this.warningWhenOn = false,
-  });
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool warningWhenOn;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: warningWhenOn && value
-                  ? AppColors.error
-                  : AppColors.primaryText,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeColor: warningWhenOn ? AppColors.error : AppColors.primary,
-        ),
-      ],
     );
   }
 }

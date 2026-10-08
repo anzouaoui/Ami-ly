@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/services/firebase_service.dart';
+import '../../../core/utils/french_date_format.dart';
 import '../../../shared/models/conversation_model.dart';
 import '../../../shared/models/message_model.dart';
 
@@ -31,18 +32,21 @@ class MessagingDatasource {
   // ── Conversations ──────────────────────────────────────────────────────────
 
   Stream<List<ConversationModel>> watchConversationsForParent(
-      String parentUid) {
-    return _firebase.conversationsCollection
-        .where('parentUid', isEqualTo: parentUid)
-        .orderBy('lastMessageAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map(ConversationModel.fromFirestore).toList());
-  }
+          String parentUid) =>
+      _watchConversationsWhere('parentUid', parentUid);
 
   Stream<List<ConversationModel>> watchConversationsForAssmat(
-      String assmatUid) {
+          String assmatUid) =>
+      _watchConversationsWhere('assmatUid', assmatUid);
+
+  /// Conversations dont [field] vaut [uid], de la plus récente à la plus
+  /// ancienne.
+  Stream<List<ConversationModel>> _watchConversationsWhere(
+    String field,
+    String uid,
+  ) {
     return _firebase.conversationsCollection
-        .where('assmatUid', isEqualTo: assmatUid)
+        .where(field, isEqualTo: uid)
         .orderBy('lastMessageAt', descending: true)
         .snapshots()
         .map((s) => s.docs.map(ConversationModel.fromFirestore).toList());
@@ -130,14 +134,14 @@ class MessagingDatasource {
     });
 
     // 2. Résumé conversation : lastMessage + incrément non-lus du destinataire
-    batch.update(convRef, {
-      'lastMessage': text,
-      'lastMessageAt': Timestamp.fromDate(now),
-      if (senderIsParent)
-        'unreadAssmat': FieldValue.increment(1)
-      else
-        'unreadParent': FieldValue.increment(1),
-    });
+    batch.update(
+      convRef,
+      _conversationSummaryUpdate(
+        lastMessage: text,
+        sentAt: now,
+        senderIsParent: senderIsParent,
+      ),
+    );
 
     await batch.commit();
   }
@@ -153,8 +157,8 @@ class MessagingDatasource {
     final msgRef = _firebase.messagesCollection(convId).doc();
     final convRef = _firebase.conversationDoc(convId);
 
-    final day = '${visioDate.day} ${_monthName(visioDate.month)} ${visioDate.year}';
-    final hour = '${visioDate.hour.toString().padLeft(2, '0')}:${visioDate.minute.toString().padLeft(2, '0')}';
+    final day = formatFrenchLongDate(visioDate);
+    final hour = formatHourMinute(visioDate);
     final text = '📹 Visio proposée le $day à $hour';
 
     final batch = _firebase.firestore.batch();
@@ -168,14 +172,14 @@ class MessagingDatasource {
       'visioStatus': 'pending',
     });
 
-    batch.update(convRef, {
-      'lastMessage': text,
-      'lastMessageAt': Timestamp.fromDate(now),
-      if (senderIsParent)
-        'unreadAssmat': FieldValue.increment(1)
-      else
-        'unreadParent': FieldValue.increment(1),
-    });
+    batch.update(
+      convRef,
+      _conversationSummaryUpdate(
+        lastMessage: text,
+        sentAt: now,
+        senderIsParent: senderIsParent,
+      ),
+    );
 
     await batch.commit();
   }
@@ -196,25 +200,16 @@ class MessagingDatasource {
     final convRef = _firebase.conversationDoc(convId);
 
     final actor = responderIsParent ? 'le parent' : "l\u0027assistante maternelle";
-    final String text;
-    switch (status) {
-      case VisioStatus.accepted:
-        text = 'Visio acceptée par $actor';
-      case VisioStatus.refused:
-        text = 'Visio refusée par $actor';
-      case VisioStatus.completed:
-        text = 'Visio terminée par $actor';
-      case VisioStatus.match:
-        text = 'Match validé par $actor';
-      case VisioStatus.reflection:
-        text = 'En réflexion par $actor';
-      case VisioStatus.rejected:
-        text = 'Match refusé par $actor';
-      case VisioStatus.expired:
-        text = 'Proposition de visio expirée';
-      default:
-        text = 'Visio : $status';
-    }
+    final text = switch (status) {
+      VisioStatus.accepted => 'Visio acceptée par $actor',
+      VisioStatus.refused => 'Visio refusée par $actor',
+      VisioStatus.completed => 'Visio terminée par $actor',
+      VisioStatus.match => 'Match validé par $actor',
+      VisioStatus.reflection => 'En réflexion par $actor',
+      VisioStatus.rejected => 'Match refusé par $actor',
+      VisioStatus.expired => 'Proposition de visio expirée',
+      _ => 'Visio : $status',
+    };
 
     final batch = _firebase.firestore.batch();
 
@@ -237,24 +232,33 @@ class MessagingDatasource {
     batch.set(newMsgRef, msgData);
 
     // 2. Résumé conversation
-    batch.update(convRef, {
-      'lastMessage': text,
-      'lastMessageAt': Timestamp.fromDate(now),
-      if (responderIsParent)
-        'unreadAssmat': FieldValue.increment(1)
-      else
-        'unreadParent': FieldValue.increment(1),
-    });
+    batch.update(
+      convRef,
+      _conversationSummaryUpdate(
+        lastMessage: text,
+        sentAt: now,
+        senderIsParent: responderIsParent,
+      ),
+    );
 
     await batch.commit();
   }
 
-  String _monthName(int m) {
-    const months = [
-      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-    ];
-    return months[m - 1];
+  /// Champs de résumé mis à jour à chaque nouveau message : dernier message,
+  /// date, et incrément du compteur de non-lus du destinataire.
+  Map<String, dynamic> _conversationSummaryUpdate({
+    required String lastMessage,
+    required DateTime sentAt,
+    required bool senderIsParent,
+  }) {
+    return {
+      'lastMessage': lastMessage,
+      'lastMessageAt': Timestamp.fromDate(sentAt),
+      if (senderIsParent)
+        'unreadAssmat': FieldValue.increment(1)
+      else
+        'unreadParent': FieldValue.increment(1),
+    };
   }
 
   /// Remet à zéro le compteur de non-lus pour l'utilisateur qui ouvre le fil.

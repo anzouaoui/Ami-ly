@@ -12,6 +12,8 @@ import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/address_suggestion.dart';
+import '../../../../core/utils/french_date_format.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/parent_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -246,15 +248,6 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
     final child = _children[index];
     if (child.id != null) _deletedChildIds.add(child.id!);
     setState(() => _children.removeAt(index));
-  }
-
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   Future<void> _changePhoto() async {
@@ -508,9 +501,9 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
 
           // ── Données personnelles (RGPD) ─────────────────────────────────
           PersonalDataCard(
-            onDownload: () => _stub('Télécharger mes données'),
+            onDownload: () => showComingSoon(context, 'Télécharger mes données'),
             onDelete: _confirmDeleteAccount,
-            onPrivacyPolicy: () => _stub('Politique de confidentialité'),
+            onPrivacyPolicy: () => showComingSoon(context, 'Politique de confidentialité'),
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
@@ -539,7 +532,7 @@ class _ParentProfilePageState extends ConsumerState<ParentProfilePage> {
         ],
       ),
     );
-    if (ok == true && mounted) _stub('Compte supprimé');
+    if (ok == true && mounted) showComingSoon(context, 'Compte supprimé');
   }
 }
 
@@ -700,7 +693,7 @@ class _SignedDocumentsVault extends StatelessWidget {
           final signedAt = (data['finalizedAt'] as String?) ??
               (data['updatedAt'] as String?) ?? '';
           final subtitle = signedAt.isNotEmpty
-              ? 'Signé le ${_formatDate(signedAt)}'
+              ? 'Signé le ${formatIsoDayMonthYear(signedAt)}'
               : 'Signé';
 
           final pdfUrl = data['pdfUrl'] as String?;
@@ -783,14 +776,4 @@ class _SignedDocumentsVault extends StatelessWidget {
     );
   }
 
-  String _formatDate(String iso) {
-    try {
-      final dt = DateTime.parse(iso);
-      return '${dt.day.toString().padLeft(2, '0')}/'
-          '${dt.month.toString().padLeft(2, '0')}/'
-          '${dt.year}';
-    } catch (_) {
-      return iso;
-    }
-  }
 }

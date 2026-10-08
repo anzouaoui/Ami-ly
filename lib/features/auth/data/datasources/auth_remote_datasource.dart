@@ -18,10 +18,11 @@ class AuthRemoteDataSource {
   AuthRemoteDataSource(this._firebase);
   final FirebaseService _firebase;
 
+  static const _iosGoogleClientId =
+      '483499244920-jn0lbob4tq6chlnevr7kdog48ak4ae9g.apps.googleusercontent.com';
+
   final _googleSignIn = GoogleSignIn(
-    clientId: Platform.isIOS
-        ? '483499244920-jn0lbob4tq6chlnevr7kdog48ak4ae9g.apps.googleusercontent.com'
-        : null,
+    clientId: Platform.isIOS ? _iosGoogleClientId : null,
   );
 
   Stream<User?> authStateChanges() => _firebase.authStateChanges;
@@ -66,7 +67,7 @@ class AuthRemoteDataSource {
       if (uid == null) {
         throw AuthException('Connexion échouée : aucun utilisateur retourné.');
       }
-      return fetchUserProfile(uid);
+      return await fetchUserProfile(uid);
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapAuthError(e));
     }
@@ -110,21 +111,12 @@ class AuthRemoteDataSource {
       await _firebase.userDoc(user.uid).set(model.toFirestore());
 
       // 2. Sous-document profil étendu selon le rôle.
-      if (role == UserRole.parent) {
-        final profile = ParentProfileModel.initial(
-          uid: user.uid,
-          firstName: firstName ?? '',
-          lastName: lastName ?? '',
-        );
-        await _firebase.parentDoc(user.uid).set(profile.toFirestore());
-      } else {
-        final profile = AssmatProfileModel.initial(
-          uid: user.uid,
-          firstName: firstName ?? '',
-          lastName: lastName ?? '',
-        );
-        await _firebase.assmatDoc(user.uid).set(profile.toFirestore());
-      }
+      await _createRoleProfile(
+        uid: user.uid,
+        role: role,
+        firstName: firstName ?? '',
+        lastName: lastName ?? '',
+      );
 
       return model;
     } on FirebaseAuthException catch (e) {
@@ -160,10 +152,7 @@ class AuthRemoteDataSource {
         'address': address,
         'familyDescription': familyDescription,
         'searchPaused': searchPaused,
-        if (clearLocation)
-          'location': FieldValue.delete()
-        else if (location != null)
-          'location': location,
+        ..._clearableField('location', location, clear: clearLocation),
         'updatedAt': DateTime.now(),
       });
     } on FirebaseException catch (e) {
@@ -174,18 +163,12 @@ class AuthRemoteDataSource {
   /// Upload une image de profil parent dans Firebase Storage et retourne l'URL
   /// de téléchargement publique.
   Future<String> uploadParentPhoto(String uid, File imageFile) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('parents/$uid/profile_photo.jpg');
-      final task = await ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      return await task.ref.getDownloadURL();
-    } on FirebaseException catch (e) {
-      throw FirestoreException(e.message ?? 'Erreur lors de l\'upload de la photo.');
-    }
+    return _uploadFile(
+      path: 'parents/$uid/profile_photo.jpg',
+      file: imageFile,
+      contentType: 'image/jpeg',
+      errorMessage: 'Erreur lors de l\'upload de la photo.',
+    );
   }
 
   /// Met à jour le champ `photoUrl` dans Firestore.
@@ -285,14 +268,12 @@ class AuthRemoteDataSource {
         'availableSlots': availableSlots,
         'services': services,
         'schedules': schedules,
-        if (clearLocation)
-          'location': FieldValue.delete()
-        else if (location != null)
-          'location': location,
-        if (clearAvailableFrom)
-          'availableFrom': FieldValue.delete()
-        else if (availableFrom != null)
-          'availableFrom': Timestamp.fromDate(availableFrom),
+        ..._clearableField('location', location, clear: clearLocation),
+        ..._clearableField(
+          'availableFrom',
+          _timestampOrNull(availableFrom),
+          clear: clearAvailableFrom,
+        ),
         'updatedAt': DateTime.now(),
         // Nouveaux champs
         'tobacco': tobacco,
@@ -301,14 +282,16 @@ class AuthRemoteDataSource {
         'diplomas': diplomas,
         'parcoursProfessionnel': parcoursProfessionnel,
         'accreditationNumber': accreditationNumber,
-        if (clearAccreditationExpiry)
-          'accreditationExpiry': FieldValue.delete()
-        else if (accreditationExpiry != null)
-          'accreditationExpiry': Timestamp.fromDate(accreditationExpiry),
-        if (clearAccreditationPhotoUrl)
-          'accreditationPhotoUrl': FieldValue.delete()
-        else if (accreditationPhotoUrl != null)
-          'accreditationPhotoUrl': accreditationPhotoUrl,
+        ..._clearableField(
+          'accreditationExpiry',
+          _timestampOrNull(accreditationExpiry),
+          clear: clearAccreditationExpiry,
+        ),
+        ..._clearableField(
+          'accreditationPhotoUrl',
+          accreditationPhotoUrl,
+          clear: clearAccreditationPhotoUrl,
+        ),
         'pmiCode': pmiCode,
         'isAccreditationCertified': isAccreditationCertified,
         'specialities': specialities,
@@ -326,32 +309,38 @@ class AuthRemoteDataSource {
         // Vérification d'identité & conformité
         if (identityDocumentType != null)
           'identityDocumentType': identityDocumentType,
-        if (clearIdentityDocumentUrl)
-          'identityDocumentUrl': FieldValue.delete()
-        else if (identityDocumentUrl != null)
-          'identityDocumentUrl': identityDocumentUrl,
-        if (clearIdentityDocumentUrlBack)
-          'identityDocumentUrlBack': FieldValue.delete()
-        else if (identityDocumentUrlBack != null)
-          'identityDocumentUrlBack': identityDocumentUrlBack,
-        if (clearIdentityDocumentExpiry)
-          'identityDocumentExpiry': FieldValue.delete()
-        else if (identityDocumentExpiry != null)
-          'identityDocumentExpiry': Timestamp.fromDate(identityDocumentExpiry),
-        if (clearCriminalRecordUrl)
-          'criminalRecordUrl': FieldValue.delete()
-        else if (criminalRecordUrl != null)
-          'criminalRecordUrl': criminalRecordUrl,
-        if (clearCriminalRecordUploadedAt)
-          'criminalRecordUploadedAt': FieldValue.delete()
-        else if (criminalRecordUploadedAt != null)
-          'criminalRecordUploadedAt': Timestamp.fromDate(criminalRecordUploadedAt),
+        ..._clearableField(
+          'identityDocumentUrl',
+          identityDocumentUrl,
+          clear: clearIdentityDocumentUrl,
+        ),
+        ..._clearableField(
+          'identityDocumentUrlBack',
+          identityDocumentUrlBack,
+          clear: clearIdentityDocumentUrlBack,
+        ),
+        ..._clearableField(
+          'identityDocumentExpiry',
+          _timestampOrNull(identityDocumentExpiry),
+          clear: clearIdentityDocumentExpiry,
+        ),
+        ..._clearableField(
+          'criminalRecordUrl',
+          criminalRecordUrl,
+          clear: clearCriminalRecordUrl,
+        ),
+        ..._clearableField(
+          'criminalRecordUploadedAt',
+          _timestampOrNull(criminalRecordUploadedAt),
+          clear: clearCriminalRecordUploadedAt,
+        ),
         if (isIdentityVerified != null)
           'isIdentityVerified': isIdentityVerified,
-        if (clearIdentityVerifiedAt)
-          'identityVerifiedAt': FieldValue.delete()
-        else if (identityVerifiedAt != null)
-          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt),
+        ..._clearableField(
+          'identityVerifiedAt',
+          _timestampOrNull(identityVerifiedAt),
+          clear: clearIdentityVerifiedAt,
+        ),
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(
@@ -401,71 +390,82 @@ class AuthRemoteDataSource {
       await _firebase.assmatDoc(uid).update({
         if (identityDocumentType != null)
           'identityDocumentType': identityDocumentType,
-        if (clearIdentityDocumentUrl)
-          'identityDocumentUrl': FieldValue.delete()
-        else if (identityDocumentUrl != null)
-          'identityDocumentUrl': identityDocumentUrl,
-        if (clearIdentityDocumentUrlBack)
-          'identityDocumentUrlBack': FieldValue.delete()
-        else if (identityDocumentUrlBack != null)
-          'identityDocumentUrlBack': identityDocumentUrlBack,
-        if (clearIdentityDocumentExpiry)
-          'identityDocumentExpiry': FieldValue.delete()
-        else if (identityDocumentExpiry != null)
-          'identityDocumentExpiry': Timestamp.fromDate(identityDocumentExpiry),
-        if (clearIdentityDocumentNumber)
-          'identityDocumentNumber': FieldValue.delete()
-        else if (identityDocumentNumber != null)
-          'identityDocumentNumber': identityDocumentNumber,
-        if (clearIdentityDocumentFirstName)
-          'identityDocumentFirstName': FieldValue.delete()
-        else if (identityDocumentFirstName != null)
-          'identityDocumentFirstName': identityDocumentFirstName,
-        if (clearIdentityDocumentLastName)
-          'identityDocumentLastName': FieldValue.delete()
-        else if (identityDocumentLastName != null)
-          'identityDocumentLastName': identityDocumentLastName,
-        if (clearIdentityDocumentBirthDate)
-          'identityDocumentBirthDate': FieldValue.delete()
-        else if (identityDocumentBirthDate != null)
-          'identityDocumentBirthDate':
-              Timestamp.fromDate(identityDocumentBirthDate),
+        ..._clearableField(
+          'identityDocumentUrl',
+          identityDocumentUrl,
+          clear: clearIdentityDocumentUrl,
+        ),
+        ..._clearableField(
+          'identityDocumentUrlBack',
+          identityDocumentUrlBack,
+          clear: clearIdentityDocumentUrlBack,
+        ),
+        ..._clearableField(
+          'identityDocumentExpiry',
+          _timestampOrNull(identityDocumentExpiry),
+          clear: clearIdentityDocumentExpiry,
+        ),
+        ..._clearableField(
+          'identityDocumentNumber',
+          identityDocumentNumber,
+          clear: clearIdentityDocumentNumber,
+        ),
+        ..._clearableField(
+          'identityDocumentFirstName',
+          identityDocumentFirstName,
+          clear: clearIdentityDocumentFirstName,
+        ),
+        ..._clearableField(
+          'identityDocumentLastName',
+          identityDocumentLastName,
+          clear: clearIdentityDocumentLastName,
+        ),
+        ..._clearableField(
+          'identityDocumentBirthDate',
+          _timestampOrNull(identityDocumentBirthDate),
+          clear: clearIdentityDocumentBirthDate,
+        ),
         if (accreditationNumber != null)
           'accreditationNumber': accreditationNumber,
-        if (clearAccreditationExpiry)
-          'accreditationExpiry': FieldValue.delete()
-        else if (accreditationExpiry != null)
-          'accreditationExpiry': Timestamp.fromDate(accreditationExpiry),
-        if (clearAccreditationPhotoUrl)
-          'accreditationPhotoUrl': FieldValue.delete()
-        else if (accreditationPhotoUrl != null)
-          'accreditationPhotoUrl': accreditationPhotoUrl,
+        ..._clearableField(
+          'accreditationExpiry',
+          _timestampOrNull(accreditationExpiry),
+          clear: clearAccreditationExpiry,
+        ),
+        ..._clearableField(
+          'accreditationPhotoUrl',
+          accreditationPhotoUrl,
+          clear: clearAccreditationPhotoUrl,
+        ),
         if (isAccreditationCertified != null)
           'isAccreditationCertified': isAccreditationCertified,
-        if (clearCriminalRecordUrl)
-          'criminalRecordUrl': FieldValue.delete()
-        else if (criminalRecordUrl != null)
-          'criminalRecordUrl': criminalRecordUrl,
-        if (clearCriminalRecordUploadedAt)
-          'criminalRecordUploadedAt': FieldValue.delete()
-        else if (criminalRecordUploadedAt != null)
-          'criminalRecordUploadedAt':
-              Timestamp.fromDate(criminalRecordUploadedAt),
+        ..._clearableField(
+          'criminalRecordUrl',
+          criminalRecordUrl,
+          clear: clearCriminalRecordUrl,
+        ),
+        ..._clearableField(
+          'criminalRecordUploadedAt',
+          _timestampOrNull(criminalRecordUploadedAt),
+          clear: clearCriminalRecordUploadedAt,
+        ),
         if (isIdentityVerified != null)
           'isIdentityVerified': isIdentityVerified,
-        if (clearIdentityVerifiedAt)
-          'identityVerifiedAt': FieldValue.delete()
-        else if (identityVerifiedAt != null)
-          'identityVerifiedAt': Timestamp.fromDate(identityVerifiedAt),
-        if (clearAccreditationDocExtractedNumber)
-          'accreditationDocExtractedNumber': FieldValue.delete()
-        else if (accreditationDocExtractedNumber != null)
-          'accreditationDocExtractedNumber': accreditationDocExtractedNumber,
-        if (clearAccreditationDocExtractedExpiry)
-          'accreditationDocExtractedExpiry': FieldValue.delete()
-        else if (accreditationDocExtractedExpiry != null)
-          'accreditationDocExtractedExpiry':
-              Timestamp.fromDate(accreditationDocExtractedExpiry),
+        ..._clearableField(
+          'identityVerifiedAt',
+          _timestampOrNull(identityVerifiedAt),
+          clear: clearIdentityVerifiedAt,
+        ),
+        ..._clearableField(
+          'accreditationDocExtractedNumber',
+          accreditationDocExtractedNumber,
+          clear: clearAccreditationDocExtractedNumber,
+        ),
+        ..._clearableField(
+          'accreditationDocExtractedExpiry',
+          _timestampOrNull(accreditationDocExtractedExpiry),
+          clear: clearAccreditationDocExtractedExpiry,
+        ),
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(
@@ -476,18 +476,12 @@ class AuthRemoteDataSource {
   /// Upload une image de profil assmat dans Firebase Storage et retourne l'URL
   /// de téléchargement publique.
   Future<String> uploadAssmatPhoto(String uid, File imageFile) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('assmats/$uid/profile_photo.jpg');
-      final task = await ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      return await task.ref.getDownloadURL();
-    } on FirebaseException catch (e) {
-      throw FirestoreException(e.message ?? 'Erreur lors de l\'upload de la photo.');
-    }
+    return _uploadFile(
+      path: 'assmats/$uid/profile_photo.jpg',
+      file: imageFile,
+      contentType: 'image/jpeg',
+      errorMessage: 'Erreur lors de l\'upload de la photo.',
+    );
   }
 
   /// Met à jour le champ `photoUrl` dans le document assmat Firestore.
@@ -502,7 +496,6 @@ class AuthRemoteDataSource {
     }
   }
 
-  /// Upload une photo d'agrément assmat dans Firebase Storage et retourne l'URL publique.
   /// Upload la photo/le document d'agrément PMI dans Firebase Storage et
   /// retourne l'URL publique. Le fichier peut être une image (JPEG/PNG),
   /// un PDF ou un Word (doc/docx).
@@ -511,36 +504,23 @@ class AuthRemoteDataSource {
     File file, {
     required String contentType,
   }) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('assmats/$uid/accreditation${_fileExtensionFor(contentType)}');
-      final task = await ref.putFile(
-        file,
-        SettableMetadata(contentType: contentType),
-      );
-      return await task.ref.getDownloadURL();
-    } on FirebaseException catch (e) {
-      throw FirestoreException(
-          e.message ?? 'Erreur lors de l\'upload de la photo d\'agrément.');
-    }
+    return _uploadFile(
+      path: 'assmats/$uid/accreditation${_fileExtensionFor(contentType)}',
+      file: file,
+      contentType: contentType,
+      errorMessage: 'Erreur lors de l\'upload de la photo d\'agrément.',
+    );
   }
 
   /// Upload une photo de domicile assmat dans Firebase Storage et retourne l'URL publique.
   Future<String> uploadHomePhoto(String uid, File imageFile) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('assmats/$uid/home_photos/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      final task = await ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      return await task.ref.getDownloadURL();
-    } on FirebaseException catch (e) {
-      throw FirestoreException(
-          e.message ?? 'Erreur lors de l\'upload de la photo de domicile.');
-    }
+    return _uploadFile(
+      path: 'assmats/$uid/home_photos/'
+          '${DateTime.now().millisecondsSinceEpoch}.jpg',
+      file: imageFile,
+      contentType: 'image/jpeg',
+      errorMessage: 'Erreur lors de l\'upload de la photo de domicile.',
+    );
   }
 
   /// Upload un document d'identité (CNI ou Passeport) dans Firebase Storage
@@ -554,22 +534,15 @@ class AuthRemoteDataSource {
     File imageFile, {
     String side = 'front',
   }) async {
-    try {
-      final filename = side == 'back'
-          ? 'identity_document_back.jpg'
-          : 'identity_document.jpg';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('assmats/$uid/$filename');
-      final task = await ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      return await task.ref.getDownloadURL();
-    } on FirebaseException catch (e) {
-      throw FirestoreException(
-          e.message ?? 'Erreur lors de l\'upload du document d\'identité.');
-    }
+    final filename = side == 'back'
+        ? 'identity_document_back.jpg'
+        : 'identity_document.jpg';
+    return _uploadFile(
+      path: 'assmats/$uid/$filename',
+      file: imageFile,
+      contentType: 'image/jpeg',
+      errorMessage: 'Erreur lors de l\'upload du document d\'identité.',
+    );
   }
 
   /// Upload un casier judiciaire (bulletin n°3) dans Firebase Storage
@@ -580,36 +553,59 @@ class AuthRemoteDataSource {
     File file, {
     required String contentType,
   }) async {
+    return _uploadFile(
+      path: 'assmats/$uid/criminal_record${_fileExtensionFor(contentType)}',
+      file: file,
+      contentType: contentType,
+      errorMessage: 'Erreur lors de l\'upload du casier judiciaire.',
+    );
+  }
+
+  /// Entrée d'un `update()` Firestore pour un champ effaçable : suppression
+  /// du champ si [clear], nouvelle valeur si [value] est non nul, sinon le
+  /// champ n'est pas modifié.
+  static Map<String, Object> _clearableField(
+    String key,
+    Object? value, {
+    required bool clear,
+  }) =>
+      {
+        if (clear) key: FieldValue.delete() else if (value != null) key: value,
+      };
+
+  static Timestamp? _timestampOrNull(DateTime? date) =>
+      date == null ? null : Timestamp.fromDate(date);
+
+  /// Dépose [file] à [path] dans Storage et retourne son URL de
+  /// téléchargement. Les erreurs Firebase sont converties en
+  /// [FirestoreException] ([errorMessage] si Firebase n'en fournit pas).
+  Future<String> _uploadFile({
+    required String path,
+    required File file,
+    required String contentType,
+    required String errorMessage,
+  }) async {
     try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('assmats/$uid/criminal_record${_fileExtensionFor(contentType)}');
+      final ref = FirebaseStorage.instance.ref().child(path);
       final task = await ref.putFile(
         file,
         SettableMetadata(contentType: contentType),
       );
       return await task.ref.getDownloadURL();
     } on FirebaseException catch (e) {
-      throw FirestoreException(
-          e.message ?? 'Erreur lors de l\'upload du casier judiciaire.');
+      throw FirestoreException(e.message ?? errorMessage);
     }
   }
 
   /// Extension de fichier associée au type MIME du document.
-  static String _fileExtensionFor(String contentType) {
-    switch (contentType) {
-      case 'application/pdf':
-        return '.pdf';
-      case 'application/msword':
-        return '.doc';
-      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        return '.docx';
-      case 'image/png':
-        return '.png';
-      default:
-        return '.jpg';
-    }
-  }
+  static String _fileExtensionFor(String contentType) => switch (contentType) {
+        'application/pdf' => '.pdf',
+        'application/msword' => '.doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' =>
+          '.docx',
+        'image/png' => '.png',
+        _ => '.jpg',
+      };
 
   Future<void> completeParentOnboarding({
     required String uid,
@@ -671,7 +667,10 @@ class AuthRemoteDataSource {
 
       // 5. Nouvel utilisateur Google.
       //    Si un rôle est fourni, on crée le profil Firestore immédiatement.
+      //    Pas d'await : une FirestoreException levée ici doit remonter
+      //    telle quelle, sans être convertie par le `catch (e)` ci-dessous.
       if (role != null) {
+        // ignore: unawaited_return_in_try_block
         return _createGoogleUserProfile(user: user, role: role);
       }
 
@@ -717,26 +716,42 @@ class AuthRemoteDataSource {
       final lastName =
           nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-      if (role == UserRole.parent) {
-        final profile = ParentProfileModel.initial(
-          uid: user.uid,
-          firstName: firstName,
-          lastName: lastName,
-        );
-        await _firebase.parentDoc(user.uid).set(profile.toFirestore());
-      } else {
-        final profile = AssmatProfileModel.initial(
-          uid: user.uid,
-          firstName: firstName,
-          lastName: lastName,
-        );
-        await _firebase.assmatDoc(user.uid).set(profile.toFirestore());
-      }
+      await _createRoleProfile(
+        uid: user.uid,
+        role: role,
+        firstName: firstName,
+        lastName: lastName,
+      );
 
       return model;
     } on FirebaseException catch (e) {
       throw FirestoreException(
           e.message ?? 'Erreur lors de la création du profil Google.');
+    }
+  }
+
+  /// Crée le profil étendu initial propre au rôle : `parents/{uid}` ou
+  /// `assmats/{uid}`.
+  Future<void> _createRoleProfile({
+    required String uid,
+    required UserRole role,
+    required String firstName,
+    required String lastName,
+  }) async {
+    if (role == UserRole.parent) {
+      final profile = ParentProfileModel.initial(
+        uid: uid,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      await _firebase.parentDoc(uid).set(profile.toFirestore());
+    } else {
+      final profile = AssmatProfileModel.initial(
+        uid: uid,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      await _firebase.assmatDoc(uid).set(profile.toFirestore());
     }
   }
 
@@ -758,24 +773,16 @@ class AuthRemoteDataSource {
   }
 
   /// Traduit les codes Firebase en messages lisibles côté UI.
-  String _mapAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-email':
-        return 'Adresse e-mail invalide.';
-      case 'user-disabled':
-        return 'Ce compte a été désactivé.';
-      case 'user-not-found':
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Identifiants incorrects.';
-      case 'email-already-in-use':
-        return 'Un compte existe déjà avec cet e-mail.';
-      case 'weak-password':
-        return 'Mot de passe trop faible (6 caractères minimum).';
-      case 'network-request-failed':
-        return 'Pas de connexion internet.';
-      default:
-        return e.message ?? 'Erreur d\'authentification.';
-    }
-  }
+  String _mapAuthError(FirebaseAuthException e) => switch (e.code) {
+        'invalid-email' => 'Adresse e-mail invalide.',
+        'user-disabled' => 'Ce compte a été désactivé.',
+        'user-not-found' ||
+        'wrong-password' ||
+        'invalid-credential' =>
+          'Identifiants incorrects.',
+        'email-already-in-use' => 'Un compte existe déjà avec cet e-mail.',
+        'weak-password' => 'Mot de passe trop faible (6 caractères minimum).',
+        'network-request-failed' => 'Pas de connexion internet.',
+        _ => e.message ?? 'Erreur d\'authentification.',
+      };
 }

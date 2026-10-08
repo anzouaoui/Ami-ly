@@ -47,11 +47,7 @@ Future<void> triggerParentMatching(WidgetRef ref) async {
 
   final childAges = children
       .where((c) => c.birthDate != null)
-      .map((c) {
-        final now = DateTime.now();
-        return ((now.year - c.birthDate!.year) * 12 +
-            now.month - c.birthDate!.month);
-      })
+      .map((c) => _ageInMonths(c.birthDate!))
       .toList();
 
   final datasource = ref.read(matchingDatasourceProvider);
@@ -60,6 +56,12 @@ Future<void> triggerParentMatching(WidgetRef ref) async {
     parentProfile: parentProfile,
     childAgesMonths: childAges,
   );
+}
+
+/// Âge en mois révolus (calendaires) à la date du jour.
+int _ageInMonths(DateTime birthDate) {
+  final now = DateTime.now();
+  return (now.year - birthDate.year) * 12 + now.month - birthDate.month;
 }
 
 /// Déclenche le calcul des suggestions de match pour l'assmat connectée.

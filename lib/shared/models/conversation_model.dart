@@ -33,6 +33,12 @@ class ConversationModel {
   static String buildId(String parentUid, String assmatUid) =>
       '${parentUid}_$assmatUid';
 
+  /// UID du parent d'un ID construit par [buildId].
+  static String parentUidOf(String convId) => convId.split('_').first;
+
+  /// UID de l'assmat d'un ID construit par [buildId].
+  static String assmatUidOf(String convId) => convId.split('_').last;
+
   factory ConversationModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {

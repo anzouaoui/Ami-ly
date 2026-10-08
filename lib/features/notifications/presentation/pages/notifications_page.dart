@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/notification_model.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/name_initials.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../assmat/presentation/pages/assmat_chat_page.dart';
 import '../../../assmat/presentation/pages/assmat_sign_contract_page.dart';
@@ -69,8 +70,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                       const SizedBox(height: 4),
                       notificationsAsync.when(
                         data: (notifications) {
-                          final unread =
-                              notifications.where((n) => !n.read).length;
+                          final unread = notifications.where(_isUnread).length;
                           return Text(
                             unread > 0
                                 ? '$unread non ${unread > 1 ? 'lues' : 'lue'}'
@@ -112,7 +112,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             child: notificationsAsync.when(
               data: (notifications) {
                 final filtered = _unreadOnly
-                    ? notifications.where((n) => !n.read).toList()
+                    ? notifications.where(_isUnread).toList()
                     : notifications;
                 if (filtered.isEmpty) {
                   return Center(
@@ -163,6 +163,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     );
   }
 
+  static bool _isUnread(NotificationModel notification) => !notification.read;
+
   void _onTap(NotificationModel notification) async {
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
@@ -178,12 +180,12 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       case NotificationType.newMessage:
       case NotificationType.visioProposalReceived:
       case NotificationType.visioProposalResponse:
-        await _navigateToConversation(notification, user);
+        await _navigateToConversation(notification, user.uid);
 
       case NotificationType.contractSignatureRequest:
       case NotificationType.contractSigned:
       case NotificationType.contractStatusChanged:
-        await _navigateToContract(notification, user);
+        await _navigateToContract(notification, user.uid);
 
       case NotificationType.childAdded:
       case NotificationType.availabilityUpdated:
@@ -195,7 +197,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   /// Navigue vers la conversation en chargeant les infos depuis Firestore.
   Future<void> _navigateToConversation(
-      NotificationModel notification, dynamic user) async {
+      NotificationModel notification, String currentUid) async {
     final convId = notification.conversationId;
     if (convId == null) return;
 
@@ -208,7 +210,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     if (!convDoc.exists || !mounted) return;
 
     final data = convDoc.data()!;
-    final isParent = data['parentUid'] == user.uid;
+    final isParent = data['parentUid'] == currentUid;
 
     if (isParent) {
       // Côté parent : navigue vers ParentChatPage
@@ -225,12 +227,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     } else {
       // Côté assmat : navigue vers AssMatChatPage
       final parentName = data['parentName'] as String? ?? 'Parent';
-      final initials = parentName
-          .split(' ')
-          .where((w) => w.isNotEmpty)
-          .take(2)
-          .map((w) => w[0].toUpperCase())
-          .join();
+      final initials = initialsOf(parentName);
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => AssMatChatPage(
@@ -244,7 +241,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   /// Navigue vers la page de contrat en chargeant les infos depuis Firestore.
   Future<void> _navigateToContract(
-      NotificationModel notification, dynamic user) async {
+      NotificationModel notification, String currentUid) async {
     final contractId = notification.contractId;
     if (contractId == null) return;
 
@@ -257,7 +254,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     if (!contractDoc.exists || !mounted) return;
 
     final data = contractDoc.data()!;
-    final isParent = data['parentUid'] == user.uid;
+    final isParent = data['parentUid'] == currentUid;
 
     if (isParent) {
       final assmatUid = data['assmatUid'] as String? ?? '';

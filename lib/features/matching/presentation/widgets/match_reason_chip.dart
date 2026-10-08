@@ -6,8 +6,10 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../shared/utils/assmat_display.dart';
 import '../../data/models/match_reason.dart';
 import '../../data/models/match_suggestion.dart';
+import '../helpers/match_display.dart';
 
 const _reasonConfig = <MatchReason, _ReasonConfig>{
   MatchReason.locationProximity: _ReasonConfig(
@@ -102,20 +104,13 @@ class MatchSuggestionCard extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback? onToggleFavorite;
 
-  /// Extrait la ville depuis l'adresse complète.
-  String _extractCity(String address) {
-    if (address.isEmpty) return '';
-    final parts = address.split(',');
-    return parts.last.trim();
-  }
-
   @override
   Widget build(BuildContext context) {
     final assmat = suggestion.assmatProfile;
-    final firstName = assmat != null ? assmat.firstName : '';
-    final name = firstName.isNotEmpty ? firstName : 'Assistante maternelle';
-    final initials = firstName.isNotEmpty ? firstName[0].toUpperCase() : '?';
-    final city = assmat != null ? _extractCity(assmat.address) : '';
+    final firstName = assmat?.firstName ?? '';
+    final name = assmatDisplayName(firstName);
+    final initials = firstNameInitial(firstName);
+    final city = assmat != null ? cityFromAddress(assmat.address) : '';
 
     return Material(
       color: Colors.transparent,

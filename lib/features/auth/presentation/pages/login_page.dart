@@ -7,6 +7,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
 import '../../../onboarding/presentation/pages/welcome_page.dart';
+import '../helpers/auth_form_helpers.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
@@ -28,13 +29,12 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage>
+    with AuthFormStateMixin<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool _loading = false;
   bool _obscurePassword = true;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -45,43 +45,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
-    final result = await ref.read(authRepositoryProvider).signInWithEmail(
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-        );
-
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _errorMessage = failure.message;
-        _loading = false;
-      }),
-      // Succès : l'AuthWrapper prendra le relai automatiquement via le stream.
-      (_) => setState(() => _loading = false),
+    // Succès : l'AuthWrapper prendra le relai automatiquement via le stream.
+    await runAuthAction(
+      () => ref.read(authRepositoryProvider).signInWithEmail(
+            email: _emailCtrl.text.trim(),
+            password: _passwordCtrl.text,
+          ),
     );
   }
 
   Future<void> _onGoogleTap() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
-    final result = await ref.read(authRepositoryProvider).signInWithGoogle();
-
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _errorMessage = failure.message;
-        _loading = false;
-      }),
-      (user) {
-        setState(() => _loading = false);
+    await runAuthAction(
+      () => ref.read(authRepositoryProvider).signInWithGoogle(),
+      onSuccess: (user) {
         if (user == null) {
           // Nouvel utilisateur Google : doit choisir son rôle.
           Navigator.of(context).pushAndRemoveUntil(
@@ -110,15 +86,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Dès que le stream émet un utilisateur connecté, on remonte à la racine
-    // pour laisser AuthWrapper afficher ParentShell / AssMatShell.
-    ref.listen(currentUserProvider, (_, next) {
-      next.whenData((user) {
-        if (user != null && mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-      });
-    });
+    popToRootWhenSignedIn();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -144,7 +112,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               AuthMethodButton(
                 icon: const _GoogleIcon(),
                 label: 'Continuer avec Google',
-                onTap: _loading ? null : () => _onGoogleTap(),
+                onTap: isLoading ? null : () => _onGoogleTap(),
               ),
               const SizedBox(height: AppSpacing.md),
               const AuthDivider(label: 'OU PAR EMAIL'),
@@ -167,9 +135,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       decoration: const InputDecoration(
                         hintText: 'marie@exemple.fr',
                       ),
-                      validator: (v) => (v == null || !v.contains('@'))
-                          ? 'E-mail invalide'
-                          : null,
+                      validator: validateEmail,
                     ),
                     const SizedBox(height: AppSpacing.md),
 
@@ -195,9 +161,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                         ),
                       ),
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'Min. 6 caractères'
-                          : null,
+                      validator: validatePassword,
                     ),
                     const SizedBox(height: AppSpacing.sm),
 
@@ -224,10 +188,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
 
                     // Erreur éventuelle
-                    if (_errorMessage != null) ...[
+                    if (errorMessage != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        _errorMessage!,
+                        errorMessage!,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.error,
@@ -239,8 +203,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                     // Bouton primary "Se connecter"
                     FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
+                      onPressed: isLoading ? null : _submit,
+                      child: isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,

@@ -5,6 +5,8 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../widgets/profile_form_field.dart';
 
 /// Onglets de la page Contrat & Déclarations.
@@ -108,12 +110,7 @@ class _Header extends StatelessWidget {
   const _Header();
 
   void _onNotifications(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Notifications — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showComingSoon(context, 'Notifications');
   }
 
   @override
@@ -449,21 +446,11 @@ class _ContractTabContent extends StatelessWidget {
   }
 
   void _onNextStep(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Étape suivante — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showComingSoon(context, 'Étape suivante');
   }
 
   void _onGenerateSign(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Génération DocuSign — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showComingSoon(context, 'Génération DocuSign');
   }
 }
 
@@ -2575,12 +2562,7 @@ class _DocumentsFinCard extends StatelessWidget {
   }
 
   void _onGenerateRecap(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Récapitulatif fin de contrat — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showComingSoon(context, 'Récapitulatif fin de contrat');
   }
 }
 
@@ -3693,7 +3675,7 @@ class _DayRow extends StatelessWidget {
   final VoidCallback onPickEnd;
 
   String _format(TimeOfDay t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      formatClock(t.hour, t.minute);
 
   @override
   Widget build(BuildContext context) {
@@ -4201,57 +4183,6 @@ class _SalaryRecapSection extends StatelessWidget {
       ],
     );
   }
-
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-}
-
-/// Carte résultat du récap : titre (body bold) + 2 rows Brut / Net
-/// (label à gauche, valeur à droite en primary bold).
-class _SalaryResultCard extends StatelessWidget {
-  const _SalaryResultCard({
-    required this.title,
-    required this.brut,
-    required this.net,
-  });
-
-  final String title;
-  final String brut;
-  final String net;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.primaryText,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _SalaryRow(label: 'Brut', value: brut),
-          const SizedBox(height: AppSpacing.xs),
-          _SalaryRow(label: 'Net', value: net),
-        ],
-      ),
-    );
-  }
 }
 
 class _SalaryRow extends StatelessWidget {
@@ -4333,7 +4264,6 @@ class _PaySubItem extends StatefulWidget {
     required this.label,
     this.onTap,
     this.children,
-    this.initiallyExpanded = false,
   }) : assert(
           onTap != null || children != null,
           'Fournir onTap (stub) ou children (expandable).',
@@ -4343,14 +4273,13 @@ class _PaySubItem extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
   final Widget? children;
-  final bool initiallyExpanded;
 
   @override
   State<_PaySubItem> createState() => _PaySubItemState();
 }
 
 class _PaySubItemState extends State<_PaySubItem> {
-  late bool _expanded = widget.initiallyExpanded;
+  bool _expanded = false;
 
   bool get _isExpandable => widget.children != null;
 

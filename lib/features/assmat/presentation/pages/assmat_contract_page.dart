@@ -13,20 +13,6 @@ import 'assmat_contract_models.dart';
 import 'assmat_new_contract_page.dart';
 import 'assmat_profile_page.dart';
 
-const _fullWeek = [
-  ('Lundi', '08:00 – 18:00'),
-  ('Mardi', '08:00 – 18:00'),
-  ('Mercredi', '08:00 – 18:00'),
-  ('Jeudi', '08:00 – 18:00'),
-  ('Vendredi', '08:00 – 18:00'),
-];
-
-const _partWeek = [
-  ('Mardi', '09:00 – 17:00'),
-  ('Mercredi', '09:00 – 17:00'),
-  ('Jeudi', '09:00 – 17:00'),
-];
-
 const _contracts = <ContractData>[];
 
 // ---------------------------------------------------------------------------

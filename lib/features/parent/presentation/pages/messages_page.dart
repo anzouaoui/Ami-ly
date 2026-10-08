@@ -1,14 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/name_initials.dart';
 import '../../../../shared/models/conversation_model.dart';
+import '../../../../shared/utils/chat_time_format.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../widgets/parent_navigation_drawer.dart';
@@ -251,14 +252,9 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = conv.assmatName
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .take(2)
-        .map((w) => w[0].toUpperCase())
-        .join();
+    final initials = initialsOf(conv.assmatName);
     final unread = conv.unreadParent;
-    final timeLabel = _timeLabel(conv.lastMessageAt);
+    final timeLabel = conversationTimeLabel(conv.lastMessageAt);
 
     final status = contractData?['status'] as String? ?? '';
     final (statusLabel, statusColor, actionLabel) = _contractStatusInfo(status);
@@ -429,23 +425,5 @@ class _ConversationTile extends StatelessWidget {
       default:
         return ('', Colors.transparent, '');
     }
-  }
-
-  static String _timeLabel(DateTime? dt) {
-    if (dt == null) return '';
-    final now = DateTime.now();
-    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-      return DateFormat('HH:mm').format(dt);
-    }
-    final yesterday = now.subtract(const Duration(days: 1));
-    if (dt.year == yesterday.year &&
-        dt.month == yesterday.month &&
-        dt.day == yesterday.day) {
-      return 'Hier';
-    }
-    if (now.difference(dt).inDays < 7) {
-      return DateFormat('EEE', 'fr_FR').format(dt);
-    }
-    return DateFormat('dd/MM').format(dt);
   }
 }

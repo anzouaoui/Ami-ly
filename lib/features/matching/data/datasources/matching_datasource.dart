@@ -1,8 +1,9 @@
-import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../features/auth/data/models/assmat_profile_model.dart';
 import '../../../../features/auth/data/models/parent_profile_model.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/utils/geo_distance.dart';
 import '../models/match_reason.dart';
 import '../models/match_suggestion.dart';
 
@@ -19,6 +20,16 @@ class _ScoredAssmat {
   final double score;
   final List<MatchReason> reasons;
   final double? distanceKm;
+
+  MatchSuggestion toSuggestion(String parentUid) => MatchSuggestion(
+        assmatUid: assmat.uid,
+        parentUid: parentUid,
+        score: score,
+        reasons: reasons,
+        assmatProfile: assmat,
+        distanceKm: distanceKm,
+        generatedAt: DateTime.now(),
+      );
 }
 
 /// Résultat intermédiaire pour le scoring côté assmat.
@@ -27,11 +38,23 @@ class _ScoredParent {
     required this.parent,
     required this.score,
     required this.reasons,
+    required this.distanceKm,
   });
 
   final ParentProfileModel parent;
   final double score;
   final List<MatchReason> reasons;
+  final double distanceKm;
+
+  MatchSuggestion toSuggestion(String assmatUid) => MatchSuggestion(
+        assmatUid: assmatUid,
+        parentUid: parent.uid,
+        score: score,
+        reasons: reasons,
+        parentProfile: parent.firstName,
+        distanceKm: distanceKm,
+        generatedAt: DateTime.now(),
+      );
 }
 
 /// Interface d'accès aux données pour le matching entre parents et assmats.
@@ -42,17 +65,26 @@ class MatchingDatasource {
 
   static const _maxDistanceDefault = 15.0;
 
-  double _haversine(double lat1, double lon1, double lat2, double lon2) {
-    const r = 6371.0;
-    final dLat = (lat2 - lat1) * math.pi / 180;
-    final dLon = (lon2 - lon1) * math.pi / 180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * math.pi / 180) *
-            math.cos(lat2 * math.pi / 180) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-  }
+  /// Nombre maximal de suggestions calculées et persistées.
+  static const _maxSuggestions = 20;
+
+  /// Nombre de suggestions remontées par les streams.
+  static const _watchLimit = 10;
+
+  // Barème du score parent → assmat (total max = 100 points).
+  static const _proximityPoints = 20.0;
+  static const _ageCompatibilityPoints = 25.0;
+  static const _unknownChildAgePoints = 12.0;
+  static const _servicesPoints = 15.0;
+  static const _schedulesPoints = 10.0;
+  static const _availabilityPoints = 15.0;
+  static const _favoritePoints = 15.0;
+
+  /// Nombre de raisons possibles côté assmat (proximité, services, places).
+  static const _maxAssmatSideReasons = 3.0;
+
+  CollectionReference<Map<String, dynamic>> get _suggestions =>
+      _firebase.firestore.collection('suggestions');
 
   /// Calcule les meilleures suggestions de match pour un parent donné.
   Future<List<MatchSuggestion>> calculateParentMatches({
@@ -89,76 +121,89 @@ class MatchingDatasource {
     final scored = <_ScoredAssmat>[];
 
     for (final assmat in assmats) {
-      double score = 0.0;
-      final reasons = <MatchReason>[];
-
-      double distance = double.infinity;
-      if (assmat.location != null) {
-        distance = _haversine(
-            lat, lon, assmat.location!.latitude, assmat.location!.longitude);
-        if (distance <= _maxDistanceDefault) {
-          score += 20;
-          reasons.add(MatchReason.locationProximity);
-        }
-      }
-
-      if (childAgesMonths.isNotEmpty) {
-        final allMatch = childAgesMonths.every((childAge) {
-          return childAge >= assmat.ageGroupMin &&
-              (assmat.ageGroupMax <= 0 || childAge <= assmat.ageGroupMax);
-        });
-        if (allMatch) {
-          score += 25;
-          reasons.add(MatchReason.ageCompatibility);
-        }
-      } else {
-        score += 12;
-      }
-
-      if (assmat.services.isNotEmpty) {
-        score += 15;
-        reasons.add(MatchReason.serviceMatch);
-      }
-
-      if (assmat.schedules.isNotEmpty) {
-        score += 10;
-        reasons.add(MatchReason.scheduleMatch);
-      }
-
-      if (assmat.availableSlots > 0) {
-        score += 15;
-        reasons.add(MatchReason.availabilityMatch);
-      }
-
-      if (favoriteIds.contains(assmat.uid)) {
-        score += 15;
-        reasons.add(MatchReason.favorite);
-      }
-
-      if (reasons.isNotEmpty) {
-        scored.add(_ScoredAssmat(
-          assmat: assmat,
-          score: score / 100.0,
-          reasons: reasons,
-          distanceKm: distance.isFinite ? distance : null,
-        ));
-      }
+      final candidate = _scoreAssmat(
+        assmat,
+        lat: lat,
+        lon: lon,
+        childAgesMonths: childAgesMonths,
+        isFavorite: favoriteIds.contains(assmat.uid),
+      );
+      if (candidate.reasons.isNotEmpty) scored.add(candidate);
     }
 
     scored.sort((a, b) => b.score.compareTo(a.score));
-    final results = scored.take(20).toList();
+    final results = scored.take(_maxSuggestions).toList();
 
-    await _persistSuggestions(parentUid, results);
+    await _replaceSuggestions(
+      'parentUid',
+      parentUid,
+      results.map((s) => s.toSuggestion(parentUid)),
+    );
 
-    return results.map((s) => MatchSuggestion(
-      assmatUid: s.assmat.uid,
-      parentUid: parentUid,
-      score: s.score,
-      reasons: s.reasons,
-      assmatProfile: s.assmat,
-      distanceKm: s.distanceKm,
-      generatedAt: DateTime.now(),
-    )).toList();
+    return results.map((s) => s.toSuggestion(parentUid)).toList();
+  }
+
+  /// Score (0-1) et raisons du match entre un parent situé en
+  /// ([lat], [lon]) et [assmat].
+  _ScoredAssmat _scoreAssmat(
+    AssmatProfileModel assmat, {
+    required double lat,
+    required double lon,
+    required List<int> childAgesMonths,
+    required bool isFavorite,
+  }) {
+    double score = 0.0;
+    final reasons = <MatchReason>[];
+
+    double distance = double.infinity;
+    if (assmat.location != null) {
+      distance = haversineKm(
+          lat, lon, assmat.location!.latitude, assmat.location!.longitude);
+      if (distance <= _maxDistanceDefault) {
+        score += _proximityPoints;
+        reasons.add(MatchReason.locationProximity);
+      }
+    }
+
+    if (childAgesMonths.isNotEmpty) {
+      final allMatch = childAgesMonths.every((childAge) {
+        return childAge >= assmat.ageGroupMin &&
+            (assmat.ageGroupMax <= 0 || childAge <= assmat.ageGroupMax);
+      });
+      if (allMatch) {
+        score += _ageCompatibilityPoints;
+        reasons.add(MatchReason.ageCompatibility);
+      }
+    } else {
+      score += _unknownChildAgePoints;
+    }
+
+    if (assmat.services.isNotEmpty) {
+      score += _servicesPoints;
+      reasons.add(MatchReason.serviceMatch);
+    }
+
+    if (assmat.schedules.isNotEmpty) {
+      score += _schedulesPoints;
+      reasons.add(MatchReason.scheduleMatch);
+    }
+
+    if (assmat.availableSlots > 0) {
+      score += _availabilityPoints;
+      reasons.add(MatchReason.availabilityMatch);
+    }
+
+    if (isFavorite) {
+      score += _favoritePoints;
+      reasons.add(MatchReason.favorite);
+    }
+
+    return _ScoredAssmat(
+      assmat: assmat,
+      score: score / 100.0,
+      reasons: reasons,
+      distanceKm: distance.isFinite ? distance : null,
+    );
   }
 
   /// Calcule les meilleures suggestions de match pour une assmat donnée.
@@ -186,7 +231,7 @@ class MatchingDatasource {
     for (final parent in parents) {
       if (parent.location == null) continue;
 
-      final distance = _haversine(
+      final distance = haversineKm(
           lat, lon, parent.location!.latitude, parent.location!.longitude);
       if (distance > _maxDistanceDefault) continue;
 
@@ -200,56 +245,44 @@ class MatchingDatasource {
         reasons.add(MatchReason.availabilityMatch);
       }
 
-      final score = reasons.length / 3.0;
-
       scored.add(_ScoredParent(
         parent: parent,
-        score: score,
+        score: reasons.length / _maxAssmatSideReasons,
         reasons: reasons,
+        distanceKm: distance,
       ));
     }
 
     scored.sort((a, b) => b.score.compareTo(a.score));
-    final top = scored.take(20).toList();
+    final top = scored.take(_maxSuggestions).toList();
 
-    await _persistAssmatSuggestions(assmatUid, top, lat, lon);
+    await _replaceSuggestions(
+      'assmatUid',
+      assmatUid,
+      top.map((s) => s.toSuggestion(assmatUid)),
+    );
 
-    return top.map((s) => MatchSuggestion(
-      assmatUid: assmatUid,
-      parentUid: s.parent.uid,
-      score: s.score,
-      reasons: s.reasons,
-      parentProfile: s.parent.firstName,
-      distanceKm: s.parent.location != null
-          ? _haversine(
-              lat, lon, s.parent.location!.latitude, s.parent.location!.longitude)
-          : null,
-      generatedAt: DateTime.now(),
-    )).toList();
+    return top.map((s) => s.toSuggestion(assmatUid)).toList();
   }
 
   /// Suggestions persistées pour un parent, en temps réel.
-  Stream<List<MatchSuggestion>> watchParentMatches(String parentUid) {
-    return _firebase.firestore
-        .collection('suggestions')
-        .where('parentUid', isEqualTo: parentUid)
-        .orderBy('score', descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => MatchSuggestion.fromFirestore(d)).toList());
-  }
+  Stream<List<MatchSuggestion>> watchParentMatches(String parentUid) =>
+      _watchSuggestionsWhere('parentUid', parentUid);
 
   /// Suggestions persistées pour une assmat, en temps réel.
-  Stream<List<MatchSuggestion>> watchAssmatMatches(String assmatUid) {
-    return _firebase.firestore
-        .collection('suggestions')
-        .where('assmatUid', isEqualTo: assmatUid)
+  Stream<List<MatchSuggestion>> watchAssmatMatches(String assmatUid) =>
+      _watchSuggestionsWhere('assmatUid', assmatUid);
+
+  Stream<List<MatchSuggestion>> _watchSuggestionsWhere(
+    String field,
+    String uid,
+  ) {
+    return _suggestions
+        .where(field, isEqualTo: uid)
         .orderBy('score', descending: true)
-        .limit(10)
+        .limit(_watchLimit)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => MatchSuggestion.fromFirestore(d)).toList());
+        .map((snap) => snap.docs.map(MatchSuggestion.fromFirestore).toList());
   }
 
   Future<Set<String>> _loadFavoriteIds(String parentUid) async {
@@ -261,69 +294,23 @@ class MatchingDatasource {
     }
   }
 
-  Future<void> _persistSuggestions(
-      String parentUid, List<_ScoredAssmat> scored) async {
-    final batch = _firebase.firestore.batch();
-
-    final existing = await _firebase.firestore
-        .collection('suggestions')
-        .where('parentUid', isEqualTo: parentUid)
-        .get();
-
-    for (final doc in existing.docs) {
-      batch.delete(doc.reference);
-    }
-
-    for (final s in scored) {
-      final ref = _firebase.firestore.collection('suggestions').doc();
-      final suggestion = MatchSuggestion(
-        assmatUid: s.assmat.uid,
-        parentUid: parentUid,
-        score: s.score,
-        reasons: s.reasons,
-        assmatProfile: s.assmat,
-        distanceKm: s.distanceKm,
-        generatedAt: DateTime.now(),
-      );
-      batch.set(ref, suggestion.toFirestore());
-    }
-
-    await batch.commit();
-  }
-
-  Future<void> _persistAssmatSuggestions(
-    String assmatUid,
-    List<_ScoredParent> scored,
-    double lat,
-    double lon,
+  /// Remplace, dans un même batch, toutes les suggestions dont [field] vaut
+  /// [uid] par [suggestions].
+  Future<void> _replaceSuggestions(
+    String field,
+    String uid,
+    Iterable<MatchSuggestion> suggestions,
   ) async {
     final batch = _firebase.firestore.batch();
 
-    final existing = await _firebase.firestore
-        .collection('suggestions')
-        .where('assmatUid', isEqualTo: assmatUid)
-        .get();
+    final existing = await _suggestions.where(field, isEqualTo: uid).get();
 
     for (final doc in existing.docs) {
       batch.delete(doc.reference);
     }
 
-    for (final s in scored) {
-      final ref = _firebase.firestore.collection('suggestions').doc();
-      final distanceKm = s.parent.location != null
-          ? _haversine(
-              lat, lon, s.parent.location!.latitude, s.parent.location!.longitude)
-          : null;
-      final suggestion = MatchSuggestion(
-        assmatUid: assmatUid,
-        parentUid: s.parent.uid,
-        score: s.score,
-        reasons: s.reasons,
-        parentProfile: s.parent.firstName,
-        distanceKm: distanceKm,
-        generatedAt: DateTime.now(),
-      );
-      batch.set(ref, suggestion.toFirestore());
+    for (final suggestion in suggestions) {
+      batch.set(_suggestions.doc(), suggestion.toFirestore());
     }
 
     await batch.commit();

@@ -4,6 +4,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import 'assmat_home_page.dart';
 
 const _kMonthsShort = [
@@ -30,17 +32,6 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
   void _prevWeek() => setState(() => _weekStart = _weekStart.subtract(const Duration(days: 7)));
   void _nextWeek() => setState(() => _weekStart = _weekStart.add(const Duration(days: 7)));
 
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label — à venir'),
-      behavior: SnackBarBehavior.floating,
-    ));
-  }
-
-  static const _months = [
-    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-  ];
   String _fmtDateShort(DateTime d) =>
       '${d.day} ${_kMonthsShort[d.month - 1]}';
 
@@ -48,7 +39,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
       'Semaine du ${_fmtDateShort(_weekStart)} au ${_fmtDateShort(_weekEnd)}';
 
   String get _monthLabel =>
-      '${_months[_weekStart.month - 1]} ${_weekStart.year}';
+      '${frenchMonthName(_weekStart.month)} ${_weekStart.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +99,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _stub('Export PDF'),
+                    onPressed: () => showComingSoon(context, 'Export PDF'),
                     icon: const Icon(Icons.download_outlined, size: 18),
                     label: const Text('Export PDF'),
                     style: OutlinedButton.styleFrom(
@@ -126,7 +117,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _stub('Partager'),
+                    onPressed: () => showComingSoon(context, 'Partager'),
                     icon: const Icon(Icons.share_outlined, size: 18),
                     label: const Text('Partager'),
                     style: OutlinedButton.styleFrom(
@@ -209,8 +200,8 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
                   onPrev: _prevWeek,
                   onNext: _nextWeek,
                   weekStart: _weekStart,
-                  onApply: () => _stub('Appliquer à la semaine'),
-                  onExport: () => _stub('Export PDF'),
+                  onApply: () => showComingSoon(context, 'Appliquer à la semaine'),
+                  onExport: () => showComingSoon(context, 'Export PDF'),
                 ),
               1 => const _CalendrierContent(),
               2 => const _CongesContent(),
@@ -229,13 +220,6 @@ class _TabGrid extends StatelessWidget {
   const _TabGrid({required this.current, required this.onTap});
   final int current;
   final ValueChanged<int> onTap;
-
-  static const _labels = [
-    'Planning semaine',
-    'Calendrier annuel',
-    'Congés',
-    'Statistiques',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -653,11 +637,8 @@ class _PlanningSemaineContent extends StatelessWidget {
                                     const BoxConstraints(minWidth: 32, minHeight: 32),
                               )),
                               IconButton(
-                                onPressed: () => ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(
-                                  content: Text('Supprimer l\'horaire — à venir'),
-                                  behavior: SnackBarBehavior.floating,
-                                )),
+                                onPressed: () => showComingSoon(
+                                    context, 'Supprimer l\'horaire'),
                                 icon: const Icon(Icons.delete_outline_rounded,
                                     size: 18, color: AppColors.error),
                                 padding: EdgeInsets.zero,
@@ -723,18 +704,13 @@ class _PlanningSemaineContent extends StatelessWidget {
 class _CalendrierContent extends StatelessWidget {
   const _CalendrierContent();
 
-  static const _months = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: List.generate(12, (m) {
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: _MonthCard(month: m + 1, year: 2026, label: _months[m]),
+          child: _MonthCard(month: m + 1, year: 2026, label: frenchMonthNamesCapitalized[m]),
         );
       }),
     );
@@ -1158,6 +1134,10 @@ class _StatCard extends StatelessWidget {
 
 // ─── Récapitulatif par enfant ─────────────────────────────────────────────────
 
+/// Durée en heures avec une décimale : `3.0h`, `7.5h`.
+String _formatHoursOneDecimal(double h) =>
+    h == h.truncateToDouble() ? '${h.toInt()}.0h' : '${h.toStringAsFixed(1)}h';
+
 class _ChildSummarySection extends StatelessWidget {
   const _ChildSummarySection({required this.schedule});
   final List<List<(String, String, String)>> schedule;
@@ -1176,9 +1156,6 @@ class _ChildSummarySection extends StatelessWidget {
     }
     return map;
   }
-
-  String _fmtH(double h) =>
-      h == h.truncateToDouble() ? '${h.toInt()}.0h' : '${h.toStringAsFixed(1)}h';
 
   @override
   Widget build(BuildContext context) {
@@ -1233,7 +1210,7 @@ class _ChildSummarySection extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    _fmtH(entry.value),
+                    _formatHoursOneDecimal(entry.value),
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
@@ -1266,9 +1243,6 @@ class _WeekDayBarsSection extends StatelessWidget {
                     int.parse(s[0]) * 60 - int.parse(s[1])) /
                 60.0;
       });
-
-  String _fmtH(double h) =>
-      h == h.truncateToDouble() ? '${h.toInt()}.0h' : '${h.toStringAsFixed(1)}h';
 
   @override
   Widget build(BuildContext context) {
@@ -1313,7 +1287,7 @@ class _WeekDayBarsSection extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _fmtH(h),
+                        _formatHoursOneDecimal(h),
                         style: AppTextStyles.bodySmall
                             .copyWith(fontWeight: FontWeight.w600),
                       ),
@@ -1443,7 +1417,7 @@ class _AddScheduleSheetState extends State<_AddScheduleSheet> {
     final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked != null) {
       ctrl.text =
-          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+          formatClock(picked.hour, picked.minute);
     }
   }
 
@@ -1691,7 +1665,7 @@ class _AddHolidaysSheetState extends State<_AddHolidaysSheet> {
     );
     if (picked != null) {
       ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          formatDayMonthYear(picked);
       setState(() {});
     }
   }

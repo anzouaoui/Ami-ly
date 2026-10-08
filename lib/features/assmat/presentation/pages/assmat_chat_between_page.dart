@@ -4,6 +4,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/utils/french_date_format.dart';
+import '../../../../core/widgets/coming_soon.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ class _AssMatChatBetweenPageState extends State<AssMatChatBetweenPage> {
 
   String _nowTime() {
     final now = TimeOfDay.now();
-    return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    return formatClock(now.hour, now.minute);
   }
 
   Color get _avatarBg =>
@@ -105,12 +107,7 @@ class _AssMatChatBetweenPageState extends State<AssMatChatBetweenPage> {
           Padding(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: FilledButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Ajouter une collègue — à venir'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              ),
+              onPressed: () => showComingSoon(context, 'Ajouter une collègue'),
               icon: const Icon(Icons.person_add_outlined, size: 15),
               label: const Text('Ajouter ami'),
               style: FilledButton.styleFrom(

@@ -5,16 +5,11 @@ enum InvoiceStatus {
   paid,
   failed;
 
-  String get label {
-    switch (this) {
-      case InvoiceStatus.pending:
-        return 'En attente';
-      case InvoiceStatus.paid:
-        return 'Payée';
-      case InvoiceStatus.failed:
-        return 'Échouée';
-    }
-  }
+  String get label => switch (this) {
+        InvoiceStatus.pending => 'En attente',
+        InvoiceStatus.paid => 'Payée',
+        InvoiceStatus.failed => 'Échouée',
+      };
 }
 
 class InvoiceModel {
@@ -62,13 +57,16 @@ class InvoiceModel {
   final String? stripeClientSecret;
   final DateTime? paidAt;
 
+  /// Majoration appliquée aux heures supplémentaires (+25 %).
+  static const double overtimeMultiplier = 1.25;
+
   String get period => '$month/$year';
 
   int get amountCents => (totalAmount * 100).round();
 
   double get baseSalary => hours * hourlyRate;
   double get mealCost => meals * mealRate;
-  double get overtimeAmount => overtimeHours * hourlyRate * 1.25;
+  double get overtimeAmount => overtimeHours * hourlyRate * overtimeMultiplier;
 
   factory InvoiceModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
