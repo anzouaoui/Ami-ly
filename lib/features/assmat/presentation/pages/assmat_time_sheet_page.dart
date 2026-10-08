@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 
 
 const _kMonthsFull = [
@@ -99,12 +100,7 @@ class _AssMatTimeSheetPageState extends State<AssMatTimeSheetPage> {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: () =>
-                        ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Génération en cours — à venir'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    ),
+                        showComingSoon(context, 'Génération en cours'),
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: const Text('Générer la semaine passée'),
                     style: FilledButton.styleFrom(
@@ -195,13 +191,9 @@ class _AssMatTimeSheetPageState extends State<AssMatTimeSheetPage> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Export PDF $_selectedMonth — à venir'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                      onPressed: () => showComingSoon(
+                        context,
+                        'Export PDF $_selectedMonth',
                       ),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: Text('Télécharger $_selectedMonth'),
@@ -314,12 +306,7 @@ class _PendingSignatureSection extends StatelessWidget {
                       _IconActionBtn(
                         icon: Icons.visibility_outlined,
                         onTap: () =>
-                            ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Aperçu — à venir'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        ),
+                            showComingSoon(context, 'Aperçu'),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       _IconActionBtn(
@@ -425,12 +412,7 @@ class _SignedSection extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   _IconActionBtn(
                     icon: Icons.visibility_outlined,
-                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Aperçu — à venir'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    ),
+                    onTap: () => showComingSoon(context, 'Aperçu'),
                   ),
                 ],
               ),

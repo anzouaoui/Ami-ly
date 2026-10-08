@@ -7,6 +7,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../../data/models/child_model.dart';
 import '../providers/parent_providers.dart';
 import '../widgets/parent_navigation_drawer.dart';
@@ -80,12 +81,7 @@ class _ChildDiaryPageState extends State<ChildDiaryPage> {
   }
 
   void _onContactAssmat() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Contacter l\'assistante — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showComingSoon(context, 'Contacter l\'assistante');
   }
 
   @override

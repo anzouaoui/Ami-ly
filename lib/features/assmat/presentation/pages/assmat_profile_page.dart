@@ -16,6 +16,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/models/address_suggestion.dart';
 import '../../../../core/services/accreditation_document_extractor.dart';
 import '../../../../core/services/expiry_date_extractor.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -417,14 +418,7 @@ class _AssMatProfilePageState extends ConsumerState<AssMatProfilePage> {
     }
   }
 
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  void _stub(String label) => showComingSoon(context, label);
 
   Future<void> _changePhoto() async {
     final source = await showModalBottomSheet<ImageSource>(
@@ -2598,14 +2592,6 @@ class _ImportantContactsCard extends StatelessWidget {
   final TextEditingController contactTiersPhoneController;
   final TextEditingController emergencyPhoneCustomController;
 
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text('$label — à venir'),
-          behavior: SnackBarBehavior.floating),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2643,7 +2629,7 @@ class _ImportantContactsCard extends StatelessWidget {
             secondFieldController: contactPmiPhoneController,
             secondKeyboard: TextInputType.phone,
             callLabel: 'Contacter la PMI',
-            onCall: () => _stub(context, 'Contacter la PMI'),
+            onCall: () => showComingSoon(context, 'Contacter la PMI'),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),

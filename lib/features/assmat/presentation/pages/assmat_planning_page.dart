@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import 'assmat_home_page.dart';
 
 const _kMonthsShort = [
@@ -29,13 +30,6 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
 
   void _prevWeek() => setState(() => _weekStart = _weekStart.subtract(const Duration(days: 7)));
   void _nextWeek() => setState(() => _weekStart = _weekStart.add(const Duration(days: 7)));
-
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label — à venir'),
-      behavior: SnackBarBehavior.floating,
-    ));
-  }
 
   static const _months = [
     'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
@@ -108,7 +102,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _stub('Export PDF'),
+                    onPressed: () => showComingSoon(context, 'Export PDF'),
                     icon: const Icon(Icons.download_outlined, size: 18),
                     label: const Text('Export PDF'),
                     style: OutlinedButton.styleFrom(
@@ -126,7 +120,7 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _stub('Partager'),
+                    onPressed: () => showComingSoon(context, 'Partager'),
                     icon: const Icon(Icons.share_outlined, size: 18),
                     label: const Text('Partager'),
                     style: OutlinedButton.styleFrom(
@@ -209,8 +203,8 @@ class _AssMatPlanningPageState extends State<AssMatPlanningPage> {
                   onPrev: _prevWeek,
                   onNext: _nextWeek,
                   weekStart: _weekStart,
-                  onApply: () => _stub('Appliquer à la semaine'),
-                  onExport: () => _stub('Export PDF'),
+                  onApply: () => showComingSoon(context, 'Appliquer à la semaine'),
+                  onExport: () => showComingSoon(context, 'Export PDF'),
                 ),
               1 => const _CalendrierContent(),
               2 => const _CongesContent(),
@@ -653,11 +647,8 @@ class _PlanningSemaineContent extends StatelessWidget {
                                     const BoxConstraints(minWidth: 32, minHeight: 32),
                               )),
                               IconButton(
-                                onPressed: () => ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(
-                                  content: Text('Supprimer l\'horaire — à venir'),
-                                  behavior: SnackBarBehavior.floating,
-                                )),
+                                onPressed: () => showComingSoon(
+                                    context, 'Supprimer l\'horaire'),
                                 icon: const Icon(Icons.delete_outline_rounded,
                                     size: 18, color: AppColors.error),
                                 padding: EdgeInsets.zero,

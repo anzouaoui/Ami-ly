@@ -8,6 +8,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../../../auth/data/models/assmat_profile_model.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../contract/data/models/contract_model.dart';
@@ -39,15 +40,6 @@ import 'search_parents_page.dart';
 /// actifs, revenu mensuel, enfants accueillis, heures ce mois.
 class AssMatHomePage extends ConsumerWidget {
   const AssMatHomePage({super.key});
-
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -638,15 +630,6 @@ class _ChildrenCard extends StatelessWidget {
       ),
     );
   }
-
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 }
 
 /// Ligne d'un enfant : avatar beige + nom + statut + lien "Journal".
@@ -872,15 +855,6 @@ class _InviteParentCard extends StatelessWidget {
 
   static const _invitations = <_InvitationData>[];
 
-  void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -961,7 +935,7 @@ class _InviteParentCard extends StatelessWidget {
           for (var i = 0; i < _invitations.length; i++) ...[
             _InvitationRow(
               invitation: _invitations[i],
-              onTap: () => _stub(context, _invitations[i].name),
+              onTap: () => showComingSoon(context, _invitations[i].name),
             ),
             if (i < _invitations.length - 1)
               const SizedBox(height: AppSpacing.sm),
@@ -1313,13 +1287,6 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label — à venir'),
-      behavior: SnackBarBehavior.floating,
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
@@ -1405,7 +1372,7 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                     _DrawerItem(
                       icon: Icons.fact_check_outlined,
                       label: 'Feuilles de présence',
-                      onTap: () => _stub('Feuilles de présence'),
+                      onTap: () => showComingSoon(context, 'Feuilles de présence'),
                     ),
                   ],
 
@@ -1425,7 +1392,7 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                     _DrawerItem(
                       icon: Icons.map_outlined,
                       label: 'Carte des familles',
-                      onTap: () => _stub('Carte des familles'),
+                      onTap: () => showComingSoon(context, 'Carte des familles'),
                     ),
                     _DrawerItem(
                       icon: Icons.star_outline_rounded,
@@ -1494,7 +1461,7 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                     _DrawerItem(
                       icon: Icons.domain_outlined,
                       label: 'Messagerie PMI',
-                      onTap: () => _stub('Messagerie PMI'),
+                      onTap: () => showComingSoon(context, 'Messagerie PMI'),
                     ),
                     _DrawerItem(
                       icon: Icons.smart_toy_outlined,
@@ -1518,7 +1485,7 @@ class AssMatDrawerState extends ConsumerState<AssMatDrawer> {
                     _DrawerItem(
                       icon: Icons.sell_outlined,
                       label: 'Tarifs & abonnement',
-                      onTap: () => _stub('Tarifs & abonnement'),
+                      onTap: () => showComingSoon(context, 'Tarifs & abonnement'),
                     ),
                     _DrawerItem(
                       icon: Icons.schedule_outlined,

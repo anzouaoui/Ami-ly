@@ -6,6 +6,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../messaging/providers/messaging_providers.dart';
 import '../pages/assistant_page.dart';
@@ -48,13 +49,6 @@ class _ParentNavigationDrawerState
   void _goTab(int index) {
     Navigator.of(context).pop(); // ferme le tiroir
     ref.read(parentShellIndexProvider.notifier).state = index;
-  }
-
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label — à venir'),
-      behavior: SnackBarBehavior.floating,
-    ));
   }
 
   @override
@@ -176,7 +170,7 @@ class _ParentNavigationDrawerState
                     _DrawerItem(
                       icon: Icons.fact_check_outlined,
                       label: 'Feuilles de présence',
-                      onTap: () => _stub('Feuilles de présence'),
+                      onTap: () => showComingSoon(context, 'Feuilles de présence'),
                     ),
                     _DrawerItem(
                       icon: Icons.calendar_month_outlined,
@@ -249,7 +243,7 @@ class _ParentNavigationDrawerState
                     _DrawerItem(
                       icon: Icons.sell_outlined,
                       label: 'Tarifs & abonnement',
-                      onTap: () => _stub('Tarifs & abonnement'),
+                      onTap: () => showComingSoon(context, 'Tarifs & abonnement'),
                     ),
                   ],
                 ],

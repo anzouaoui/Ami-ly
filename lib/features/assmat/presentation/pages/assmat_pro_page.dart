@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -325,12 +326,7 @@ class _BottomBar extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Redirection vers le paiement — à venir'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                ),
+                onPressed: () => showComingSoon(context, 'Redirection vers le paiement'),
                 icon: const Icon(Icons.workspace_premium_rounded, size: 18),
                 label: const Text('Passer à AMiLY Pro — 5,99€/mois'),
                 style: FilledButton.styleFrom(

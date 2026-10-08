@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -408,12 +409,7 @@ class _StepOneState extends State<_StepOne> {
             painter: _DashedBorderPainter(
                 color: AppColors.divider, radius: AppRadii.sm),
             child: InkWell(
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Ajout de fichier — à venir'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              ),
+              onTap: () => showComingSoon(context, 'Ajout de fichier'),
               borderRadius: BorderRadius.circular(AppRadii.sm),
               child: Padding(
                 padding:

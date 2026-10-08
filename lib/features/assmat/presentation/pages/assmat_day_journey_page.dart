@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import 'assmat_home_page.dart';
 import 'assmat_time_sheet_page.dart';
 
@@ -740,12 +741,7 @@ class _DayJourneyContentState extends State<_DayJourneyContent> {
               const SizedBox(height: AppSpacing.sm),
               // Upload zone
               GestureDetector(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ajout de photos — à venir'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                ),
+                onTap: () => showComingSoon(context, 'Ajout de photos'),
                 child: CustomPaint(
                   painter: _DashedBorderPainter(
                     color: AppColors.divider,

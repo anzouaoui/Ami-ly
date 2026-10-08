@@ -5,6 +5,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_shadows.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../widgets/stat_card.dart';
 
 /// Onglet sélectionné dans la page Planning.
@@ -32,15 +33,6 @@ class PlanningPage extends StatefulWidget {
 
 class _PlanningPageState extends State<PlanningPage> {
   PlanningTab _tab = PlanningTab.weekly;
-
-  void _stub(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,8 +79,8 @@ class _PlanningPageState extends State<PlanningPage> {
                 child: _WeekSelector(
                   primaryLabel: 'Semaine du 13 avr. au 17 avr.',
                   secondaryLabel: 'avril 2026',
-                  onPrevious: () => _stub('Semaine précédente'),
-                  onNext: () => _stub('Semaine suivante'),
+                  onPrevious: () => showComingSoon(context, 'Semaine précédente'),
+                  onNext: () => showComingSoon(context, 'Semaine suivante'),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -102,7 +94,7 @@ class _PlanningPageState extends State<PlanningPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _stub('Appliquer à la semaine'),
+                        onPressed: () => showComingSoon(context, 'Appliquer à la semaine'),
                         icon: const Icon(
                           Icons.content_copy_rounded,
                           size: 18,
@@ -117,7 +109,7 @@ class _PlanningPageState extends State<PlanningPage> {
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _stub('Export PDF'),
+                        onPressed: () => showComingSoon(context, 'Export PDF'),
                         icon: const Icon(
                           Icons.download_rounded,
                           size: 18,
@@ -189,7 +181,7 @@ class _PlanningPageState extends State<PlanningPage> {
                   horizontal: AppSpacing.lg,
                 ),
                 child: _EmptyWeekCard(
-                  onAddSchedule: () => _stub('Ajouter un horaire'),
+                  onAddSchedule: () => showComingSoon(context, 'Ajouter un horaire'),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),

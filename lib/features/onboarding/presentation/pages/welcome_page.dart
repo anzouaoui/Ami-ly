@@ -4,6 +4,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/coming_soon.dart';
 import '../../../../core/widgets/ghost_button.dart';
 import '../../../../shared/models/user_role.dart';
 import '../../../auth/presentation/pages/login_page.dart';
@@ -37,12 +38,7 @@ class WelcomePage extends StatelessWidget {
 
   void _onContactTap(BuildContext context) {
     // TODO: brancher vers la vraie page contact (email, formulaire, FAQ...).
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Contact — à venir'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showComingSoon(context, 'Contact');
   }
 
   @override
