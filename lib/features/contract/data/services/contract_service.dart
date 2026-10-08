@@ -1485,20 +1485,11 @@ class ContractService {
     if (contractData == null) return null;
 
     return (
-      formData: _parseContractFormData(contractData),
+      formData: ContractFormData.fromJson(contractData),
       step: data['currentStep'] as int?,
       status: data['status'] as String? ?? 'draft',
       id: doc.id,
     );
-  }
-
-  /// Désérialise un brouillon. Contrairement à [ContractFormData.fromJson],
-  /// `enfant.childId` n'est pas relu (comportement historique conservé).
-  static ContractFormData _parseContractFormData(Map<String, dynamic> json) {
-    final enfant = Map<String, dynamic>.of(
-      json['enfant'] as Map<String, dynamic>? ?? const {},
-    )..remove('childId');
-    return ContractFormData.fromJson({...json, 'enfant': enfant});
   }
 
   /// Récupère l'adresse IP approximative via un service externe.

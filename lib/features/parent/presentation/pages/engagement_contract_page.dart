@@ -918,6 +918,12 @@ class _Step2State extends State<_Step2> {
       if (draft.cpSalarie.isNotEmpty) _cpSalarieCtrl.text = draft.cpSalarie;
       if (draft.telSalarie.isNotEmpty) _telSalarieCtrl.text = draft.telSalarie;
       if (draft.emailSalarie.isNotEmpty) _emailSalarieCtrl.text = draft.emailSalarie;
+      // Enfant choisi dans le brouillon, s'il fait toujours partie des enfants
+      // du parent (sinon le Dropdown n'aurait pas d'item correspondant).
+      final draftChildId = draft.childId;
+      if (draftChildId != null && _children.any((c) => c.id == draftChildId)) {
+        _selectedChild = draftChildId;
+      }
       if (draft.dateDebut.isNotEmpty) _dateDebutCtrl.text = draft.dateDebut;
       if (draft.heuresSemaine.isNotEmpty) _heuresSemaineCtrl.text = draft.heuresSemaine;
       if (draft.heuresMois.isNotEmpty) _heuresMoisCtrl.text = draft.heuresMois;
