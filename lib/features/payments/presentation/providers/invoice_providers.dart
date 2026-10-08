@@ -18,6 +18,11 @@ final invoicesByParentProvider =
   return ref.watch(invoiceRepositoryProvider).watchByParent(uid);
 });
 
+bool _isInCurrentMonth(InvoiceModel invoice) {
+  final now = DateTime.now();
+  return invoice.month == now.month && invoice.year == now.year;
+}
+
 final pendingInvoicesCountProvider = Provider.autoDispose<int>((ref) {
   final invoices = ref.watch(invoicesByAssmatProvider).valueOrNull ?? [];
   return invoices.where((i) => i.status == InvoiceStatus.pending).length;
@@ -25,19 +30,12 @@ final pendingInvoicesCountProvider = Provider.autoDispose<int>((ref) {
 
 final monthlyRevenueProvider = Provider.autoDispose<double>((ref) {
   final invoices = ref.watch(invoicesByAssmatProvider).valueOrNull ?? [];
-  final now = DateTime.now();
   return invoices
-      .where((i) =>
-          i.status == InvoiceStatus.paid &&
-          i.month == now.month &&
-          i.year == now.year)
+      .where((i) => i.status == InvoiceStatus.paid && _isInCurrentMonth(i))
       .fold(0.0, (sum, i) => sum + i.totalAmount);
 });
 
 final monthlyInvoiceCountProvider = Provider.autoDispose<int>((ref) {
   final invoices = ref.watch(invoicesByAssmatProvider).valueOrNull ?? [];
-  final now = DateTime.now();
-  return invoices
-      .where((i) => i.month == now.month && i.year == now.year)
-      .length;
+  return invoices.where(_isInCurrentMonth).length;
 });

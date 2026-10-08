@@ -30,7 +30,8 @@ class InvoiceRepository {
   }) async {
     final baseSalary = hours * hourlyRate;
     final mealCost = meals * mealRate;
-    final overtimeAmount = overtimeHours * hourlyRate * 1.25;
+    final overtimeAmount =
+        overtimeHours * hourlyRate * InvoiceModel.overtimeMultiplier;
     final totalAmount = baseSalary + mealCost + overtimeAmount + maintenanceAllowance;
 
     final doc = _invoices.doc();
@@ -59,54 +60,50 @@ class InvoiceRepository {
     return invoice;
   }
 
-  Stream<List<InvoiceModel>> watchByAssmat(String assmatUid) {
-    return _invoices
-        .where('assmatUid', isEqualTo: assmatUid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => InvoiceModel.fromFirestore(doc))
-            .toList());
-  }
+  Stream<List<InvoiceModel>> watchByAssmat(String assmatUid) =>
+      _watchWhere('assmatUid', assmatUid);
 
-  Stream<List<InvoiceModel>> watchByParent(String parentUid) {
+  Stream<List<InvoiceModel>> watchByParent(String parentUid) =>
+      _watchWhere('parentUid', parentUid);
+
+  /// Factures dont [field] vaut [uid], des plus récentes aux plus anciennes.
+  Stream<List<InvoiceModel>> _watchWhere(String field, String uid) {
     return _invoices
-        .where('parentUid', isEqualTo: parentUid)
+        .where(field, isEqualTo: uid)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => InvoiceModel.fromFirestore(doc))
-            .toList());
+        .map((snap) => snap.docs.map(InvoiceModel.fromFirestore).toList());
   }
 
   Future<String> getOnboardingLink(String assmatUid) async {
-    final result = await FirebaseFirestore.instance
-        .collection('_callables')
-        .doc('createStripeOnboardingLink')
-        .collection('calls')
-        .add({
-      'assmatUid': assmatUid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    final snap = await result.get();
-    final data = snap.data();
+    final data =
+        await _callStripeFunction('createStripeOnboardingLink', assmatUid);
     return data?['url'] as String? ?? '';
   }
 
   Future<bool> checkStripeConnected(String assmatUid) async {
-    final result = await FirebaseFirestore.instance
+    final data =
+        await _callStripeFunction('checkStripeAccountStatus', assmatUid);
+    return data?['connected'] as bool? ?? false;
+  }
+
+  /// Dépose un appel dans `_callables/{functionName}/calls` puis relit
+  /// immédiatement le document créé.
+  Future<Map<String, dynamic>?> _callStripeFunction(
+    String functionName,
+    String assmatUid,
+  ) async {
+    final callRef = await FirebaseFirestore.instance
         .collection('_callables')
-        .doc('checkStripeAccountStatus')
+        .doc(functionName)
         .collection('calls')
         .add({
       'assmatUid': assmatUid,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    final snap = await result.get();
-    final data = snap.data();
-    return data?['connected'] as bool? ?? false;
+    final snap = await callRef.get();
+    return snap.data();
   }
 }
 
