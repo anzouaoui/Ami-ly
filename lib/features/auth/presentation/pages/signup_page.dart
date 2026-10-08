@@ -6,6 +6,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
 import '../../../../shared/models/user_role.dart';
+import '../helpers/auth_form_helpers.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
@@ -30,16 +31,15 @@ class SignUpPage extends ConsumerStatefulWidget {
   ConsumerState<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends ConsumerState<SignUpPage> {
+class _SignUpPageState extends ConsumerState<SignUpPage>
+    with AuthFormStateMixin<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   late UserRole _role = widget.initialRole ?? UserRole.parent;
-  bool _loading = false;
   bool _obscurePassword = true;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -52,52 +52,22 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
-    final result = await ref.read(authRepositoryProvider).signUpWithEmail(
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-          role: _role,
-          firstName: _firstNameCtrl.text.trim(),
-          lastName: _lastNameCtrl.text.trim(),
-        );
-
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _errorMessage = failure.message;
-        _loading = false;
-      }),
-      // Succès : l'AuthWrapper prend le relai via le stream.
-      (_) => setState(() => _loading = false),
+    // Succès : l'AuthWrapper prend le relai via le stream.
+    await runAuthAction(
+      () => ref.read(authRepositoryProvider).signUpWithEmail(
+            email: _emailCtrl.text.trim(),
+            password: _passwordCtrl.text,
+            role: _role,
+            firstName: _firstNameCtrl.text.trim(),
+            lastName: _lastNameCtrl.text.trim(),
+          ),
     );
   }
 
   Future<void> _onGoogleTap() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
-    final result = await ref
-        .read(authRepositoryProvider)
-        .signInWithGoogle(role: _role);
-
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _errorMessage = failure.message;
-        _loading = false;
-      }),
-      (user) {
-        setState(() => _loading = false);
-        if (user != null) {
-          // Profil créé → le stream currentUserProvider prend le relai.
-        }
-      },
+    // Profil créé → le stream currentUserProvider prend le relai.
+    await runAuthAction(
+      () => ref.read(authRepositoryProvider).signInWithGoogle(role: _role),
     );
   }
 
@@ -114,15 +84,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Dès que le stream émet un utilisateur connecté, on remonte à la racine
-    // pour laisser AuthWrapper afficher ParentShell / AssMatShell.
-    ref.listen(currentUserProvider, (_, next) {
-      next.whenData((user) {
-        if (user != null && mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-      });
-    });
+    popToRootWhenSignedIn();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -250,10 +212,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                       decoration: const InputDecoration(
                         hintText: 'marie@exemple.fr',
                       ),
-                      validator: (v) =>
-                          (v == null || !v.contains('@'))
-                              ? 'E-mail invalide'
-                              : null,
+                      validator: validateEmail,
                     ),
                     const SizedBox(height: AppSpacing.md),
 
@@ -279,16 +238,14 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           ),
                         ),
                       ),
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'Min. 6 caractères'
-                          : null,
+                      validator: validatePassword,
                     ),
 
                     // Erreur
-                    if (_errorMessage != null) ...[
+                    if (errorMessage != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        _errorMessage!,
+                        errorMessage!,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.error,
@@ -300,8 +257,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
                     // Bouton primary
                     FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
+                      onPressed: isLoading ? null : _submit,
+                      child: isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,

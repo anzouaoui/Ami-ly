@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_radii.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../helpers/auth_form_helpers.dart';
 import '../providers/auth_providers.dart';
 
 /// Écran "Mot de passe oublié".
@@ -19,12 +20,11 @@ class ForgotPasswordPage extends ConsumerStatefulWidget {
       _ForgotPasswordPageState();
 }
 
-class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
+class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
+    with AuthFormStateMixin<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
-  bool _loading = false;
   bool _sent = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -34,25 +34,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
-    final result = await ref
-        .read(authRepositoryProvider)
-        .sendPasswordResetEmail(_emailCtrl.text.trim());
-
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _errorMessage = failure.message;
-        _loading = false;
-      }),
-      (_) => setState(() {
-        _sent = true;
-        _loading = false;
-      }),
+    await runAuthAction(
+      () => ref
+          .read(authRepositoryProvider)
+          .sendPasswordResetEmail(_emailCtrl.text.trim()),
+      onSuccess: (_) => setState(() => _sent = true),
     );
   }
 
@@ -73,8 +59,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           child: _sent ? _SuccessView(email: _emailCtrl.text.trim()) : _FormView(
             formKey: _formKey,
             emailCtrl: _emailCtrl,
-            loading: _loading,
-            errorMessage: _errorMessage,
+            loading: isLoading,
+            errorMessage: errorMessage,
             onSubmit: _submit,
           ),
         ),
@@ -155,8 +141,7 @@ class _FormView extends StatelessWidget {
                 decoration: const InputDecoration(
                   hintText: 'marie@exemple.fr',
                 ),
-                validator: (v) =>
-                    (v == null || !v.contains('@')) ? 'E-mail invalide' : null,
+                validator: validateEmail,
               ),
 
               if (errorMessage != null) ...[

@@ -266,17 +266,14 @@ class AssmatProfileModel {
   /// - Agrément PMI valide (date d'expiration dans le futur)
   /// - Casier judiciaire fourni
   bool get isFullyVerified {
-    final identityDocumentProvided = identityDocumentUrl != null &&
-        identityDocumentUrl!.isNotEmpty;
+    final identityDocumentProvided = _isFilled(identityDocumentUrl);
     final identityDocValid = identityDocumentExpiry != null &&
         identityDocumentExpiry!.isAfter(DateTime.now());
     final accreditationValid = accreditationExpiry != null &&
         accreditationExpiry!.isAfter(DateTime.now());
-    final criminalRecordProvided =
-        criminalRecordUrl != null && criminalRecordUrl!.isNotEmpty;
+    final criminalRecordProvided = _isFilled(criminalRecordUrl);
     final cniBackProvided = identityDocumentType != IdentityDocumentType.cni ||
-        (identityDocumentUrlBack != null &&
-            identityDocumentUrlBack!.isNotEmpty);
+        _isFilled(identityDocumentUrlBack);
     return isIdentityVerified &&
         identityDocumentProvided &&
         identityDocValid &&
@@ -285,12 +282,18 @@ class AssmatProfileModel {
         cniBackProvided;
   }
 
+  static bool _isFilled(String? value) => value != null && value.isNotEmpty;
+
   // ── Firestore ──────────────────────────────────────────────────────────────
 
   factory AssmatProfileModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? {};
+    DateTime? dateAt(String key) => (data[key] as Timestamp?)?.toDate();
+    List<String> stringsAt(String key) =>
+        List<String>.from(data[key] as List? ?? []);
+
     return AssmatProfileModel(
       uid: doc.id,
       firstName: data['firstName'] as String? ?? '',
@@ -306,27 +309,26 @@ class AssmatProfileModel {
       availableSlots: data['availableSlots'] as int? ?? 0,
       isSearchable: data['isSearchable'] as bool? ?? true,
       subscriptionPlan: data['subscriptionPlan'] as String? ?? 'free',
-      services: List<String>.from(data['services'] as List? ?? []),
-      schedules: List<String>.from(data['schedules'] as List? ?? []),
+      services: stringsAt('services'),
+      schedules: stringsAt('schedules'),
       location: data['location'] as GeoPoint?,
-      availableFrom: (data['availableFrom'] as Timestamp?)?.toDate(),
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      availableFrom: dateAt('availableFrom'),
+      createdAt: dateAt('createdAt') ?? DateTime.now(),
+      updatedAt: dateAt('updatedAt'),
       photoUrl: data['photoUrl'] as String?,
-      
+
       // Nouveaux champs
       tobacco: data['tobacco'] as String? ?? 'Non fumeur',
       firstAid: data['firstAid'] as String? ?? 'PSC1 validé',
       pet: data['pet'] as String? ?? 'Pas d\'animal',
-      diplomas: List<String>.from(data['diplomas'] as List? ?? []),
+      diplomas: stringsAt('diplomas'),
       parcoursProfessionnel: data['parcoursProfessionnel'] as String? ?? '',
       accreditationNumber: data['accreditationNumber'] as String? ?? '',
-      accreditationExpiry: (data['accreditationExpiry'] as Timestamp?)?.toDate(),
+      accreditationExpiry: dateAt('accreditationExpiry'),
       accreditationPhotoUrl: data['accreditationPhotoUrl'] as String?,
       pmiCode: data['pmiCode'] as String? ?? '',
       isAccreditationCertified: data['isAccreditationCertified'] as bool? ?? true,
-      specialities: List<String>.from(data['specialities'] as List? ?? []),
+      specialities: stringsAt('specialities'),
       contactPmiName: data['contactPmiName'] as String? ?? '',
       contactPmiPhone: data['contactPmiPhone'] as String? ?? '',
       contactRpeName: data['contactRpeName'] as String? ?? '',
@@ -336,38 +338,34 @@ class AssmatProfileModel {
       contactTiersPhone: data['contactTiersPhone'] as String? ?? '',
       emergencyPhoneCustom: data['emergencyPhoneCustom'] as String? ?? '',
       isIdentityVerified: data['isIdentityVerified'] as bool? ?? false,
-      identityVerifiedAt: (data['identityVerifiedAt'] as Timestamp?)?.toDate(),
-      homePhotos: List<String>.from(data['homePhotos'] as List? ?? []),
-      verificationDeadline:
-          (data['verificationDeadline'] as Timestamp?)?.toDate(),
+      identityVerifiedAt: dateAt('identityVerifiedAt'),
+      homePhotos: stringsAt('homePhotos'),
+      verificationDeadline: dateAt('verificationDeadline'),
       verificationStatus: VerificationStatus.values.firstWhere(
         (s) => s.name == data['verificationStatus'],
         orElse: () => VerificationStatus.pending,
       ),
-      reminded15At: (data['reminded15At'] as Timestamp?)?.toDate(),
-      reminded2At: (data['reminded2At'] as Timestamp?)?.toDate(),
-      expiredAt: (data['expiredAt'] as Timestamp?)?.toDate(),
+      reminded15At: dateAt('reminded15At'),
+      reminded2At: dateAt('reminded2At'),
+      expiredAt: dateAt('expiredAt'),
       // Vérification d'identité & conformité
       identityDocumentType:
           IdentityDocumentType.fromKey(data['identityDocumentType'] as String?),
       identityDocumentUrl: data['identityDocumentUrl'] as String?,
       identityDocumentUrlBack: data['identityDocumentUrlBack'] as String?,
-      identityDocumentExpiry:
-          (data['identityDocumentExpiry'] as Timestamp?)?.toDate(),
+      identityDocumentExpiry: dateAt('identityDocumentExpiry'),
       // Métadonnées extraites par l'OCR
       identityDocumentNumber: data['identityDocumentNumber'] as String?,
       identityDocumentFirstName: data['identityDocumentFirstName'] as String?,
       identityDocumentLastName: data['identityDocumentLastName'] as String?,
-      identityDocumentBirthDate:
-          (data['identityDocumentBirthDate'] as Timestamp?)?.toDate(),
+      identityDocumentBirthDate: dateAt('identityDocumentBirthDate'),
       criminalRecordUrl: data['criminalRecordUrl'] as String?,
-      criminalRecordUploadedAt:
-          (data['criminalRecordUploadedAt'] as Timestamp?)?.toDate(),
+      criminalRecordUploadedAt: dateAt('criminalRecordUploadedAt'),
       // Contrôle de conformité de l'agrément
       accreditationDocExtractedNumber:
           data['accreditationDocExtractedNumber'] as String?,
       accreditationDocExtractedExpiry:
-          (data['accreditationDocExtractedExpiry'] as Timestamp?)?.toDate(),
+          dateAt('accreditationDocExtractedExpiry'),
     );
   }
 

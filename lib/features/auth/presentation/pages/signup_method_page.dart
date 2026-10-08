@@ -7,6 +7,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/ghost_button.dart';
 import '../../../../shared/models/user_role.dart';
+import '../helpers/auth_form_helpers.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/auth_method_button.dart';
@@ -29,36 +30,17 @@ class SignUpMethodPage extends ConsumerStatefulWidget {
   ConsumerState<SignUpMethodPage> createState() => _SignUpMethodPageState();
 }
 
-class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage> {
-  bool _loading = false;
-  String? _errorMessage;
+class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage>
+    with AuthFormStateMixin<SignUpMethodPage> {
 
   Future<void> _onGoogleTap() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
-    final result = await ref
-        .read(authRepositoryProvider)
-        .signInWithGoogle(role: widget.role);
-
-    if (!mounted) return;
-    result.fold(
-      (failure) => setState(() {
-        _errorMessage = failure.message;
-        _loading = false;
-      }),
-      (user) {
-        setState(() => _loading = false);
-        if (user != null) {
-          // Profil créé avec le rôle → le stream currentUserProvider
-          // prend le relai et AuthWrapper redirige automatiquement.
-        }
-        // Si user == null, c'est que l'utilisateur a annulé
-        // la sélection de compte Google (déjà géré par l'exception
-        // "Connexion annulée" dans le datasource).
-      },
+    // Profil créé avec le rôle → le stream currentUserProvider prend le
+    // relai et AuthWrapper redirige automatiquement. L'annulation de la
+    // sélection de compte Google remonte en échec ("Connexion annulée").
+    await runAuthAction(
+      () => ref
+          .read(authRepositoryProvider)
+          .signInWithGoogle(role: widget.role),
     );
   }
 
@@ -76,14 +58,7 @@ class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Dès qu'un utilisateur est connecté, l'AuthWrapper prend le relai.
-    ref.listen(currentUserProvider, (_, next) {
-      next.whenData((user) {
-        if (user != null && mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-      });
-    });
+    popToRootWhenSignedIn();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -110,14 +85,14 @@ class _SignUpMethodPageState extends ConsumerState<SignUpMethodPage> {
               AuthMethodButton(
                 icon: const _GoogleIcon(),
                 label: 'Continuer avec Google',
-                onTap: _loading ? null : () => _onGoogleTap(),
+                onTap: isLoading ? null : () => _onGoogleTap(),
               ),
 
               // Erreur éventuelle
-              if (_errorMessage != null) ...[
+              if (errorMessage != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  _errorMessage!,
+                  errorMessage!,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.error,

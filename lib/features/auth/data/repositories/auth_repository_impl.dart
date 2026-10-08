@@ -8,6 +8,7 @@ import '../../../../shared/models/user_role.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../models/user_model.dart';
 
 /// Implémentation concrète : orchestre le datasource et convertit
 /// les exceptions en [Failure] pour la couche presentation.
@@ -31,33 +32,29 @@ class AuthRepositoryImpl implements AuthRepository {
     final controller = StreamController<AppUser?>();
     StreamSubscription<dynamic>? innerSub;
 
+    // Met à jour le cache puis publie l'utilisateur (null = déconnecté ou
+    // profil absent).
+    void emit(AppUser? user) {
+      _cachedUser = user;
+      controller.add(user);
+    }
+
     final outerSub = _remote.authStateChanges().listen(
       (firebaseUser) {
         innerSub?.cancel();
         innerSub = null;
 
         if (firebaseUser == null) {
-          _cachedUser = null;
-          controller.add(null);
+          emit(null);
           return;
         }
 
         innerSub = _remote.watchUserProfile(firebaseUser.uid).listen(
           (model) {
-            if (model == null) {
-              _cachedUser = null;
-              controller.add(null);
-              return;
-            }
-            final entity = model.toEntity();
-            _cachedUser = entity;
-            controller.add(entity);
+            emit(model?.toEntity());
           },
-          onError: (Object _) {
-            // Permission Firestore révoquée (ex : après signOut en cours).
-            _cachedUser = null;
-            controller.add(null);
-          },
+          // Permission Firestore révoquée (ex : après signOut en cours).
+          onError: (Object _) => emit(null),
         );
       },
       onError: controller.addError,
@@ -76,42 +73,20 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, AppUser>> signInWithEmail({
     required String email,
     required String password,
-  }) async {
-    try {
-      final model = await _remote.signInWithEmail(
-        email: email,
-        password: password,
-      );
-      final entity = model.toEntity();
-      _cachedUser = entity;
-      return Right(entity);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on FirestoreException catch (e) {
-      return Left(FirestoreFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
+  }) {
+    return _authenticate(
+      () => _remote.signInWithEmail(email: email, password: password),
+    );
   }
 
   @override
-  Future<Either<Failure, AppUser?>> signInWithGoogle({UserRole? role}) async {
-    try {
+  Future<Either<Failure, AppUser?>> signInWithGoogle({UserRole? role}) {
+    return _guard(() async {
       final model = await _remote.signInWithGoogle(role: role);
-      if (model == null) {
-        // Nouvel utilisateur Google sans profil Firestore → rôle à choisir.
-        return const Right(null);
-      }
-      final entity = model.toEntity();
-      _cachedUser = entity;
-      return Right(entity);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on FirestoreException catch (e) {
-      return Left(FirestoreFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
+      // Nouvel utilisateur Google sans profil Firestore → rôle à choisir.
+      if (model == null) return null;
+      return _cache(model.toEntity());
+    });
   }
 
   @override
@@ -121,25 +96,16 @@ class AuthRepositoryImpl implements AuthRepository {
     required UserRole role,
     String? firstName,
     String? lastName,
-  }) async {
-    try {
-      final model = await _remote.signUpWithEmail(
+  }) {
+    return _authenticate(
+      () => _remote.signUpWithEmail(
         email: email,
         password: password,
         role: role,
         firstName: firstName,
         lastName: lastName,
-      );
-      final entity = model.toEntity();
-      _cachedUser = entity;
-      return Right(entity);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on FirestoreException catch (e) {
-      return Left(FirestoreFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
+      ),
+    );
   }
 
   @override
@@ -147,31 +113,23 @@ class AuthRepositoryImpl implements AuthRepository {
     required String uid,
     required String address,
     String familyDescription = '',
-  }) async {
-    try {
+  }) {
+    return _guard(() async {
       await _remote.completeParentOnboarding(
         uid: uid,
         address: address,
         familyDescription: familyDescription,
       );
-      return const Right(unit);
-    } on FirestoreException catch (e) {
-      return Left(FirestoreFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
+      return unit;
+    });
   }
 
   @override
-  Future<Either<Failure, Unit>> sendPasswordResetEmail(String email) async {
-    try {
+  Future<Either<Failure, Unit>> sendPasswordResetEmail(String email) {
+    return _guard(() async {
       await _remote.sendPasswordResetEmail(email);
-      return const Right(unit);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } catch (_) {
-      return const Left(UnknownFailure());
-    }
+      return unit;
+    });
   }
 
   @override
@@ -180,6 +138,29 @@ class AuthRepositoryImpl implements AuthRepository {
       await _remote.signOut();
       _cachedUser = null;
       return const Right(unit);
+    } catch (_) {
+      return const Left(UnknownFailure());
+    }
+  }
+
+  /// Exécute une connexion / inscription et met en cache l'utilisateur
+  /// obtenu.
+  Future<Either<Failure, AppUser>> _authenticate(
+    Future<UserModel> Function() action,
+  ) {
+    return _guard(() async => _cache((await action()).toEntity()));
+  }
+
+  AppUser _cache(AppUser user) => _cachedUser = user;
+
+  /// Convertit les exceptions du datasource en [Failure].
+  Future<Either<Failure, T>> _guard<T>(Future<T> Function() action) async {
+    try {
+      return Right(await action());
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on FirestoreException catch (e) {
+      return Left(FirestoreFailure(e.message));
     } catch (_) {
       return const Left(UnknownFailure());
     }
