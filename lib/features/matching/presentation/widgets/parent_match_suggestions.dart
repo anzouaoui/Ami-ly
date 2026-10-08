@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/services/firebase_service.dart';
+import '../../../../features/auth/data/models/assmat_profile_model.dart';
 import '../../../../features/parent/presentation/pages/childminder_profile_page.dart';
 import '../../../../features/parent/presentation/providers/favorites_provider.dart';
 import '../../../../features/parent/presentation/widgets/childminder_card.dart';
@@ -39,7 +41,7 @@ class ParentMatchSuggestionsCard extends ConsumerWidget {
                   isFavorite: favoriteIds.contains(s.assmatUid),
                   onToggleFavorite: () =>
                       toggleFavoriteWithFeedback(ref, s.assmatUid, context),
-                  onTap: () => _openChildminderProfile(context, s),
+                  onTap: () => _openChildminderProfile(context, ref, s),
                 ))
             .toList(),
         footer: list.length > kDashboardSuggestionsLimit
@@ -57,40 +59,65 @@ class ParentMatchSuggestionsCard extends ConsumerWidget {
       ),
     );
   }
+}
 
-  /// Ouvre la fiche de l'assmat suggérée (si son profil est chargé).
-  void _openChildminderProfile(BuildContext context, MatchSuggestion s) {
-    final assmat = s.assmatProfile;
-    if (assmat == null) return;
-
-    final firstName = assmat.firstName;
-    final city = cityFromAddress(assmat.address);
-    final years = assmat.yearsExperience;
-    final slots = assmat.availableSlots;
-
-    final summary = ChildminderSummary(
-      uid: s.assmatUid,
-      initials: firstNameInitial(firstName),
-      name: assmatDisplayName(firstName),
-      location: city.isNotEmpty ? city : 'Ville non renseignée',
-      distance: s.distanceKm != null
-          ? '${s.distanceKm!.toStringAsFixed(1)} km'
-          : '—',
-      experience: years > 0
-          ? '$years an${years > 1 ? 's' : ''}'
-          : 'Exp. non renseignée',
-      places: slots > 0 ? '$slots place${slots > 1 ? 's' : ''}' : 'Complet',
-      date: slots > 0 ? 'Disponible' : 'Complet',
-      cert: '—',
-      photoUrl: assmat.photoUrl,
-      isVerified: assmat.isFullyVerified,
-    );
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChildminderProfilePage(data: summary),
+/// Ouvre la fiche de l'assmat suggérée.
+///
+/// Les suggestions lues depuis Firestore ne contiennent pas le profil de
+/// l'assmat : il est alors chargé (`assmats/{uid}`) au moment du clic.
+Future<void> _openChildminderProfile(
+  BuildContext context,
+  WidgetRef ref,
+  MatchSuggestion s,
+) async {
+  AssmatProfileModel? assmat = s.assmatProfile;
+  if (assmat == null) {
+    try {
+      final doc =
+          await ref.read(firebaseServiceProvider).assmatDoc(s.assmatUid).get();
+      if (doc.exists) assmat = AssmatProfileModel.fromFirestore(doc);
+    } catch (e) {
+      debugPrint('[Matching] chargement du profil ${s.assmatUid} : $e');
+    }
+  }
+  if (!context.mounted) return;
+  if (assmat == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Impossible d\'ouvrir la fiche de cette assistante.'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
+    return;
   }
+
+  final firstName = assmat.firstName;
+  final city = cityFromAddress(assmat.address);
+  final years = assmat.yearsExperience;
+  final slots = assmat.availableSlots;
+
+  final summary = ChildminderSummary(
+    uid: s.assmatUid,
+    initials: firstNameInitial(firstName),
+    name: assmatDisplayName(firstName),
+    location: city.isNotEmpty ? city : 'Ville non renseignée',
+    distance: s.distanceKm != null
+        ? '${s.distanceKm!.toStringAsFixed(1)} km'
+        : '—',
+    experience: years > 0
+        ? '$years an${years > 1 ? 's' : ''}'
+        : 'Exp. non renseignée',
+    places: slots > 0 ? '$slots place${slots > 1 ? 's' : ''}' : 'Complet',
+    date: slots > 0 ? 'Disponible' : 'Complet',
+    cert: '—',
+    photoUrl: assmat.photoUrl,
+    isVerified: assmat.isFullyVerified,
+  );
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ChildminderProfilePage(data: summary),
+    ),
+  );
 }
 
 class _ParentEmptyState extends StatelessWidget {
@@ -137,9 +164,7 @@ class _AllSuggestionsPage extends ConsumerWidget {
                 isFavorite: favoriteIds.contains(s.assmatUid),
                 onToggleFavorite: () =>
                     toggleFavoriteWithFeedback(ref, s.assmatUid, context),
-                // TODO: navigation vers la fiche non branchée sur cette page
-                // (comportement existant conservé lors du refactoring).
-                onTap: () {},
+                onTap: () => _openChildminderProfile(context, ref, s),
               );
             },
           );
