@@ -19,18 +19,19 @@ class AssmatSearchDatasource {
           .map(ParentProfileModel.fromFirestore)
           .toList();
 
-      final results = <ParentWithChildren>[];
-      for (final parent in parents) {
-        final childSnap = await _firebase
-            .childrenCollection(parent.uid)
-            .orderBy('createdAt')
-            .get();
-        final children = childSnap.docs
-            .map(ChildModel.fromFirestore)
-            .toList();
-        results.add(ParentWithChildren(parent: parent, children: children));
-      }
-      return results;
+      // Une requête par parent, lancées en parallèle (l'ordre des parents
+      // est conservé par Future.wait).
+      return Future.wait(parents.map(_withChildren));
     });
+  }
+
+  /// Charge les enfants de [parent], triés par date d'ajout.
+  Future<ParentWithChildren> _withChildren(ParentProfileModel parent) async {
+    final childSnap = await _firebase
+        .childrenCollection(parent.uid)
+        .orderBy('createdAt')
+        .get();
+    final children = childSnap.docs.map(ChildModel.fromFirestore).toList();
+    return ParentWithChildren(parent: parent, children: children);
   }
 }

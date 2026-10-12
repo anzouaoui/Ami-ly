@@ -12,9 +12,6 @@ class _MockFirestore extends Mock implements FirebaseFirestore {}
 
 class _MockStorage extends Mock implements FirebaseStorage {}
 
-/// Test de caractérisation : fige la sortie actuelle de [computePdfHash],
-/// déjà persistée en base (`pdfHash`, `finalPdfHash`). Toute modification
-/// de l'algorithme doit être volontaire et migrer les hash existants.
 void main() {
   final service = ContractService(
     firebaseService: FirebaseService(
@@ -24,11 +21,24 @@ void main() {
     ),
   );
 
-  test('computePdfHash est stable', () {
-    expect(service.computePdfHash([]), _hashOfEmpty);
-    expect(service.computePdfHash([1, 2, 3, 250]), _hashOf1234);
+  test('computePdfHash est un SHA-256 standard des octets bruts', () {
     expect(
-      service.computePdfHash(List<int>.generate(1000, (i) => i % 256)),
+      service.computePdfHash([]),
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    );
+    expect(
+      service.computePdfHash('abc'.codeUnits),
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
+  });
+
+  // Caractérisation : fige l'ancien calcul, dont les hash sont déjà
+  // persistés sur les contrats sans champ `pdfHashAlgorithm`.
+  test('computeLegacyPdfHash est stable', () {
+    expect(service.computeLegacyPdfHash([]), _hashOfEmpty);
+    expect(service.computeLegacyPdfHash([1, 2, 3, 250]), _hashOf1234);
+    expect(
+      service.computeLegacyPdfHash(List<int>.generate(1000, (i) => i % 256)),
       _hashOf1000,
     );
   });

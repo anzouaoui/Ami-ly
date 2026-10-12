@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -1309,12 +1310,23 @@ class ContractService {
     );
   }
 
-  /// Calcule le hash SHA-256 du PDF.
+  /// Identifiant de l'algorithme de [computePdfHash], enregistré à côté de
+  /// chaque hash (`pdfHashAlgorithm`, `finalPdfHashAlgorithm`).
   ///
-  /// NB : le hash porte sur l'encodage base64 du PDF, et l'implémentation
-  /// maison [_SHA256] ne suit pas exactement la norme (cf. test de
-  /// caractérisation). Ne pas modifier sans migrer les hash déjà stockés.
-  String computePdfHash(List<int> pdfBytes) {
+  /// Un contrat sans ce champ a été haché avec [computeLegacyPdfHash].
+  static const pdfHashAlgorithm = 'sha256';
+
+  /// Empreinte SHA-256 standard (hexadécimale) des octets du PDF.
+  ///
+  /// Vérifiable par n'importe quel outil tiers, ex. `sha256sum contrat.pdf`.
+  String computePdfHash(List<int> pdfBytes) =>
+      crypto.sha256.convert(pdfBytes).toString();
+
+  /// Ancien calcul d'empreinte, utilisé avant [pdfHashAlgorithm] : il porte
+  /// sur l'encodage base64 du PDF et l'implémentation maison [_SHA256] ne
+  /// suit pas la norme. Conservé uniquement pour revérifier les contrats
+  /// déjà signés (ceux qui n'ont pas de champ `pdfHashAlgorithm`).
+  String computeLegacyPdfHash(List<int> pdfBytes) {
     final base64Bytes = utf8.encode(base64.encode(pdfBytes));
     return (_SHA256()..update(base64Bytes)).digest();
   }
@@ -1368,6 +1380,7 @@ class ContractService {
         'status': ContractStatus.pendingAssmat.name,
       'pdfUrl': pdfUrl,
       'pdfHash': pdfHash,
+      if (pdfHash.isNotEmpty) 'pdfHashAlgorithm': pdfHashAlgorithm,
       'contractData': data,
       'parentSignedAt': now,
       'parentSignedName': signedName,
@@ -1426,6 +1439,7 @@ class ContractService {
     await _contracts.doc(contractId).update({
       'finalPdfUrl': pdfUrl,
       'finalPdfHash': hash,
+      'finalPdfHashAlgorithm': pdfHashAlgorithm,
       'finalizedAt': DateTime.now().toIso8601String(),
     });
   }
@@ -1469,22 +1483,13 @@ class ContractService {
     final contractData = data['contractData'] as Map<String, dynamic>?;
 
     if (contractData == null) return null;
-    
+
     return (
-      formData: _parseContractFormData(contractData),
+      formData: ContractFormData.fromJson(contractData),
       step: data['currentStep'] as int?,
       status: data['status'] as String? ?? 'draft',
       id: doc.id,
     );
-  }
-
-  /// Désérialise un brouillon. Contrairement à [ContractFormData.fromJson],
-  /// `enfant.childId` n'est pas relu (comportement historique conservé).
-  static ContractFormData _parseContractFormData(Map<String, dynamic> json) {
-    final enfant = Map<String, dynamic>.of(
-      json['enfant'] as Map<String, dynamic>? ?? const {},
-    )..remove('childId');
-    return ContractFormData.fromJson({...json, 'enfant': enfant});
   }
 
   /// Récupère l'adresse IP approximative via un service externe.
@@ -1501,7 +1506,7 @@ class ContractService {
   }
 }
 
-// ─── Mini SHA-256 (sans dépendance externe) ──────────────────────────────────────
+// ─── Ancien hash maison (non standard), cf. computeLegacyPdfHash ───────────
 class _SHA256 {
   final _h = List<int>.generate(8, (_) => 0);
   final _w = List<int>.generate(64, (_) => 0);
